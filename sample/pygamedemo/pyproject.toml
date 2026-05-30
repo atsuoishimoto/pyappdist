@@ -1,25 +1,28 @@
 [project]
-name = "helloworld"
+name = "pygamedemo"
 version = "0.1.0"
-description = "pyappdist のサンプルアプリ"
+description = "pyappdist の pygame-ce GUI サンプル"
 readme = "README.md"
 requires-python = ">=3.10"
+dependencies = [
+    "pygame-ce>=2.5",
+]
 
 [build-system]
 requires = ["uv_build>=0.11.6,<0.12.0"]
 build-backend = "uv_build"
 
 [tool.pyappdist]
-name = "Hello World"
-identifier = "com.example.helloworld"
+name = "Pygame Demo"
+identifier = "com.example.pygamedemo"
 python = "3.12"
 target = "windows-x86_64"
 
 launchers = [
-  { name = "helloworld", entry = "helloworld:main", gui = false },
+  { name = "pygamedemo", entry = "pygamedemo:main", gui = true },
 ]
 
 [tool.pyappdist.installer]
 backend = "wix"
 manufacturer = "Example Inc."
-upgrade_code = "7E3F9A2C-5B1D-4E8A-9C6F-1A2B3C4D5E6F"
+upgrade_code = "C4E9D2F1-3A6B-4D8E-9F12-7B0A5C3E1D88"
