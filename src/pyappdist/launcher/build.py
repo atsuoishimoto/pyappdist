@@ -54,10 +54,12 @@ def _build_one(
     pyexe = "python\\pythonw.exe" if spec.gui else "python\\python.exe"
     header = (
         f"#define PYAPPDIST_PYEXE L\"{_c_str(pyexe)}\"\n"
-        f"#define PYAPPDIST_BOOTSTRAP L\"{_c_str(_bootstrap(spec.entry))}\"\n"
+        f"#define PYAPPDIST_BOOTSTRAP L\"{_c_str(_bootstrap(spec, config))}\"\n"
         f"#define PYAPPDIST_FIXED_ARGS L\"{_c_str(spec.args)}\"\n"
     )
-    (gen / "pyappdist_launcher_config.h").write_text(header, encoding="ascii")
+    # UTF-8 で書く。cl は /utf-8 付きなのでソース中の非 ASCII を正しく読み、
+    # L"..." はワイド(UTF-16)リテラルにコンパイルされる。
+    (gen / "pyappdist_launcher_config.h").write_text(header, encoding="utf-8")
 
     rc = gen / f"{spec.name}.rc"
     res = gen / f"{spec.name}.res"
@@ -155,13 +157,42 @@ def _rc_str(s: str) -> str:
     return s.replace("\\", "\\\\").replace('"', '\\"')
 
 
-def _bootstrap(entry: str) -> str:
-    module, _, func = entry.partition(":")
-    return f"import sys; from {module} import {func}; sys.exit({func}())"
+def _bootstrap(spec: LauncherConfig, config: Config) -> str:
+    """python に渡す ``-c`` プログラムを生成する。
+
+    console: 単純に import して呼ぶだけ（例外はコンソールに出る）。
+    gui: 起動関数の取り出し（import）だけを try/except で囲み、失敗時に
+    MessageBox で簡潔な原因を出す。``func()`` 実行後の例外はアプリの責務。
+    """
+    module, _, func = spec.entry.partition(":")
+    if not spec.gui:
+        return f"import sys; from {module} import {func}; sys.exit({func}())"
+
+    title = f'"{config.name}"'  # Unicode を生のまま埋め込む（ヘッダは UTF-8）
+    return "\n".join(
+        [
+            "import sys",
+            "try:",
+            f"    from {module} import {func}",
+            "except Exception as e:",
+            "    import ctypes, traceback",
+            "    ctypes.windll.user32.MessageBoxW(None, "
+            f'"".join(traceback.format_exception_only(type(e), e)), {title}, 0x10)',
+            "    sys.exit(1)",
+            f"sys.exit({func}())",
+        ]
+    )
 
 
 def _c_str(s: str) -> str:
-    return s.replace("\\", "\\\\").replace('"', '\\"')
+    # バックスラッシュを先に。複数行 bootstrap を 1 行の L"..." に収めるため改行等もエスケープ。
+    return (
+        s.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    )
 
 
 def _find_vcvars() -> str:
