@@ -1,0 +1,29 @@
+version = 1
+revision = 3
+requires-python = ">=3.14"
+
+[manifest]
+members = [
+    "helloworld",
+    "pyappdist",
+]
+
+[[package]]
+name = "helloworld"
+version = "0.1.0"
+source = { virtual = "sample/helloworld" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "pyappdist" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pyappdist", editable = "." }]
+
+[[package]]
+name = "pyappdist"
+version = "0.1.0"
+source = { editable = "." }

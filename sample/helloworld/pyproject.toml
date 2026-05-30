@@ -1,0 +1,19 @@
+[project]
+name = "helloworld"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+
+[tool.pyappdist]
+launchers = [
+  {name= "myappcli", entry= "main:main", gui= false}
+]
+
+[tool.uv.sources]
+pyappdist = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pyappdist",
+]
