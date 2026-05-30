@@ -16,8 +16,6 @@ class Target:
     name: str          # 設定で使う名前 (windows-x86_64)
     triple: str        # python-build-standalone の target triple
     os: str            # "windows" | "linux" | "macos"
-    uv_platform: str   # uv --python-platform に渡す値
-    pip_platform: str  # pip download --platform に渡すタグ (cross 用)
     wix_arch: str      # wix build -arch に渡す値 (x64 / arm64)。MSI を 64bit パッケージにする
 
 
@@ -26,8 +24,6 @@ TARGETS: dict[str, Target] = {
         name="windows-x86_64",
         triple="x86_64-pc-windows-msvc",
         os="windows",
-        uv_platform="x86_64-pc-windows-msvc",
-        pip_platform="win_amd64",
         wix_arch="x64",
     ),
     # Linux 版は主に Linux 上での代替検証 (Phase 2) に使う。
@@ -35,8 +31,6 @@ TARGETS: dict[str, Target] = {
         name="linux-x86_64",
         triple="x86_64-unknown-linux-gnu",
         os="linux",
-        uv_platform="x86_64-unknown-linux-gnu",
-        pip_platform="manylinux2014_x86_64",
         wix_arch="x64",
     ),
 }

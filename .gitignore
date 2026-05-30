@@ -14,3 +14,4 @@ wheels/
 
 # pyappdist build output
 appdist/
+*.whl

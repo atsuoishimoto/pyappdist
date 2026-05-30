@@ -45,7 +45,9 @@ def _do_fetch_runtime(ctx: BuildContext, args: argparse.Namespace):
 
 def cmd_build_wheels(args: argparse.Namespace) -> int:
     ctx = _build_context(args)
-    wheels = build_wheelhouse(ctx.config, ctx.wheelhouse)
+    # 依存はターゲット runtime の python で解決するため、先に runtime を用意する。
+    info = _do_fetch_runtime(ctx, args)
+    wheels = build_wheelhouse(ctx.config, info, ctx.wheelhouse)
     print(f"OK: {len(wheels)} wheel -> {ctx.wheelhouse}")
     return 0
 
@@ -59,8 +61,8 @@ def cmd_fetch_runtime(args: argparse.Namespace) -> int:
 
 def cmd_build_image(args: argparse.Namespace) -> int:
     ctx = _build_context(args)
-    build_wheelhouse(ctx.config, ctx.wheelhouse)
     info = _do_fetch_runtime(ctx, args)
+    build_wheelhouse(ctx.config, info, ctx.wheelhouse)
     layout = image_mod.build_image(ctx, info, compile_pyc=not args.no_compile)
     exes = build_launchers(ctx.config, layout, ctx.out_dir / "_launcher_build")
     # zip は launcher.exe を含めるため launcher ビルド後に行う。
@@ -106,8 +108,8 @@ def cmd_gen_wix(args: argparse.Namespace) -> int:
 def cmd_build(args: argparse.Namespace) -> int:
     """wheelhouse → runtime → image → launcher → wix → MSI を一括（Phase 5）。"""
     ctx = _build_context(args)
-    build_wheelhouse(ctx.config, ctx.wheelhouse)
     info = _do_fetch_runtime(ctx, args)
+    build_wheelhouse(ctx.config, info, ctx.wheelhouse)
     layout = image_mod.build_image(ctx, info, compile_pyc=not args.no_compile)
     exes = build_launchers(ctx.config, layout, ctx.out_dir / "_launcher_build")
     for exe in exes:
@@ -142,6 +144,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("build-wheels", help="wheel を appdist/wheelhouse へ")
     _add_common(p)
+    _add_runtime_opts(p)
     p.set_defaults(func=cmd_build_wheels)
 
     p = sub.add_parser("fetch-runtime", help="runtime を appdist/runtime へ")

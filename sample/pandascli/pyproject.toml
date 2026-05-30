@@ -1,11 +1,11 @@
 [project]
-name = "pygamedemo"
+name = "pandascli"
 version = "0.1.0"
-description = "pyappdist の pygame-ce GUI サンプル"
+description = "pyappdist の pandas CLI サンプル"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "pygame-ce>=2.5",
+    "pandas>=2.2",
 ]
 
 [build-system]
@@ -21,16 +21,16 @@ dev = [
 pyappdist = { path = "../../", editable = true }
 
 [tool.pyappdist]
-name = "Pygame Demo"
-identifier = "com.example.pygamedemo"
+name = "Pandas CLI"
+identifier = "com.example.pandascli"
 python = "3.12"
 target = "windows-x86_64"
 
 launchers = [
-  { name = "pygamedemo", entry = "pygamedemo:main", gui = true, icon = "assets/pygamedemo.ico" },
+  { name = "pandascli", entry = "pandascli:main", gui = false },
 ]
 
 [tool.pyappdist.installer]
 backend = "wix"
 manufacturer = "Example Inc."
-upgrade_code = "C4E9D2F1-3A6B-4D8E-9F12-7B0A5C3E1D88"
+upgrade_code = "5E2A9C71-4B83-4D6F-9A02-1C3E5B7D9F40"
