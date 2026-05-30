@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package Name="Hello World" Manufacturer="Example Inc." Version="1.2.3" UpgradeCode="7E3F9A2C-5B1D-4E8A-9C6F-1A2B3C4D5E6F" Language="1033" Codepage="65001" Scope="perMachine">
-    <MajorUpgrade DowngradeErrorMessage="新しいバージョンが既にインストールされています。" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
     <MediaTemplate EmbedCab="yes" />
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="Hello World">

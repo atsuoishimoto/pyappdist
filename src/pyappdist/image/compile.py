@@ -1,4 +1,4 @@
-"""image 内 site-packages の .pyc をビルド時に生成する。"""
+"""Generate .pyc files for the image's site-packages at build time."""
 
 from __future__ import annotations
 
@@ -10,11 +10,11 @@ from .layout import ImageLayout
 
 
 def compile_site_packages(layout: ImageLayout, *, log=print) -> None:
-    """runtime の python で compileall を実行する。
+    """Run compileall with the runtime's python.
 
-    対象 OS の python を実行する必要がある（Linux ホスト→Windows ターゲットは
-    WSL interop で python.exe を実行、パスは Windows 形式に変換する）。
-    実行できない環境では BuildError を投げる。
+    The target OS's python must be run (for a Linux host -> Windows target,
+    python.exe is run via WSL interop and paths are converted to Windows form).
+    Raises BuildError in environments where it cannot be run.
     """
     target = layout.target
     log("image: compileall")
@@ -26,7 +26,7 @@ def compile_site_packages(layout: ImageLayout, *, log=print) -> None:
         proc = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
     except OSError as e:
         raise BuildError(
-            f"compileall を実行できない（{target.name} の python を実行不可）: {e}"
+            f"cannot run compileall (unable to run {target.name}'s python): {e}"
         ) from e
     if proc.returncode != 0:
-        raise BuildError(f"compileall 失敗 ({proc.returncode}):\n{proc.stderr.strip()}")
+        raise BuildError(f"compileall failed ({proc.returncode}):\n{proc.stderr.strip()}")

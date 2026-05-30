@@ -1,8 +1,8 @@
-"""生成した .wxs を ``wix build`` で MSI 化する（Phase 5）。
+"""Build an MSI from the generated .wxs via ``wix build`` (Phase 5).
 
-WiX は dotnet グローバルツール（``dotnet tool install --global wix``）。
-WSL から Windows ターゲットを扱う場合は wix.exe + Windows パスを使う。
-File@Source は image ルート相対なので ``-b <image>`` を bind path に渡す。
+WiX is a dotnet global tool (``dotnet tool install --global wix``).
+When targeting Windows from WSL, use wix.exe plus Windows paths.
+File@Source is relative to the image root, so pass ``-b <image>`` as the bind path.
 """
 
 from __future__ import annotations
@@ -18,10 +18,10 @@ from ..errors import BuildError
 
 
 def build_msi(config: Config, image_dir: Path, wxs_path: Path, out_msi: Path, *, log=print) -> Path | None:
-    """``wix build`` で MSI を生成する。非 Windows ターゲットでは None を返す。"""
+    """Generate an MSI via ``wix build``. Returns None for non-Windows targets."""
     target = config.target
     if target.os != "windows":
-        log("msi: 非 Windows ターゲットのためスキップ")
+        log("msi: skipping because the target is not Windows")
         return None
 
     wix = _find_wix(target)
@@ -29,7 +29,7 @@ def build_msi(config: Config, image_dir: Path, wxs_path: Path, out_msi: Path, *,
     log(f"msi: wix build -> {out_msi}")
     cmd = [
         wix, "build",
-        "-arch", target.wix_arch,  # 64bit パッケージにして C:\Program Files へ入れる
+        "-arch", target.wix_arch,  # make it a 64-bit package so it installs into C:\Program Files
         target_path(target, wxs_path),
         "-b", target_path(target, image_dir),
         "-o", target_path(target, out_msi),
@@ -37,7 +37,7 @@ def build_msi(config: Config, image_dir: Path, wxs_path: Path, out_msi: Path, *,
     proc = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
     if proc.returncode != 0 or not out_msi.exists():
         raise BuildError(
-            f"wix build 失敗 ({proc.returncode}):\n{proc.stdout}\n{proc.stderr}"
+            f"wix build failed ({proc.returncode}):\n{proc.stdout}\n{proc.stderr}"
         )
     return out_msi
 
@@ -51,6 +51,6 @@ def _find_wix(target) -> str:
     if found:
         return found
     raise BuildError(
-        "wix が見つからない。`dotnet tool install --global wix` を実行するか "
-        "PYAPPDIST_WIX で wix の絶対パスを指定する。"
+        "wix not found. Run `dotnet tool install --global wix`, or "
+        "specify the absolute path to wix via PYAPPDIST_WIX."
     )

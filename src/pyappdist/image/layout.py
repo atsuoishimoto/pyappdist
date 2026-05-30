@@ -1,7 +1,7 @@
-"""image ディレクトリ構造の定数（単一の真実）。
+"""Constants for the image directory structure (single source of truth).
 
 image/
-  python/        <- runtime をコピー (python.exe / bin/python3, 標準ライブラリ, site-packages)
+  python/        <- copy of the runtime (python.exe / bin/python3, standard library, site-packages)
 """
 
 from __future__ import annotations

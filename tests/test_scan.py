@@ -1,4 +1,4 @@
-"""image 走査の決定性テスト。"""
+"""Determinism tests for image scanning."""
 
 from __future__ import annotations
 
@@ -25,6 +25,6 @@ def test_scan_builds_sorted_tree(tmp_path: Path):
 
     python = root.subdirs[0]
     assert python.rel == "python"
-    # 名前順で安定（Lib ディレクトリと python.exe）
+    # stable by name order (the Lib directory and python.exe)
     assert [f.rel for f in python.files] == ["python/python.exe"]
     assert python.subdirs[0].files[0].rel == "python/Lib/os.py"

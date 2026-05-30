@@ -1,15 +1,19 @@
-"""wheel の用意（アプリ wheel のビルド + 依存 wheel の収集）。
+"""Preparing wheels (building the app wheel + collecting dependency wheels).
 
-* アプリ本体: ``pip wheel --no-deps`` でプロジェクトの build backend を使って wheel 化
-  （PEP 517 = backend 非依存。アプリは pure-Python 想定なのでホストの python で OK）。
-* 依存: プロジェクトの **ロックファイル基準** で固定する。管理ツール（uv/poetry/pipenv/PDM）
-  でロックから ``requirements.txt`` を export し（:mod:`pyappdist.deps`）、それを
-  **ターゲット runtime の python** に渡して ``pip wheel -r requirements.txt`` する。
-  wheel が公開されている依存はその wheel を取得し、sdist しか無い依存はターゲット python で
-  ビルドして wheel 化する（wheel が無いパッケージも扱える）。結果 wheelhouse には wheel だけが
-  揃うので、後段のオフライン install は wheel だけ入れれば済む。
-  ターゲット実機の解釈で解決するので ``sys_platform`` 等の環境マーカーも wheel タグも
-  ネイティブに正しい（例: pandas の ``tzdata; sys_platform=="win32"`` も入る）。クロス指定は不要。
+* App itself: built into a wheel via ``pip wheel --no-deps`` using the project's
+  build backend (PEP 517 = backend-agnostic. The app is assumed pure-Python, so the
+  host python is fine).
+* Dependencies: pinned **based on the project's lockfile**. Using the manager
+  (uv/poetry/pipenv/PDM), ``requirements.txt`` is exported from the lock
+  (:mod:`pyappdist.deps`) and passed to the **target runtime's python** to run
+  ``pip wheel -r requirements.txt``. For dependencies with published wheels that
+  wheel is fetched; dependencies with only an sdist are built into a wheel with the
+  target python (so packages without wheels are handled too). As a result, the
+  wheelhouse ends up containing only wheels, so the later offline install just needs
+  the wheels. Because resolution uses the target machine's interpretation, both
+  environment markers like ``sys_platform`` and the wheel tags are natively correct
+  (e.g. pandas's ``tzdata; sys_platform=="win32"`` is included). No cross specifier
+  is needed.
 """
 
 from __future__ import annotations
@@ -25,7 +29,7 @@ from .runtime import RuntimeInfo
 
 
 def build_wheelhouse(config: Config, runtime: RuntimeInfo, wheelhouse: Path, *, log=print) -> list[Path]:
-    """アプリ + 依存 wheel を wheelhouse に用意して一覧を返す。"""
+    """Prepare the app + dependency wheels in the wheelhouse and return the list."""
     wheelhouse.mkdir(parents=True, exist_ok=True)
     build_app_wheel(config.project_dir, wheelhouse, log=log)
     requirements = resolve_requirements(config, wheelhouse, log=log)
@@ -34,9 +38,9 @@ def build_wheelhouse(config: Config, runtime: RuntimeInfo, wheelhouse: Path, *, 
 
 
 def build_app_wheel(project_dir: Path, wheelhouse: Path, *, log=print) -> Path:
-    log(f"wheels: アプリ wheel をビルド ({project_dir.name})")
+    log(f"wheels: building app wheel ({project_dir.name})")
     before = set(wheelhouse.glob("*.whl"))
-    # PEP 517 ビルド: プロジェクトの build-system backend で wheel を作る（backend 非依存）。
+    # PEP 517 build: create the wheel with the project's build-system backend (backend-agnostic).
     _run([
         sys.executable, "-m", "pip", "wheel",
         "--no-deps", "--wheel-dir", str(wheelhouse), str(project_dir),
@@ -44,24 +48,26 @@ def build_app_wheel(project_dir: Path, wheelhouse: Path, *, log=print) -> Path:
     after = set(wheelhouse.glob("*.whl"))
     new = sorted(after - before)
     if not new:
-        # 再ビルドで上書きされた等で差分が無い場合は最新を返す
+        # If there is no diff (e.g. overwritten by a rebuild), return the newest one
         all_wheels = sorted(after, key=lambda p: p.stat().st_mtime)
         if not all_wheels:
-            raise BuildError("pip wheel が wheel を生成しなかった")
+            raise BuildError("pip wheel did not produce a wheel")
         return all_wheels[-1]
     return new[-1]
 
 
 def collect_dependencies(runtime: RuntimeInfo, requirements_file: Path, wheelhouse: Path, *, log=print) -> list[Path]:
-    """``requirements.txt`` の依存を、ターゲット runtime の python で wheel として集める。
+    """Collect the ``requirements.txt`` dependencies as wheels using the target runtime's python.
 
-    ``pip wheel -r`` なので wheel がある依存はその wheel を取得し、sdist しか無い依存は
-    ターゲット python でビルドして wheel 化する（wheel が無いパッケージも扱える）。
-    マーカーはターゲット python で評価され、該当する依存だけが入る。
-    requirements_file は wheelhouse 直下にある前提で、cwd=wheelhouse・相対指定で渡すので
-    WSL→Windows でも wslpath 変換が要らない（interop が cwd を変換する）。
+    Since it uses ``pip wheel -r``, dependencies with a wheel have that wheel
+    fetched, while dependencies with only an sdist are built into a wheel with the
+    target python (so packages without wheels are handled too). Markers are
+    evaluated with the target python, so only the applicable dependencies are
+    included. requirements_file is assumed to sit directly under the wheelhouse and
+    is passed relatively with cwd=wheelhouse, so no wslpath conversion is needed even
+    for WSL->Windows (interop converts cwd).
     """
-    log("wheels: 依存 wheel を収集 (target runtime の python で pip wheel -r)")
+    log("wheels: collecting dependency wheels (pip wheel -r with the target runtime's python)")
     before = set(wheelhouse.glob("*.whl"))
     cmd = [
         str(runtime.python_exe), "-m", "pip", "wheel", "-r", requirements_file.name,
@@ -72,15 +78,15 @@ def collect_dependencies(runtime: RuntimeInfo, requirements_file: Path, wheelhou
     )
     if proc.returncode != 0:
         raise BuildError(
-            f"依存 wheel 収集失敗 ({proc.returncode}): {' '.join(cmd)}\n{proc.stderr.strip()}"
+            f"dependency wheel collection failed ({proc.returncode}): {' '.join(cmd)}\n{proc.stderr.strip()}"
         )
     return sorted(set(wheelhouse.glob("*.whl")) - before)
 
 
 def _run(cmd: list[str]) -> None:
-    # pip は基本 UTF-8 出力（ネイティブ Windows の非 ASCII は化け得るが診断用途なので許容）。
+    # pip outputs UTF-8 by default (non-ASCII may garble on native Windows, but acceptable for diagnostics).
     proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if proc.returncode != 0:
         raise BuildError(
-            f"コマンド失敗 ({proc.returncode}): {' '.join(cmd)}\n{proc.stderr.strip()}"
+            f"command failed ({proc.returncode}): {' '.join(cmd)}\n{proc.stderr.strip()}"
         )

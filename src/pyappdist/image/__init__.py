@@ -1,6 +1,6 @@
-"""image 組み立て（Phase 2）。
+"""Image assembly (Phase 2).
 
-build_image: runtime コピー → install → compileall → portable zip。
+build_image: copy runtime -> install -> compileall -> portable zip.
 """
 
 from __future__ import annotations
@@ -24,10 +24,11 @@ def build_image(
     compile_pyc: bool = True,
     log=print,
 ) -> ImageLayout:
-    """runtime をコピーして install + compileall した image を組み立てる。
+    """Copy the runtime and assemble an image with install + compileall applied.
 
-    launcher.exe のビルドと portable zip 化は呼び出し側（cli）が担う。
-    zip は launcher を含めるため launcher ビルド後に行う必要がある。
+    Building launcher.exe and creating the portable zip are the caller's (cli's)
+    responsibility. The zip must be created after the launcher build so it
+    includes the launcher.
     """
     layout = assemble_runtime(ctx, runtime, log=log)
     install_app(layout, ctx.wheelhouse, log=log)

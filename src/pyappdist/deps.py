@@ -1,16 +1,19 @@
-"""依存リストの決定（パッケージ管理ツールのロックファイル → requirements.txt）。
+"""Determining the dependency list (package manager lockfile -> requirements.txt).
 
-依存はプロジェクトの **ロックファイル基準** で固定する。開発者が使っている管理ツール
-（uv / poetry / pipenv / PDM）でロックから ``requirements.txt`` を export し、後段で
-ターゲット runtime の python により ``pip wheel -r requirements.txt`` する。export は
-クロス用のマーカー付き・ハッシュ付き・本番依存のみ（dev 除外）で出力する。
+Dependencies are pinned **based on the project's lockfile**. Using the manager
+the developer uses (uv / poetry / pipenv / PDM), ``requirements.txt`` is exported
+from the lock, and later ``pip wheel -r requirements.txt`` is run with the target
+runtime's python. The export emits production dependencies only (dev excluded),
+with cross markers and hashes.
 
-判定:
-* ``[tool.pyappdist].manager`` の明示指定が最優先（``requirements.txt`` 指定ならプロジェクト
-  直下の requirements.txt をそのまま使う）。
-* 指定が無ければロックファイルの存在を uv.lock → poetry.lock → Pipfile.lock → pdm.lock の
-  順で探し、最初に見つかったツールを採用。
-* 判定不能なら warning を出し ``requirements.txt`` モードとして動作（無ければ ``BuildError``）。
+Resolution:
+* An explicit ``[tool.pyappdist].manager`` setting takes top priority (if
+  ``requirements.txt`` is specified, the requirements.txt directly under the
+  project is used as-is).
+* If unset, lockfiles are searched in the order uv.lock -> poetry.lock ->
+  Pipfile.lock -> pdm.lock, and the first tool found is used.
+* If undeterminable, a warning is emitted and it operates in ``requirements.txt``
+  mode (``BuildError`` if absent).
 """
 
 from __future__ import annotations
@@ -21,7 +24,7 @@ from pathlib import Path
 from .config import Config
 from .errors import BuildError
 
-# ツール名 → ロックファイル名（自動判定の探索順）。
+# tool name -> lockfile name (auto-detect search order).
 _LOCKFILES: tuple[tuple[str, str], ...] = (
     ("uv", "uv.lock"),
     ("poetry", "poetry.lock"),
@@ -29,8 +32,8 @@ _LOCKFILES: tuple[tuple[str, str], ...] = (
     ("pdm", "pdm.lock"),
 )
 
-# ツール名 → export コマンド（cwd=project_dir で実行し stdout を requirements.txt とする）。
-# いずれも本番依存のみ（dev 除外）・ハッシュ付き。
+# tool name -> export command (run with cwd=project_dir, stdout becomes requirements.txt).
+# All emit production dependencies only (dev excluded), with hashes.
 _EXPORT_CMDS: dict[str, list[str]] = {
     "uv": ["uv", "export", "--frozen", "--no-dev", "--no-emit-project", "--format", "requirements-txt"],
     "poetry": ["poetry", "export", "-f", "requirements.txt", "--without", "dev"],
@@ -40,7 +43,7 @@ _EXPORT_CMDS: dict[str, list[str]] = {
 
 
 def _auto_detect(project_dir: Path) -> str | None:
-    """ロックファイルの存在から管理ツールを判定する（無ければ None）。"""
+    """Detect the manager from the presence of a lockfile (None if absent)."""
     for manager, lockfile in _LOCKFILES:
         if (project_dir / lockfile).is_file():
             return manager
@@ -52,7 +55,7 @@ def _warn(log, message: str) -> None:
 
 
 def resolve_manager(project_dir: Path, override: str | None, *, log=print) -> str:
-    """使用する管理ツール（または "requirements.txt"）を決定する。"""
+    """Determine the manager to use (or "requirements.txt")."""
     if override:
         return override
     detected = _auto_detect(project_dir)
@@ -60,14 +63,14 @@ def resolve_manager(project_dir: Path, override: str | None, *, log=print) -> st
         return detected
     _warn(
         log,
-        "ロックファイル（uv.lock 等）も [tool.pyappdist].manager 指定も無い。"
-        "requirements.txt を参照する",
+        "no lockfile (uv.lock etc.) and no [tool.pyappdist].manager setting. "
+        "Falling back to requirements.txt",
     )
     return "requirements.txt"
 
 
 def resolve_requirements(config: Config, wheelhouse: Path, *, log=print) -> Path:
-    """依存の固定リストを ``wheelhouse/requirements.txt`` に用意してそのパスを返す。"""
+    """Prepare the pinned dependency list at ``wheelhouse/requirements.txt`` and return its path."""
     manager = resolve_manager(config.project_dir, config.manager, log=log)
     out = wheelhouse / "requirements.txt"
 
@@ -75,15 +78,15 @@ def resolve_requirements(config: Config, wheelhouse: Path, *, log=print) -> Path
         src = config.project_dir / "requirements.txt"
         if not src.is_file():
             raise BuildError(
-                f"requirements.txt が無い: {src}"
-                "（管理ツールのロックファイルを用意するか requirements.txt を置く）"
+                f"requirements.txt is missing: {src}"
+                " (provide a manager lockfile or place a requirements.txt)"
             )
-        log(f"deps: requirements.txt を参照 ({src})")
+        log(f"deps: using requirements.txt ({src})")
         out.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
         return out
 
     cmd = _EXPORT_CMDS[manager]
-    log(f"deps: {manager} のロックから requirements.txt を export")
+    log(f"deps: exporting requirements.txt from {manager} lock")
     proc = subprocess.run(
         cmd,
         cwd=str(config.project_dir),
@@ -94,7 +97,7 @@ def resolve_requirements(config: Config, wheelhouse: Path, *, log=print) -> Path
     )
     if proc.returncode != 0:
         raise BuildError(
-            f"requirements.txt の export 失敗 ({proc.returncode}): {' '.join(cmd)}\n"
+            f"requirements.txt export failed ({proc.returncode}): {' '.join(cmd)}\n"
             f"{proc.stderr.strip()}"
         )
     out.write_text(proc.stdout, encoding="utf-8")

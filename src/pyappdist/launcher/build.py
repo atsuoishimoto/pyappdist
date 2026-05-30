@@ -1,7 +1,8 @@
-"""launcher.exe を MSVC でビルドする (Windows ターゲット)。
+"""Build launcher.exe with MSVC (Windows target).
 
-WSL から vcvars64.bat + cl.exe を cmd.exe 経由で呼ぶ。各 launcher ごとに
-設定ヘッダを生成し、同一の launcher.c をサブシステムを変えてコンパイルする。
+vcvars64.bat + cl.exe are invoked from WSL via cmd.exe. A config header is
+generated per launcher, and the same launcher.c is compiled with different
+subsystems.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ _LAUNCHER_C = Path(__file__).resolve().parent.parent / "resources" / "launcher.c
 
 
 def _vswhere_path() -> Path:
-    """vswhere.exe の位置（ネイティブ Windows / WSL 双方対応）。"""
+    """Location of vswhere.exe (supports both native Windows and WSL)."""
     if sys.platform == "win32":
         base = Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"))
     else:
@@ -30,10 +31,10 @@ def _vswhere_path() -> Path:
 
 def build_launchers(config: Config, layout: ImageLayout, workdir: Path, *, log=print) -> list[Path]:
     if config.target.os != "windows":
-        log("launcher: 非 Windows ターゲットのためスキップ")
+        log("launcher: skipping (non-Windows target)")
         return []
     if not config.launchers:
-        log("launcher: 定義なし")
+        log("launcher: none defined")
         return []
     vcvars = _find_vcvars()
     workdir.mkdir(parents=True, exist_ok=True)
@@ -57,8 +58,8 @@ def _build_one(
         f"#define PYAPPDIST_BOOTSTRAP L\"{_c_str(_bootstrap(spec, config))}\"\n"
         f"#define PYAPPDIST_FIXED_ARGS L\"{_c_str(spec.args)}\"\n"
     )
-    # UTF-8 で書く。cl は /utf-8 付きなのでソース中の非 ASCII を正しく読み、
-    # L"..." はワイド(UTF-16)リテラルにコンパイルされる。
+    # Write as UTF-8. With cl's /utf-8, non-ASCII in the source is read correctly,
+    # and L"..." compiles to wide (UTF-16) literals.
     (gen / "pyappdist_launcher_config.h").write_text(header, encoding="utf-8")
 
     rc = gen / f"{spec.name}.rc"
@@ -91,18 +92,18 @@ def _build_one(
     )
     if proc.returncode != 0 or not exe.exists():
         raise BuildError(
-            f"launcher ビルド失敗 ({spec.name}):\n{proc.stdout}\n{proc.stderr}"
+            f"launcher build failed ({spec.name}):\n{proc.stdout}\n{proc.stderr}"
         )
     return exe
 
 
 def _render_rc(config: Config, spec: LauncherConfig) -> str:
-    """icon (任意) + VERSIONINFO の .rc を生成する。"""
+    """Generate the .rc with icon (optional) + VERSIONINFO."""
     parts: list[str] = []
     if spec.icon:
         icon = (config.project_dir / spec.icon).resolve()
         if not icon.is_file():
-            raise BuildError(f"launcher icon が見つからない ({spec.name}): {icon}")
+            raise BuildError(f"launcher icon not found ({spec.name}): {icon}")
         parts.append(f'1 ICON "{_c_str(target_path(config.target, icon))}"')
 
     quad = _version_quad(config.version)
@@ -143,7 +144,7 @@ def _render_rc(config: Config, spec: LauncherConfig) -> str:
 
 
 def _version_quad(version: str) -> str:
-    """"1.2.3" -> "1,2,3,0"（数字以外は無視、4 要素に揃える）。"""
+    """"1.2.3" -> "1,2,3,0" (ignore non-digits, pad to 4 elements)."""
     nums: list[int] = []
     for token in version.split("."):
         digits = "".join(c for c in token if c.isdigit())
@@ -153,22 +154,23 @@ def _version_quad(version: str) -> str:
 
 
 def _rc_str(s: str) -> str:
-    """.rc の文字列リテラル用エスケープ（バックスラッシュと引用符）。"""
+    """Escape for .rc string literals (backslashes and quotes)."""
     return s.replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _bootstrap(spec: LauncherConfig, config: Config) -> str:
-    """python に渡す ``-c`` プログラムを生成する。
+    """Generate the ``-c`` program passed to python.
 
-    console: 単純に import して呼ぶだけ（例外はコンソールに出る）。
-    gui: 起動関数の取り出し（import）だけを try/except で囲み、失敗時に
-    MessageBox で簡潔な原因を出す。``func()`` 実行後の例外はアプリの責務。
+    console: simply import and call (exceptions surface on the console).
+    gui: only the retrieval (import) of the entry function is wrapped in
+    try/except; on failure a MessageBox shows a concise cause. Exceptions after
+    ``func()`` runs are the app's responsibility.
     """
     module, _, func = spec.entry.partition(":")
     if not spec.gui:
         return f"import sys; from {module} import {func}; sys.exit({func}())"
 
-    title = f'"{config.name}"'  # Unicode を生のまま埋め込む（ヘッダは UTF-8）
+    title = f'"{config.name}"'  # embed Unicode as-is (the header is UTF-8)
     return "\n".join(
         [
             "import sys",
@@ -185,7 +187,7 @@ def _bootstrap(spec: LauncherConfig, config: Config) -> str:
 
 
 def _c_str(s: str) -> str:
-    # バックスラッシュを先に。複数行 bootstrap を 1 行の L"..." に収めるため改行等もエスケープ。
+    # Backslash first. Also escape newlines etc. to fit a multi-line bootstrap into a single-line L"...".
     return (
         s.replace("\\", "\\\\")
         .replace('"', '\\"')
@@ -198,12 +200,12 @@ def _c_str(s: str) -> str:
 def _find_vcvars() -> str:
     vswhere = _vswhere_path()
     if not vswhere.is_file():
-        raise BuildError(f"vswhere が見つからない: {vswhere}")
+        raise BuildError(f"vswhere not found: {vswhere}")
     proc = subprocess.run(
         [str(vswhere), "-latest", "-property", "installationPath"],
         capture_output=True, text=True, errors="replace",
     )
     install = proc.stdout.strip()
     if not install:
-        raise BuildError("Visual Studio (C++ ツール) が見つからない")
+        raise BuildError("Visual Studio (C++ tools) not found")
     return install + r"\VC\Auxiliary\Build\vcvars64.bat"

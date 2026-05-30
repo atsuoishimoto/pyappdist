@@ -1,7 +1,7 @@
-"""image ディレクトリを走査し、中立な Directory/File IR を生成する。
+"""Scan the image directory and produce a neutral Directory/File IR.
 
-生成は決定的（名前順）。WiX 生成（generate.py）とは独立した純粋なデータで、
-ゴールデンテストや単体テストで扱いやすいようにしている。
+The output is deterministic (sorted by name). It is pure data, independent of
+WiX generation (generate.py), so it is easy to handle in golden and unit tests.
 """
 
 from __future__ import annotations
@@ -12,21 +12,21 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class FileNode:
-    src: Path   # 走査元の絶対パス
-    name: str   # ファイル名
-    rel: str    # install ルートからの相対パス (posix 区切り)
+    src: Path   # absolute path of the scanned source
+    name: str   # file name
+    rel: str    # path relative to the install root (posix separators)
 
 
 @dataclass(frozen=True)
 class DirNode:
-    name: str                      # ディレクトリ名（ルートは ""）
-    rel: str                       # install ルートからの相対パス（ルートは ""）
+    name: str                      # directory name ("" for the root)
+    rel: str                       # path relative to the install root ("" for the root)
     subdirs: tuple["DirNode", ...]
     files: tuple[FileNode, ...]
 
 
 def scan_image(image_dir: Path) -> DirNode:
-    """``image_dir`` を走査して install ルートの DirNode を返す。"""
+    """Scan ``image_dir`` and return the install-root DirNode."""
     image_dir = Path(image_dir)
     return _scan(image_dir, "")
 

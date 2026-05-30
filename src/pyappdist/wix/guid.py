@@ -1,8 +1,8 @@
-"""安定 GUID 生成。
+"""Stable GUID generation.
 
-Component GUID は upgrade_code を namespace とした uuid5(install 相対パス) で
-決定的に生成する。同じ配置・同じ upgrade_code なら毎回同じ GUID になり、
-MajorUpgrade のコンポーネント同一性が保たれる。
+Component GUIDs are generated deterministically as uuid5(install-relative path)
+with upgrade_code as the namespace. The same layout and the same upgrade_code
+always yield the same GUID, preserving component identity across MajorUpgrade.
 """
 
 from __future__ import annotations
@@ -19,6 +19,6 @@ def is_guid(value: object) -> bool:
 
 
 def stable_guid(upgrade_code: str, relpath: str) -> str:
-    """``upgrade_code`` を namespace に ``relpath`` から決定的な GUID を作る。"""
+    """Create a deterministic GUID from ``relpath`` using ``upgrade_code`` as the namespace."""
     namespace = uuid.UUID(str(upgrade_code))
     return str(uuid.uuid5(namespace, relpath)).upper()

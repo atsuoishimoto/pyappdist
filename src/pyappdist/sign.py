@@ -1,16 +1,17 @@
-"""コード署名フック（Phase 5）。
+"""Code-signing hook (Phase 5).
 
-MVP は未署名で出荷する。環境変数 ``PYAPPDIST_SIGN_CMD`` が設定されていれば、
-各成果物（launcher.exe / MSI）に対してそのコマンドを実行する。``{file}`` は
-対象ファイルパスに置換される（無ければ末尾に追記）。証明書は CI secret 等で
-コマンド側に渡す前提で、pyappdist は証明書を扱わない。
+The MVP ships unsigned. If the environment variable ``PYAPPDIST_SIGN_CMD`` is set,
+that command is run against each artifact (launcher.exe / MSI). ``{file}`` is
+replaced with the target file path (appended at the end if absent). Certificates
+are assumed to be passed to the command via CI secrets etc.; pyappdist does not
+handle certificates.
 
-コマンドはプラットフォームのシェル経由で実行する（Windows は cmd.exe）。普段
-ターミナルで打つコマンドラインをそのまま書けばよく、Windows のバックスラッシュ
-パスや環境変数もシェルがそのまま解釈する。``{file}`` を含む場合は空白対策で
-``"{file}"`` のように引用すること。
+The command runs through the platform's shell (cmd.exe on Windows). You can write
+the same command line you would normally type in a terminal, and the shell
+interprets Windows backslash paths and environment variables as-is. When it
+contains ``{file}``, quote it like ``"{file}"`` to guard against spaces.
 
-例: PYAPPDIST_SIGN_CMD='signtool.exe sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /a "{file}"'
+Example: PYAPPDIST_SIGN_CMD='signtool.exe sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /a "{file}"'
 """
 
 from __future__ import annotations
@@ -25,10 +26,10 @@ _ENV = "PYAPPDIST_SIGN_CMD"
 
 
 def sign_artifact(path: Path, *, log=print) -> bool:
-    """成果物に署名する。署名コマンド未設定なら何もせず False を返す。"""
+    """Sign the artifact. If no sign command is set, do nothing and return False."""
     template = os.environ.get(_ENV)
     if not template:
-        log(f"sign: スキップ（{_ENV} 未設定）: {path.name}")
+        log(f"sign: skipped ({_ENV} unset): {path.name}")
         return False
     if "{file}" in template:
         command = template.replace("{file}", str(path))
@@ -37,5 +38,5 @@ def sign_artifact(path: Path, *, log=print) -> bool:
     log(f"sign: {path.name}")
     proc = subprocess.run(command, shell=True, capture_output=True, text=True, errors="replace")
     if proc.returncode != 0:
-        raise BuildError(f"署名失敗 ({path.name}):\n{proc.stdout}\n{proc.stderr}")
+        raise BuildError(f"signing failed ({path.name}):\n{proc.stdout}\n{proc.stderr}")
     return True

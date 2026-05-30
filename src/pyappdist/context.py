@@ -1,4 +1,4 @@
-"""ビルド全体で共有するパス・設定のコンテナ。"""
+"""Container for paths and settings shared across the whole build."""
 
 from __future__ import annotations
 

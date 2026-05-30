@@ -1,8 +1,9 @@
-/* pyappdist launcher (subprocess 方式)
+/* pyappdist launcher (subprocess approach)
  *
- * image 内の python.exe / pythonw.exe を CreateProcess で起動するだけの薄い
- * スタブ。隔離は python 側の -I (=-E -s) と、PYTHON* を除いた環境ブロックの
- * 二重で行う。アプリ固有値はビルド時に生成ヘッダで埋め込む。
+ * A thin stub that merely launches python.exe / pythonw.exe inside the image
+ * via CreateProcess. Isolation is twofold: python's -I (=-E -s) plus an
+ * environment block with PYTHON* removed. App-specific values are embedded at
+ * build time via a generated header.
  */
 
 #include <windows.h>
@@ -26,7 +27,7 @@
 
 #define CMD_MAX 32768
 
-/* PYTHON* を除いた環境ブロックを作る (CREATE_UNICODE_ENVIRONMENT 用)。 */
+/* Build an environment block with PYTHON* removed (for CREATE_UNICODE_ENVIRONMENT). */
 static LPWSTR build_clean_env(void) {
     LPWCH all = GetEnvironmentStringsW();
     if (!all) return NULL;
@@ -68,7 +69,7 @@ static void append_ch(WCHAR *buf, size_t *pos, WCHAR c) {
     buf[*pos] = L'\0';
 }
 
-/* 1 引数を MSVC のクォート規則で追記する。 */
+/* Append one argument following MSVC quoting rules. */
 static void append_quoted(WCHAR *buf, size_t *pos, const WCHAR *arg) {
     int need = (arg[0] == L'\0');
     for (const WCHAR *p = arg; *p; ++p)

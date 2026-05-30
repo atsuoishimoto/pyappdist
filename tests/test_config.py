@@ -1,4 +1,4 @@
-"""config 読み込み・バリデーションのテスト（Linux 完結）。"""
+"""Tests for config loading and validation (Linux-only)."""
 
 from __future__ import annotations
 
@@ -67,7 +67,7 @@ def test_launcher_entry_must_be_module_callable(tmp_path: Path):
         tmp_path,
         extra="",
     )
-    # entry を壊す
+    # break the entry
     text = (cfg_dir / "pyproject.toml").read_text().replace(
         '"helloworld:main"', '"helloworld_no_colon"'
     )
@@ -77,7 +77,7 @@ def test_launcher_entry_must_be_module_callable(tmp_path: Path):
 
 
 def test_unknown_target(tmp_path: Path):
-    with pytest.raises(ConfigError, match="未知の target"):
+    with pytest.raises(ConfigError, match="unknown target"):
         load_config(_write(tmp_path), target_override="solaris-sparc")
 
 

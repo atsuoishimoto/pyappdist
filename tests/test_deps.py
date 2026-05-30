@@ -1,4 +1,4 @@
-"""依存リスト決定（ロックファイル判定 / requirements.txt 参照）のテスト。"""
+"""Tests for dependency-list resolution (lockfile detection / requirements.txt reference)."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def test_auto_detect_single(tmp_path: Path, lockfile: str, expected: str):
 
 
 def test_auto_detect_priority(tmp_path: Path):
-    # 複数あれば uv → poetry → pipenv → pdm の順で先勝ち。
+    # When several exist, first wins in the order uv -> poetry -> pipenv -> pdm.
     _touch(tmp_path, "poetry.lock")
     _touch(tmp_path, "pdm.lock")
     _touch(tmp_path, "uv.lock")

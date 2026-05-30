@@ -1,7 +1,7 @@
-"""ホスト/ターゲット差を吸収する実行ヘルパ。
+"""Execution helpers that absorb host/target differences.
 
-WSL(Linux ホスト) から Windows ターゲットを扱う場合、Windows ツール(uv.exe)を
-呼び、パスは Windows 形式 (wslpath -w) に変換する必要がある。
+When handling a Windows target from WSL (a Linux host), Windows tools (uv.exe)
+must be invoked and paths converted to Windows form (wslpath -w).
 """
 
 from __future__ import annotations
@@ -14,12 +14,12 @@ from .targets import Target
 
 
 def is_cross_windows(target: Target) -> bool:
-    """Linux ホストから Windows ターゲットを扱う (.exe ブリッジが必要)。"""
+    """Handling a Windows target from a Linux host (requires the .exe bridge)."""
     return target.os == "windows" and sys.platform != "win32"
 
 
 def target_path(target: Target, path: Path | str) -> str:
-    """ターゲットツールに渡すためのパス文字列。"""
+    """Path string to pass to a target tool."""
     p = Path(path)
     if is_cross_windows(target):
         out = subprocess.run(

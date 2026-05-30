@@ -1,4 +1,4 @@
-"""launcher.exe のビルド（Phase 4, サブプロセス方式）。"""
+"""Build launcher.exe (Phase 4, subprocess approach)."""
 
 from __future__ import annotations
 

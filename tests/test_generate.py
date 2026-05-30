@@ -1,4 +1,4 @@
-"""WiX XML 生成のゴールデン比較・バリデーションテスト。"""
+"""Golden-comparison and validation tests for WiX XML generation."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ GOLDEN = Path(__file__).parent / "golden" / "sample.wxs"
 def test_golden(sample_config, sample_tree):
     expected = GOLDEN.read_text(encoding="utf-8")
     actual = generate_wxs(sample_config, sample_tree)
-    assert actual == expected, "WiX 出力がゴールデンと不一致（意図的なら golden を更新する）"
+    assert actual == expected, "WiX output differs from the golden (update the golden if intentional)"
 
 
 def test_requires_manufacturer(sample_config, sample_tree):

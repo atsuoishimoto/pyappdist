@@ -1,7 +1,7 @@
-"""配布ターゲットの定義。
+"""Distribution target definitions.
 
-`target` 名（例 ``windows-x86_64``）から、python-build-standalone の
-target triple や uv / pip のプラットフォーム指定子へのマッピングを提供する。
+Provides a mapping from a `target` name (e.g. ``windows-x86_64``) to the
+python-build-standalone target triple and the wix build architecture.
 """
 
 from __future__ import annotations
@@ -13,10 +13,10 @@ from .errors import ConfigError
 
 @dataclass(frozen=True)
 class Target:
-    name: str          # 設定で使う名前 (windows-x86_64)
-    triple: str        # python-build-standalone の target triple
+    name: str          # name used in config (windows-x86_64)
+    triple: str        # python-build-standalone target triple
     os: str            # "windows" | "linux" | "macos"
-    wix_arch: str      # wix build -arch に渡す値 (x64 / arm64)。MSI を 64bit パッケージにする
+    wix_arch: str      # value passed to wix build -arch (x64 / arm64). Makes the MSI a 64-bit package
 
 
 TARGETS: dict[str, Target] = {
@@ -26,7 +26,7 @@ TARGETS: dict[str, Target] = {
         os="windows",
         wix_arch="x64",
     ),
-    # Linux 版は主に Linux 上での代替検証 (Phase 2) に使う。
+    # The Linux variant is mainly used for alternative validation on Linux (Phase 2).
     "linux-x86_64": Target(
         name="linux-x86_64",
         triple="x86_64-unknown-linux-gnu",
@@ -42,5 +42,5 @@ def get_target(name: str) -> Target:
     except KeyError:
         known = ", ".join(sorted(TARGETS))
         raise ConfigError(
-            f"未知の target: {name!r}（対応: {known}）"
+            f"unknown target: {name!r} (supported: {known})"
         ) from None

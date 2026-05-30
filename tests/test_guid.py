@@ -1,4 +1,4 @@
-"""安定 GUID の決定性・回帰テスト。"""
+"""Determinism and regression tests for stable GUIDs."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def test_stable_guid_differs_by_upgrade_code():
 
 
 def test_stable_guid_regression():
-    # 値が変わると既存インストールの MajorUpgrade 同一性が壊れるため固定する
+    # pinned because a changed value would break MajorUpgrade identity for existing installs
     assert stable_guid(UC, "helloworld.exe") == "9641F219-56EF-59DC-9F26-84A56E0379B2"
 
 

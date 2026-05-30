@@ -1,15 +1,15 @@
-"""pyappdist の例外階層。"""
+"""pyappdist exception hierarchy."""
 
 from __future__ import annotations
 
 
 class PyappdistError(Exception):
-    """pyappdist のすべての例外の基底。"""
+    """Base for all pyappdist exceptions."""
 
 
 class ConfigError(PyappdistError):
-    """pyproject.toml / [tool.pyappdist] の不備。"""
+    """A problem in pyproject.toml / [tool.pyappdist]."""
 
 
 class BuildError(PyappdistError):
-    """ビルド工程（wheel / runtime / image など）の失敗。"""
+    """A failure in a build step (wheel / runtime / image, etc.)."""

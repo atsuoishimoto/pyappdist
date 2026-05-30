@@ -1,8 +1,9 @@
-"""中立 IR (DirNode) から WiX v4 系 XML を生成する純粋関数。
+"""Pure function that generates WiX v4 XML from the neutral IR (DirNode).
 
-CustomAction は使わず、コピー / ショートカット / レジストリ登録のみ。
-File@Source は image ルートからの相対パスで出力し、``wix build -b <image>`` の
-bind path で解決する（絶対パスを埋め込まないのでゴールデン比較が安定する）。
+No CustomActions are used; only file copy, shortcuts, and registry entries.
+File@Source is emitted as a path relative to the image root and resolved via the
+``wix build -b <image>`` bind path (no absolute paths are embedded, so golden
+comparisons stay stable).
 """
 
 from __future__ import annotations
@@ -19,14 +20,14 @@ WIX_NS = "http://wixtoolset.org/schemas/v4/wxs"
 
 
 def generate_wxs(config: Config, tree: DirNode) -> str:
-    """``config`` と走査済み ``tree`` から WiX XML 文字列を返す。"""
+    """Return the WiX XML string from ``config`` and the scanned ``tree``."""
     manufacturer = config.wix.manufacturer
     upgrade_code = config.wix.upgrade_code
     if not manufacturer:
-        raise ConfigError("MSI 生成には [tool.pyappdist.wix].manufacturer が必要")
+        raise ConfigError("MSI generation requires [tool.pyappdist.wix].manufacturer")
     if not upgrade_code or not is_guid(upgrade_code):
         raise ConfigError(
-            "MSI 生成には [tool.pyappdist.wix].upgrade_code に有効な GUID が必要"
+            "MSI generation requires a valid GUID in [tool.pyappdist.wix].upgrade_code"
         )
 
     ET.register_namespace("", WIX_NS)
@@ -41,18 +42,18 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
         Codepage="65001",
         Scope="perMachine",
     )
-    _sub(pkg, "MajorUpgrade", DowngradeErrorMessage="新しいバージョンが既にインストールされています。")
+    _sub(pkg, "MajorUpgrade", DowngradeErrorMessage="A newer version is already installed.")
     _sub(pkg, "MediaTemplate", EmbedCab="yes")
 
     reg_key = f"Software\\{manufacturer}\\{config.name}"
     component_ids: list[str] = []
 
-    # アプリ本体（image ツリーをそのままコピー）
+    # Application body (copy the image tree as-is)
     program_files = _sub(pkg, "StandardDirectory", Id="ProgramFiles64Folder")
     install = _sub(program_files, "Directory", Id="INSTALLFOLDER", Name=config.name)
     _emit_dir(install, tree, str(upgrade_code), component_ids)
 
-    # install 先を記録するレジストリ（アンインストール検出等に利用可）
+    # Registry entry recording the install location (usable for uninstall detection, etc.)
     reg_comp = _sub(install, "Component", Id="cmp_registry", Guid=stable_guid(upgrade_code, "::registry"))
     _sub(
         reg_comp, "RegistryValue",
@@ -61,7 +62,7 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
     )
     component_ids.append("cmp_registry")
 
-    # スタートメニューのショートカット（launcher ごと）
+    # Start menu shortcuts (one per launcher)
     if config.launchers:
         menu = _sub(pkg, "StandardDirectory", Id="ProgramMenuFolder")
         sc_dir = _sub(menu, "Directory", Id="ShortcutFolder", Name=config.name)

@@ -1,9 +1,9 @@
-"""WiX (MSI) 生成（Phase 3）と MSI ビルド（Phase 5）。
+"""WiX (MSI) generation (Phase 3) and MSI build (Phase 5).
 
-* scan.py     : image を走査し中立な Directory/File IR を作る
-* guid.py     : upgrade_code を namespace にした安定 GUID
-* generate.py : IR → WiX v4 XML 文字列（純粋関数, Linux 完結）
-* build.py    : 生成 .wxs を ``wix build`` で MSI 化（Windows / .exe ブリッジ）
+* scan.py     : scan the image and build a neutral Directory/File IR
+* guid.py     : stable GUIDs using upgrade_code as the namespace
+* generate.py : IR -> WiX v4 XML string (pure function, runs entirely on Linux)
+* build.py    : turn the generated .wxs into an MSI via ``wix build`` (Windows / .exe bridge)
 """
 
 from __future__ import annotations

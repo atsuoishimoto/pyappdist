@@ -1,4 +1,4 @@
-"""テスト共通フィクスチャ。"""
+"""Shared pytest fixtures."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ def sample_config() -> Config:
 
 @pytest.fixture
 def sample_tree() -> DirNode:
-    """小さな決定的ツリー（実 image ではなくゴールデンが安定するように合成）。"""
+    """A small deterministic tree (synthetic rather than a real image, so the golden stays stable)."""
     return DirNode(
         name="",
         rel="",
