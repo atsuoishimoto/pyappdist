@@ -30,7 +30,6 @@ launchers = [
   { name = "pyside6demo", entry = "pyside6demo:main", gui = true, icon = "assets/pyside6demo.ico" },
 ]
 
-[tool.pyappdist.installer]
-backend = "wix"
+[tool.pyappdist.wix]
 manufacturer = "Example Inc."
 upgrade_code = "3B7C1E5A-9D24-4F86-A1C3-7E0F2B4D6A88"

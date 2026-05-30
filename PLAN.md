@@ -29,8 +29,7 @@ gui = false                # true で windows サブシステム(コンソール
 icon = "assets/myapp.ico"  # 任意
 args = "--profile default" # 任意。固定引数(1 文字列)。空白区切りで子の argv に分割される
 
-[tool.pyappdist.installer]
-backend = "wix"
+[tool.pyappdist.wix]
 manufacturer = "Example Inc."
 upgrade_code = "PUT-GUID-HERE"
 ```

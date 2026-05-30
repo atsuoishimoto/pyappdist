@@ -106,7 +106,7 @@ def _render_rc(config: Config, spec: LauncherConfig) -> str:
         parts.append(f'1 ICON "{_c_str(target_path(config.target, icon))}"')
 
     quad = _version_quad(config.version)
-    company = config.installer.manufacturer or config.name
+    company = config.wix.manufacturer or config.name
     parts.append(
         "\n".join(
             [

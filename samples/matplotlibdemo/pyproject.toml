@@ -30,7 +30,6 @@ launchers = [
   { name = "matplotlibdemo", entry = "matplotlibdemo:main", gui = true, icon = "assets/matplotlibdemo.ico" },
 ]
 
-[tool.pyappdist.installer]
-backend = "wix"
+[tool.pyappdist.wix]
 manufacturer = "Example Inc."
 upgrade_code = "2D4F6A80-1C3E-4B57-9F8A-6E0D2C4B8A13"

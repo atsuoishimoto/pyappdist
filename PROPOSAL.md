@@ -355,8 +355,7 @@ gui = true
 icon = "assets/myapp.ico"
 args = []
 
-[tool.pyappdist.installer]
-backend = "wix"
+[tool.pyappdist.wix]
 manufacturer = "Example Inc."
 upgrade_code = "PUT-GUID-HERE"
 ```

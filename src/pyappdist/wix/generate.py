@@ -20,13 +20,13 @@ WIX_NS = "http://wixtoolset.org/schemas/v4/wxs"
 
 def generate_wxs(config: Config, tree: DirNode) -> str:
     """``config`` と走査済み ``tree`` から WiX XML 文字列を返す。"""
-    manufacturer = config.installer.manufacturer
-    upgrade_code = config.installer.upgrade_code
+    manufacturer = config.wix.manufacturer
+    upgrade_code = config.wix.upgrade_code
     if not manufacturer:
-        raise ConfigError("MSI 生成には [tool.pyappdist.installer].manufacturer が必要")
+        raise ConfigError("MSI 生成には [tool.pyappdist.wix].manufacturer が必要")
     if not upgrade_code or not is_guid(upgrade_code):
         raise ConfigError(
-            "MSI 生成には [tool.pyappdist.installer].upgrade_code に有効な GUID が必要"
+            "MSI 生成には [tool.pyappdist.wix].upgrade_code に有効な GUID が必要"
         )
 
     ET.register_namespace("", WIX_NS)

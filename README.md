@@ -63,8 +63,7 @@ gui = false                 # true -> pythonw.exe (no console)
 # icon = "assets/app.ico"   # optional
 # args = "--profile default"# optional fixed arguments
 
-[tool.pyappdist.installer]
-backend = "wix"
+[tool.pyappdist.wix]
 manufacturer = "Example Inc."
 upgrade_code = "PUT-A-REAL-GUID-HERE"   # stable GUID for upgrades
 ```

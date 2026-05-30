@@ -26,8 +26,7 @@ class LauncherConfig:
 
 
 @dataclass(frozen=True)
-class InstallerConfig:
-    backend: str = "wix"
+class WixConfig:
     manufacturer: str | None = None
     upgrade_code: str | None = None
 
@@ -42,7 +41,7 @@ class Config:
     target: Target
     identifier: str | None
     launchers: tuple[LauncherConfig, ...]
-    installer: InstallerConfig
+    wix: WixConfig
 
     @property
     def python_minor(self) -> str:
@@ -79,7 +78,7 @@ def load_config(project_dir: Path, *, target_override: str | None = None) -> Con
     target = get_target(target_name)
 
     launchers = _parse_launchers(tool.get("launchers"))
-    installer = _parse_installer(tool.get("installer"))
+    wix = _parse_wix(tool.get("wix"))
 
     return Config(
         project_dir=project_dir,
@@ -90,7 +89,7 @@ def load_config(project_dir: Path, *, target_override: str | None = None) -> Con
         target=target,
         identifier=tool.get("identifier"),
         launchers=launchers,
-        installer=installer,
+        wix=wix,
     )
 
 
@@ -123,13 +122,12 @@ def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:
     return tuple(out)
 
 
-def _parse_installer(raw: object) -> InstallerConfig:
+def _parse_wix(raw: object) -> WixConfig:
     if raw is None:
-        return InstallerConfig()
+        return WixConfig()
     if not isinstance(raw, dict):
-        raise ConfigError("[tool.pyappdist.installer] はテーブルで指定する")
-    return InstallerConfig(
-        backend=str(raw.get("backend", "wix")),
+        raise ConfigError("[tool.pyappdist.wix] はテーブルで指定する")
+    return WixConfig(
         manufacturer=raw.get("manufacturer"),
         upgrade_code=raw.get("upgrade_code"),
     )

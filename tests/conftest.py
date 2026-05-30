@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from pyappdist.config import Config, InstallerConfig, LauncherConfig
+from pyappdist.config import Config, LauncherConfig, WixConfig
 from pyappdist.targets import get_target
 from pyappdist.wix.scan import DirNode, FileNode
 
@@ -24,8 +24,7 @@ def sample_config() -> Config:
         target=get_target("windows-x86_64"),
         identifier="com.example.helloworld",
         launchers=(LauncherConfig(name="helloworld", entry="helloworld:main"),),
-        installer=InstallerConfig(
-            backend="wix",
+        wix=WixConfig(
             manufacturer="Example Inc.",
             upgrade_code=UPGRADE_CODE,
         ),
