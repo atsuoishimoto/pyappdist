@@ -34,9 +34,9 @@ never changes when the Python version does.
 ## How it works
 
 ```
-your app  ──uv build──▶  app wheel ─┐
-                                     ├─▶ wheelhouse ──pip install──▶ runtime image ──┬─▶ portable .zip
-dependencies ─uv pip download(win)──┘   (python-build-standalone)   + launcher.exe   └─▶ WiX ──▶ .msi
+your app  ───pip wheel───▶  app wheel ─┐
+                                        ├─▶ wheelhouse ─pip install─▶ runtime image ─┬─▶ portable .zip
+dependencies ─lockfile → pip wheel(win)─┘   (python-build-standalone)  + launcher.exe └─▶ WiX ──▶ .msi
 ```
 
 Everything lands under `appdist/` (`wheelhouse/`, `runtime/`, `image/`, `dist/`).
@@ -55,6 +55,7 @@ name = "My App"
 identifier = "com.example.myapp"
 python = "3.12"
 target = "windows-x86_64"
+# manager = "uv"            # optional; auto-detected from lockfile if omitted
 
 [[tool.pyappdist.launchers]]
 name = "myapp"              # produces myapp.exe
@@ -113,10 +114,25 @@ starts are your app's responsibility.
 
 ## Requirements
 
-pyappdist itself only needs `pip` (one of its dependencies) — it builds wheels and resolves
-dependencies entirely through `python -m pip`, so it works with **any PEP 517/621 project**
-regardless of how you manage it (uv, poetry, hatch, pdm, plain pip). Dependencies are resolved
-by the *target* runtime's own `python.exe`, so platform-specific markers (e.g. pandas'
+pyappdist builds the app wheel with `python -m pip` (any PEP 517/621 backend works), and pins
+**dependencies from your project's lockfile** so the distribution matches the versions you
+tested. It exports a `requirements.txt` using your package manager, detected by lockfile in
+this order:
+
+| Manager  | Lockfile        | Export command                                |
+|----------|-----------------|-----------------------------------------------|
+| uv       | `uv.lock`       | `uv export --frozen --no-dev --no-emit-project` |
+| poetry   | `poetry.lock`   | `poetry export --without dev`                 |
+| pipenv   | `Pipfile.lock`  | `pipenv requirements --hash`                  |
+| PDM      | `pdm.lock`      | `pdm export --prod`                           |
+
+Override the choice with `[tool.pyappdist].manager = "uv"` (or `poetry`/`pipenv`/`pdm`). Set
+`manager = "requirements.txt"` to skip export and use a `requirements.txt` you maintain at the
+project root. If no lockfile is found and `manager` is unset, pyappdist warns and falls back to
+`requirements.txt` (erroring if it's absent).
+
+The exported requirements (production deps only, with hashes) are turned into wheels by the
+*target* runtime's own `python.exe`, so platform-specific markers (e.g. pandas'
 `tzdata; sys_platform == "win32"`) resolve correctly even when cross-building from Linux.
 
 To produce the native artifacts you also need:

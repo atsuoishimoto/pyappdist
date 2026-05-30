@@ -41,7 +41,8 @@ cli.py            # argparse サブコマンド (薄い層): build-wheels / fetc
 config.py         # [tool.pyappdist] を tomllib で読み dataclass 化 + バリデーション (単一の真実)
 errors.py         # 例外階層 (ConfigError, BuildError ...)
 context.py        # BuildContext: 解決済みパス・config・作業ディレクトリ
-wheels.py         # uv build (app wheel) + uv pip compile→pip download (依存) → appdist/wheelhouse。※uv pip download は無いため依存 DL は pip。cross は --platform 指定で wheel のみ
+wheels.py         # pip wheel (app wheel) + 依存を deps.py の requirements.txt から target python で pip wheel -r → appdist/wheelhouse
+deps.py           # ロックファイル判定 (uv/poetry/pipenv/pdm) → requirements.txt を export。tool.pyappdist.manager で上書き可
 runtime.py        # python-build-standalone tarball の取得・展開・検証 → appdist/runtime (下記「fetch-runtime 仕様」)
 image/
   layout.py       # appdist/ 出力レイアウト(wheelhouse/runtime/image/dist)の定数 (単一の真実)

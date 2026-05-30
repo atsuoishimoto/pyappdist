@@ -28,6 +28,7 @@ def sample_config() -> Config:
             manufacturer="Example Inc.",
             upgrade_code=UPGRADE_CODE,
         ),
+        manager=None,
     )
 
 

@@ -79,3 +79,18 @@ def test_launcher_entry_must_be_module_callable(tmp_path: Path):
 def test_unknown_target(tmp_path: Path):
     with pytest.raises(ConfigError, match="未知の target"):
         load_config(_write(tmp_path), target_override="solaris-sparc")
+
+
+def test_manager_default_none(tmp_path: Path):
+    cfg = load_config(_write(tmp_path))
+    assert cfg.manager is None
+
+
+def test_manager_valid(tmp_path: Path):
+    cfg = load_config(_write(tmp_path, extra='manager = "requirements.txt"'))
+    assert cfg.manager == "requirements.txt"
+
+
+def test_manager_invalid(tmp_path: Path):
+    with pytest.raises(ConfigError, match="manager"):
+        load_config(_write(tmp_path, extra='manager = "conda"'))

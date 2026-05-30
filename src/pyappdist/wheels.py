@@ -1,12 +1,10 @@
 """wheel の用意（アプリ wheel のビルド + 依存 wheel の収集）。
 
-ビルド/管理ツールに依存しないよう、すべて標準の ``python -m pip`` で行う
-（uv 専用ではなく、PEP 517/621 準拠であれば poetry・hatch・pdm 等どのツールで
-作ったプロジェクトでも使える）。
-
 * アプリ本体: ``pip wheel --no-deps`` でプロジェクトの build backend を使って wheel 化
-  （アプリは pure-Python 想定なのでホストの python で OK）。
-* 依存: 出来たアプリ wheel を **ターゲット runtime の python** に渡して ``pip wheel`` する。
+  （PEP 517 = backend 非依存。アプリは pure-Python 想定なのでホストの python で OK）。
+* 依存: プロジェクトの **ロックファイル基準** で固定する。管理ツール（uv/poetry/pipenv/PDM）
+  でロックから ``requirements.txt`` を export し（:mod:`pyappdist.deps`）、それを
+  **ターゲット runtime の python** に渡して ``pip wheel -r requirements.txt`` する。
   wheel が公開されている依存はその wheel を取得し、sdist しか無い依存はターゲット python で
   ビルドして wheel 化する（wheel が無いパッケージも扱える）。結果 wheelhouse には wheel だけが
   揃うので、後段のオフライン install は wheel だけ入れれば済む。
@@ -21,6 +19,7 @@ import sys
 from pathlib import Path
 
 from .config import Config
+from .deps import resolve_requirements
 from .errors import BuildError
 from .runtime import RuntimeInfo
 
@@ -28,8 +27,9 @@ from .runtime import RuntimeInfo
 def build_wheelhouse(config: Config, runtime: RuntimeInfo, wheelhouse: Path, *, log=print) -> list[Path]:
     """アプリ + 依存 wheel を wheelhouse に用意して一覧を返す。"""
     wheelhouse.mkdir(parents=True, exist_ok=True)
-    app_wheel = build_app_wheel(config.project_dir, wheelhouse, log=log)
-    collect_dependencies(runtime, app_wheel, wheelhouse, log=log)
+    build_app_wheel(config.project_dir, wheelhouse, log=log)
+    requirements = resolve_requirements(config, wheelhouse, log=log)
+    collect_dependencies(runtime, requirements, wheelhouse, log=log)
     return sorted(wheelhouse.glob("*.whl"))
 
 
@@ -52,18 +52,19 @@ def build_app_wheel(project_dir: Path, wheelhouse: Path, *, log=print) -> Path:
     return new[-1]
 
 
-def collect_dependencies(runtime: RuntimeInfo, app_wheel: Path, wheelhouse: Path, *, log=print) -> list[Path]:
-    """アプリ wheel の依存を、ターゲット runtime の python で wheel として集める。
+def collect_dependencies(runtime: RuntimeInfo, requirements_file: Path, wheelhouse: Path, *, log=print) -> list[Path]:
+    """``requirements.txt`` の依存を、ターゲット runtime の python で wheel として集める。
 
-    ``pip wheel`` なので wheel がある依存はその wheel を取得し、sdist しか無い依存は
+    ``pip wheel -r`` なので wheel がある依存はその wheel を取得し、sdist しか無い依存は
     ターゲット python でビルドして wheel 化する（wheel が無いパッケージも扱える）。
-    依存が無ければ何も増えない。cwd=wheelhouse なので相対指定で済み、WSL→Windows
-    でも wslpath 変換が要らない（interop が cwd を変換する）。
+    マーカーはターゲット python で評価され、該当する依存だけが入る。
+    requirements_file は wheelhouse 直下にある前提で、cwd=wheelhouse・相対指定で渡すので
+    WSL→Windows でも wslpath 変換が要らない（interop が cwd を変換する）。
     """
-    log("wheels: 依存 wheel を収集 (target runtime の python で pip wheel)")
+    log("wheels: 依存 wheel を収集 (target runtime の python で pip wheel -r)")
     before = set(wheelhouse.glob("*.whl"))
     cmd = [
-        str(runtime.python_exe), "-m", "pip", "wheel", app_wheel.name,
+        str(runtime.python_exe), "-m", "pip", "wheel", "-r", requirements_file.name,
         "--wheel-dir", ".",
     ]
     proc = subprocess.run(

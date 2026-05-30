@@ -15,6 +15,8 @@ from .targets import Target, get_target
 
 _PYTHON_RE = re.compile(r"^\d+\.\d+(\.\d+)?$")
 
+_MANAGERS = ("uv", "poetry", "pipenv", "pdm", "requirements.txt")
+
 
 @dataclass(frozen=True)
 class LauncherConfig:
@@ -42,6 +44,7 @@ class Config:
     identifier: str | None
     launchers: tuple[LauncherConfig, ...]
     wix: WixConfig
+    manager: str | None  # 依存解決に使う管理ツール (uv/poetry/pipenv/pdm/requirements.txt)。None=自動判定
 
     @property
     def python_minor(self) -> str:
@@ -80,6 +83,12 @@ def load_config(project_dir: Path, *, target_override: str | None = None) -> Con
     launchers = _parse_launchers(tool.get("launchers"))
     wix = _parse_wix(tool.get("wix"))
 
+    manager = tool.get("manager")
+    if manager is not None and manager not in _MANAGERS:
+        raise ConfigError(
+            f"[tool.pyappdist].manager は {_MANAGERS} のいずれか: {manager!r}"
+        )
+
     return Config(
         project_dir=project_dir,
         name=str(name),
@@ -90,6 +99,7 @@ def load_config(project_dir: Path, *, target_override: str | None = None) -> Con
         identifier=tool.get("identifier"),
         launchers=launchers,
         wix=wix,
+        manager=manager,
     )
 
 
