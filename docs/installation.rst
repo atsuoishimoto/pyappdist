@@ -47,6 +47,8 @@ Cross-building from WSL
 -----------------------
 
 You can build a Windows distribution from WSL. pyappdist invokes the Windows
-toolchain (``python.exe``, MSVC, ``wix``) through the WSL/Windows interop bridge
-and converts paths with ``wslpath`` where needed. Do not share a single virtual
-environment between the Linux and Windows sides.
+toolchain (``python.exe``, MSVC, ``wix``) through the WSL/Windows interop bridge,
+running each tool from within the ``appdist`` tree and passing paths relative to
+that working directory (interop converts the cwd to the Windows side, so no
+``wslpath`` conversion is needed). Do not share a single virtual environment
+between the Linux and Windows sides.

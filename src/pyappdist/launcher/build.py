@@ -8,11 +8,12 @@ subsystems.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-from .._hostexec import target_path
+from .._hostexec import target_relpath
 from ..config import Config, LauncherConfig
 from ..errors import BuildError
 from ..image.layout import ImageLayout
@@ -62,32 +63,36 @@ def _build_one(
     # and L"..." compiles to wide (UTF-16) literals.
     (gen / "pyappdist_launcher_config.h").write_text(header, encoding="utf-8")
 
+    # Stage the bundled launcher.c into the build dir so every cl/rc input lives
+    # alongside the generated files; the tools then run with cwd=gen and need only
+    # relative paths (no wslpath conversion across the Linux/Windows boundary).
+    shutil.copy2(_LAUNCHER_C, gen / "launcher.c")
+
     rc = gen / f"{spec.name}.rc"
-    res = gen / f"{spec.name}.res"
-    rc.write_text(_render_rc(config, spec), encoding="ascii")
+    rc.write_text(_render_rc(config, spec, gen), encoding="ascii")
 
     exe = layout.image_dir / f"{spec.name}.exe"
-    obj = gen / f"{spec.name}.obj"
     subsystem = "WINDOWS" if spec.gui else "CONSOLE"
 
     bat = gen / "build.bat"
     lines = [
         "@echo off",
         f'call "{vcvars}" >nul',
-        f'rc /nologo /fo "{target_path(config.target, res)}" "{target_path(config.target, rc)}"',
+        f'rc /nologo /fo "{spec.name}.res" "{spec.name}.rc"',
         (
-            f'cl /nologo /O2 /W3 /utf-8 /I"{target_path(config.target, gen)}" '
-            f'"{target_path(config.target, _LAUNCHER_C)}" '
-            f'"{target_path(config.target, res)}" '
-            f'/Fe:"{target_path(config.target, exe)}" '
-            f'/Fo:"{target_path(config.target, obj)}" '
+            f'cl /nologo /O2 /W3 /utf-8 /I"." '
+            f'"launcher.c" '
+            f'"{spec.name}.res" '
+            f'/Fe:"{target_relpath(config.target, exe, gen)}" '
+            f'/Fo:"{spec.name}.obj" '
             f"/link /SUBSYSTEM:{subsystem} Shell32.lib"
         ),
     ]
     bat.write_text("\r\n".join(lines) + "\r\n", encoding="ascii")
 
     proc = subprocess.run(
-        ["cmd.exe", "/c", target_path(config.target, bat)],
+        ["cmd.exe", "/c", "build.bat"],
+        cwd=str(gen),
         capture_output=True, text=True, errors="replace",
     )
     if proc.returncode != 0 or not exe.exists():
@@ -97,14 +102,19 @@ def _build_one(
     return exe
 
 
-def _render_rc(config: Config, spec: LauncherConfig) -> str:
-    """Generate the .rc with icon (optional) + VERSIONINFO."""
+def _render_rc(config: Config, spec: LauncherConfig, gen: Path) -> str:
+    """Generate the .rc with icon (optional) + VERSIONINFO.
+
+    The icon is staged into ``gen`` (the rc compiler's cwd) and referenced by
+    name, so the source tree's location never needs path conversion.
+    """
     parts: list[str] = []
     if spec.icon:
         icon = (config.project_dir / spec.icon).resolve()
         if not icon.is_file():
             raise BuildError(f"launcher icon not found ({spec.name}): {icon}")
-        parts.append(f'1 ICON "{_c_str(target_path(config.target, icon))}"')
+        shutil.copy2(icon, gen / icon.name)
+        parts.append(f'1 ICON "{_c_str(icon.name)}"')
 
     quad = _version_quad(config.version)
     company = config.wix.manufacturer or config.name

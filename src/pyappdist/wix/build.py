@@ -1,7 +1,8 @@
 """Build an MSI from the generated .wxs via ``wix build`` (Phase 5).
 
 WiX is a dotnet global tool (``dotnet tool install --global wix``).
-When targeting Windows from WSL, use wix.exe plus Windows paths.
+When targeting Windows from WSL, use wix.exe and pass paths relative to the
+appdist tree (run from a common ancestor; interop converts the cwd).
 File@Source is relative to the image root, so pass ``-b <image>`` as the bind path.
 """
 
@@ -12,7 +13,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from .._hostexec import is_cross_windows, target_path
+from .._hostexec import is_cross_windows, target_relpath
 from ..config import Config
 from ..errors import BuildError
 
@@ -27,14 +28,17 @@ def build_msi(config: Config, image_dir: Path, wxs_path: Path, out_msi: Path, *,
     wix = _find_wix(target)
     out_msi.parent.mkdir(parents=True, exist_ok=True)
     log(f"msi: wix build -> {out_msi}")
+    # All inputs/outputs live under the appdist tree; run from their common
+    # ancestor and pass relative paths so no wslpath conversion is needed.
+    base = Path(os.path.commonpath([str(wxs_path), str(image_dir), str(out_msi)]))
     cmd = [
         wix, "build",
         "-arch", target.wix_arch,  # make it a 64-bit package so it installs into C:\Program Files
-        target_path(target, wxs_path),
-        "-b", target_path(target, image_dir),
-        "-o", target_path(target, out_msi),
+        target_relpath(target, wxs_path, base),
+        "-b", target_relpath(target, image_dir, base),
+        "-o", target_relpath(target, out_msi, base),
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
+    proc = subprocess.run(cmd, cwd=str(base), capture_output=True, text=True, errors="replace")
     if proc.returncode != 0 or not out_msi.exists():
         raise BuildError(
             f"wix build failed ({proc.returncode}):\n{proc.stdout}\n{proc.stderr}"
