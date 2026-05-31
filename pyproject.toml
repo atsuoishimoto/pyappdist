@@ -1,7 +1,7 @@
 [project]
 name = "pyappdist"
 version = "0.1.0"
-description = "Python アプリを Windows 向け配布物 (image + MSI) へ変換するツール"
+description = "Turn a Python app into a Windows installer(msi)"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
