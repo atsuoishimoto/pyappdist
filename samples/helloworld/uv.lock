@@ -5,7 +5,7 @@ requires-python = ">=3.11"
 [[package]]
 name = "helloworld"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 
 [package.dev-dependencies]
 dev = [
@@ -15,7 +15,7 @@ dev = [
 [package.metadata]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pyappdist", editable = "../../" }]
+dev = [{ name = "pyappdist" }]
 
 [[package]]
 name = "packaging"
@@ -37,23 +37,27 @@ wheels = [
 
 [[package]]
 name = "pyappdist"
-version = "0.1.0"
-source = { editable = "../../" }
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "packaging" },
     { name = "pip" },
+    { name = "tomlkit" },
     { name = "wheel" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "packaging", specifier = ">=23" },
-    { name = "pip", specifier = ">=26.1.1" },
-    { name = "wheel", specifier = ">=0.47.0" },
+sdist = { url = "https://files.pythonhosted.org/packages/bd/4a/c76fa2ae57f2a64acb45fe83c8810f502a13b05791698cccedb110d9f7ff/pyappdist-0.1.1.tar.gz", hash = "sha256:f6692961fcae215797cc4eb086de518d01b00bf343b137ef943b67327e9f49c6", size = 22670, upload-time = "2026-05-31T01:15:07.463Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2f/b6/eca7107893d6f761e2b6bcdbc6ea48c4985b61592805b895349d90f275b1/pyappdist-0.1.1-py3-none-any.whl", hash = "sha256:64e909caa86a34accc0ed75dd7a6238f9bdf0c8d7c33a999f3628a8f867f32f8", size = 32275, upload-time = "2026-05-31T01:15:06.131Z" },
 ]
 
-[package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8" }]
+[[package]]
+name = "tomlkit"
+version = "0.15.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/51/db/03eaf4331631ef6b27d6e3c9b68c54dc6f0d63d87201fed600cc409307fd/tomlkit-0.15.0.tar.gz", hash = "sha256:7d1a9ecba3086638211b13814ea79c90dd54dd11993564376f3aa92271f5c7a3", size = 161875, upload-time = "2026-05-10T07:38:22.245Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6a/43/8bd850ee71a191bf072e31302c73a66be413fecdd98fdcd111ecbcce13ca/tomlkit-0.15.0-py3-none-any.whl", hash = "sha256:4dbc8f0fc024412b57ced8757ac7461305126a648ff8c2c807fcb8e133a78738", size = 41328, upload-time = "2026-05-10T07:38:23.517Z" },
+]
 
 [[package]]
 name = "wheel"
