@@ -1,6 +1,7 @@
 .*
 !.github
 !.gitignore
+!.readthedocs.yaml
 # Python-generated files
 __pycache__/
 *.py[oc]
@@ -15,3 +16,6 @@ wheels/
 # pyappdist build output
 appdist/
 *.whl
+
+# Sphinx docs build output
+docs/_build/
