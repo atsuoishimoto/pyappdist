@@ -133,12 +133,30 @@ Settings for the WiX/MSI installer.
      - Stable upgrade GUID. **If omitted, pyappdist generates a UUID and writes it
        back into this table** on first build (so subsequent upgrades stay
        consistent). It must remain stable for the life of the product.
+   * - ``scope``
+     - no
+     - Install scope of the MSI. ``"perMachine"`` (default) installs for all users
+       into ``Program Files`` and requires administrator rights.
+       ``"perUserOrMachine"`` lets the install be directed at all users or just the
+       current user: the install folder uses the redirectable ``APPLICATIONFOLDER``
+       and registry writes go to ``HKMU`` (the per-user / per-machine hive that
+       matches the chosen scope). See the note below.
 
 .. code-block:: toml
 
    [tool.pyappdist.wix]
    manufacturer = "Example Inc."
    # upgrade_code is filled in automatically on first build
+   # scope = "perUserOrMachine"  # allow a per-user (no-admin) install
+
+.. note::
+
+   With ``scope = "perUserOrMachine"`` the package supports both per-user and
+   per-machine installation, selectable at install time via the
+   ``MSIINSTALLPERUSER`` / ``ALLUSERS`` properties (e.g.
+   ``msiexec /i app.msi MSIINSTALLPERUSER=1 ALLUSERS=2`` for a per-user install).
+   An interactive dialog for choosing "all users / just me" (the WixUI scope page)
+   is not generated yet.
 
 .. note::
 

@@ -18,6 +18,11 @@ _PYTHON_RE = re.compile(r"^\d+\.\d+(\.\d+)?$")
 
 _MANAGERS = ("uv", "poetry", "pipenv", "pdm", "requirements.txt")
 
+# Install scope of the generated MSI.
+#   perMachine        - all users, installs into Program Files (requires admin)
+#   perUserOrMachine  - the user picks "all users" or "just me" at install time
+_WIX_SCOPES = ("perMachine", "perUserOrMachine")
+
 
 @dataclass(frozen=True)
 class LauncherConfig:
@@ -32,6 +37,7 @@ class LauncherConfig:
 class WixConfig:
     manufacturer: str | None = None
     upgrade_code: str | None = None
+    scope: str = "perMachine"  # one of _WIX_SCOPES
 
 
 @dataclass(frozen=True)
@@ -170,7 +176,13 @@ def _parse_wix(raw: object) -> WixConfig:
         return WixConfig()
     if not isinstance(raw, dict):
         raise ConfigError("[tool.pyappdist.wix] must be a table")
+    scope = raw.get("scope", "perMachine")
+    if scope not in _WIX_SCOPES:
+        raise ConfigError(
+            f"[tool.pyappdist.wix].scope must be one of {_WIX_SCOPES}: {scope!r}"
+        )
     return WixConfig(
         manufacturer=raw.get("manufacturer"),
         upgrade_code=raw.get("upgrade_code"),
+        scope=str(scope),
     )

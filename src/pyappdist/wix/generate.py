@@ -30,6 +30,15 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
             "MSI generation requires a valid GUID in [tool.pyappdist.wix].upgrade_code"
         )
 
+    # With Scope="perUserOrMachine" the install location is chosen at install time,
+    # so the install folder uses the redirectable APPLICATIONFOLDER property and
+    # registry writes go to HKMU (maps to HKLM per-machine / HKCU per-user). Writing
+    # to HKLM in a per-user install would require admin rights and fail.
+    per_machine = config.wix.scope == "perMachine"
+    install_id = "INSTALLFOLDER" if per_machine else "APPLICATIONFOLDER"
+    install_root_reg = "HKLM" if per_machine else "HKMU"
+    shortcut_reg = "HKCU" if per_machine else "HKMU"
+
     ET.register_namespace("", WIX_NS)
     wix = ET.Element(_q("Wix"))
     pkg = _sub(
@@ -40,7 +49,7 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
         UpgradeCode=str(upgrade_code).upper(),
         Language="1033",
         Codepage="65001",
-        Scope="perMachine",
+        Scope=config.wix.scope,
     )
     _sub(pkg, "MajorUpgrade", DowngradeErrorMessage="A newer version is already installed.")
     _sub(pkg, "MediaTemplate", EmbedCab="yes")
@@ -50,15 +59,15 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
 
     # Application body (copy the image tree as-is)
     program_files = _sub(pkg, "StandardDirectory", Id="ProgramFiles64Folder")
-    install = _sub(program_files, "Directory", Id="INSTALLFOLDER", Name=config.name)
+    install = _sub(program_files, "Directory", Id=install_id, Name=config.name)
     _emit_dir(install, tree, str(upgrade_code), component_ids)
 
     # Registry entry recording the install location (usable for uninstall detection, etc.)
     reg_comp = _sub(install, "Component", Id="cmp_registry", Guid=stable_guid(upgrade_code, "::registry"))
     _sub(
         reg_comp, "RegistryValue",
-        Root="HKLM", Key=reg_key, Name="InstallDir",
-        Type="string", Value="[INSTALLFOLDER]", KeyPath="yes",
+        Root=install_root_reg, Key=reg_key, Name="InstallDir",
+        Type="string", Value=f"[{install_id}]", KeyPath="yes",
     )
     component_ids.append("cmp_registry")
 
@@ -72,13 +81,13 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
                 sc_comp, "Shortcut",
                 Id=f"sc_{_h(spec.name)}",
                 Name=spec.name,
-                Target=f"[INSTALLFOLDER]{spec.name}.exe",
-                WorkingDirectory="INSTALLFOLDER",
+                Target=f"[{install_id}]{spec.name}.exe",
+                WorkingDirectory=install_id,
             )
         _sub(sc_comp, "RemoveFolder", Id="rm_ShortcutFolder", On="uninstall")
         _sub(
             sc_comp, "RegistryValue",
-            Root="HKCU", Key=reg_key, Name="installed",
+            Root=shortcut_reg, Key=reg_key, Name="installed",
             Type="integer", Value="1", KeyPath="yes",
         )
         component_ids.append("cmp_shortcuts")

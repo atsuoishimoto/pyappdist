@@ -97,6 +97,26 @@ def test_manager_invalid(tmp_path: Path):
         load_config(_write(tmp_path, extra='manager = "conda"'))
 
 
+def test_wix_scope_default_permachine(tmp_path: Path):
+    cfg = load_config(_write(tmp_path))
+    assert cfg.wix.scope == "perMachine"
+
+
+def test_wix_scope_valid(tmp_path: Path):
+    cfg = load_config(
+        _write(
+            tmp_path,
+            extra='[tool.pyappdist.wix]\nscope = "perUserOrMachine"',
+        )
+    )
+    assert cfg.wix.scope == "perUserOrMachine"
+
+
+def test_wix_scope_invalid(tmp_path: Path):
+    with pytest.raises(ConfigError, match="scope"):
+        load_config(_write(tmp_path, extra='[tool.pyappdist.wix]\nscope = "perUser"'))
+
+
 def test_ensure_upgrade_code_generates_and_persists(tmp_path: Path):
     proj = _write(tmp_path)  # no [tool.pyappdist.wix] section
     code = ensure_upgrade_code(proj, log=lambda _m: None)
