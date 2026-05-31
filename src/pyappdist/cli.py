@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import sys
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
 
 from . import image as image_mod
@@ -147,8 +148,16 @@ def _add_runtime_opts(p: argparse.ArgumentParser) -> None:
     p.add_argument("--runtime-source", help="local runtime tar.gz (offline)")
 
 
+def _version() -> str:
+    try:
+        return _pkg_version("pyappdist")
+    except PackageNotFoundError:
+        return "unknown"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pyappdist", description="Create a Windows distribution of a Python app")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {_version()}")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("build-wheels", help="wheels into appdist/wheelhouse")
