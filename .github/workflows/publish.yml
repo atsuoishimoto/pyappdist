@@ -1,0 +1,44 @@
+name: Publish to PyPI
+
+# 手動実行（workflow_dispatch）で PyPI に公開する。
+# 認証は OIDC の Trusted Publishing を使うので API トークンは不要。
+# 事前に PyPI 側で Trusted Publisher を登録しておくこと:
+#   - PyPI Project: pyappdist
+#   - Owner: atsuoishimoto / Repository: pyappdist
+#   - Workflow: publish.yml
+#   - Environment: pypi
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pyappdist
+    permissions:
+      id-token: write   # OIDC トークンの発行に必要（Trusted Publishing）
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
