@@ -66,7 +66,8 @@ gui = false                 # true -> pythonw.exe (no console)
 
 [tool.pyappdist.wix]
 manufacturer = "Example Inc."
-upgrade_code = "PUT-A-REAL-GUID-HERE"   # stable GUID for upgrades
+# upgrade_code = "..."   # stable GUID for upgrades; auto-generated and written
+                         # back here on first build if omitted
 ```
 
 Add pyappdist to your project's dev dependencies and build:

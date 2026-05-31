@@ -7,6 +7,7 @@ requires-python = ">=3.11"
 dependencies = [
     "packaging>=23",
     "pip>=26.1.1",
+    "tomlkit>=0.15.0",
     "wheel>=0.47.0",
 ]
 

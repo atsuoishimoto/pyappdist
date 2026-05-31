@@ -12,11 +12,12 @@ Subcommands:
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import sys
 from pathlib import Path
 
 from . import image as image_mod
-from .config import load_config
+from .config import ensure_upgrade_code, load_config
 from .context import BuildContext
 from .errors import BuildError, PyappdistError
 from .launcher import build_launchers
@@ -89,8 +90,15 @@ def cmd_build_launchers(args: argparse.Namespace) -> int:
 
 
 def _write_wxs(ctx: BuildContext) -> Path:
+    # Ensure a stable upgrade_code exists (generated and persisted to pyproject.toml if unset).
+    upgrade_code = ensure_upgrade_code(ctx.config.project_dir)
+    config = ctx.config
+    if config.wix.upgrade_code != upgrade_code:
+        config = dataclasses.replace(
+            config, wix=dataclasses.replace(config.wix, upgrade_code=upgrade_code)
+        )
     tree = scan_image(ctx.image_dir)
-    xml = generate_wxs(ctx.config, tree)
+    xml = generate_wxs(config, tree)
     wxs = ctx.out_dir / f"{ctx.config.dist_name}.wxs"
     wxs.write_text(xml, encoding="utf-8")
     return wxs
@@ -118,7 +126,8 @@ def cmd_build(args: argparse.Namespace) -> int:
         image_mod.make_portable_zip(ctx)
 
     wxs = _write_wxs(ctx)
-    msi = build_msi(ctx.config, ctx.image_dir, wxs, ctx.dist_dir / f"{ctx.config.dist_name}.msi")
+    msi_name = f"{ctx.config.dist_name}-{ctx.config.version}.msi"
+    msi = build_msi(ctx.config, ctx.image_dir, wxs, ctx.dist_dir / msi_name)
     if msi is not None:
         sign_artifact(msi)
         print(f"OK: msi -> {msi} ({len(exes)} launcher)")

@@ -6,8 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from pyappdist.config import load_config
+from pyappdist.config import ensure_upgrade_code, load_config
 from pyappdist.errors import ConfigError
+from pyappdist.wix.guid import is_guid
 
 _BASE = """
 [project]
@@ -94,3 +95,23 @@ def test_manager_valid(tmp_path: Path):
 def test_manager_invalid(tmp_path: Path):
     with pytest.raises(ConfigError, match="manager"):
         load_config(_write(tmp_path, extra='manager = "conda"'))
+
+
+def test_ensure_upgrade_code_generates_and_persists(tmp_path: Path):
+    proj = _write(tmp_path)  # no [tool.pyappdist.wix] section
+    code = ensure_upgrade_code(proj, log=lambda _m: None)
+
+    assert is_guid(code)
+    # persisted: reloading via tomllib + a second call returns the same value
+    assert ensure_upgrade_code(proj, log=lambda _m: None) == code
+    assert code in (tmp_path / "pyproject.toml").read_text(encoding="utf-8")
+
+
+def test_ensure_upgrade_code_keeps_existing(tmp_path: Path):
+    existing = "7E3F9A2C-5B1D-4E8A-9C6F-1A2B3C4D5E6F"
+    proj = _write(tmp_path, extra=f'[tool.pyappdist.wix]\nupgrade_code = "{existing}"')
+    before = (tmp_path / "pyproject.toml").read_text(encoding="utf-8")
+
+    assert ensure_upgrade_code(proj, log=lambda _m: None) == existing
+    # unchanged file (no rewrite when a valid code is already present)
+    assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == before

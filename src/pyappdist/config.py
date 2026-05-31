@@ -133,6 +133,38 @@ def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:
     return tuple(out)
 
 
+def ensure_upgrade_code(project_dir: Path, *, log=print) -> str:
+    """Return the WiX upgrade_code, generating and persisting one if unset.
+
+    The upgrade code identifies the product across versions for MSI MajorUpgrade,
+    so it must stay stable across builds. When it is missing from pyproject.toml we
+    generate a UUID and write it back into [tool.pyappdist.wix], editing with
+    tomlkit so existing formatting and comments are preserved.
+    """
+    import uuid
+
+    import tomlkit
+
+    from .wix.guid import is_guid
+
+    pyproject = Path(project_dir).resolve() / "pyproject.toml"
+    doc = tomlkit.parse(pyproject.read_text(encoding="utf-8"))
+
+    wix = doc.get("tool", {}).get("pyappdist", {}).get("wix")
+    existing = wix.get("upgrade_code") if wix is not None else None
+    if existing and is_guid(str(existing)):
+        return str(existing)
+
+    code = str(uuid.uuid4()).upper()
+    tool = doc.setdefault("tool", tomlkit.table())
+    pyappdist = tool.setdefault("pyappdist", tomlkit.table())
+    wix_tbl = pyappdist.setdefault("wix", tomlkit.table())
+    wix_tbl["upgrade_code"] = code
+    pyproject.write_text(tomlkit.dumps(doc), encoding="utf-8")
+    log(f"wix: generated upgrade_code {code} -> {pyproject}")
+    return code
+
+
 def _parse_wix(raw: object) -> WixConfig:
     if raw is None:
         return WixConfig()
