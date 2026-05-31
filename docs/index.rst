@@ -49,6 +49,7 @@ C-API version risk — the stub never changes when the Python version does.
    dependencies
    signing
    samples
+   GitHub <https://github.com/atsuoishimoto/pyappdist>
 
 Status
 ------

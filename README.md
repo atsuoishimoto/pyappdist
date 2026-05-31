@@ -44,16 +44,16 @@ The result lands under `appdist/dist/`: a portable `.zip` and an `.msi` installe
 
 ## Documentation
 
-Full documentation lives in the [`docs/`](docs/) directory (Sphinx / Read the Docs):
+Full documentation: **https://pyappdist.readthedocs.io/en/latest/**
 
-- [Installation & requirements](docs/installation.rst)
-- [Quick start](docs/quickstart.rst)
-- [How it works](docs/how-it-works.rst)
-- [Configuration reference](docs/configuration.rst)
-- [CLI reference](docs/cli.rst)
-- [Dependency resolution](docs/dependencies.rst)
-- [Code signing](docs/signing.rst)
-- [Samples](docs/samples.rst)
+- [Installation & requirements](https://pyappdist.readthedocs.io/en/latest/installation.html)
+- [Quick start](https://pyappdist.readthedocs.io/en/latest/quickstart.html)
+- [How it works](https://pyappdist.readthedocs.io/en/latest/how-it-works.html)
+- [Configuration reference](https://pyappdist.readthedocs.io/en/latest/configuration.html)
+- [CLI reference](https://pyappdist.readthedocs.io/en/latest/cli.html)
+- [Dependency resolution](https://pyappdist.readthedocs.io/en/latest/dependencies.html)
+- [Code signing](https://pyappdist.readthedocs.io/en/latest/signing.html)
+- [Samples](https://pyappdist.readthedocs.io/en/latest/samples.html)
 
 ## Status
 
