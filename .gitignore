@@ -1,0 +1,21 @@
+.*
+!.github
+!.gitignore
+!.readthedocs.yaml
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# pyappdist build output
+appdist/
+*.whl
+
+# Sphinx docs build output
+docs/_build/

@@ -1,0 +1,54 @@
+[project]
+name = "pyappdist"
+version = "0.1.1"
+description = "Turn a Python app into a Windows installer(msi)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Atsuo Ishimoto", email = "atsuoishimoto@gmail.com" },
+]
+keywords = ["windows", "installer", "msi", "packaging", "distribution", "wheel", "wix"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: Developers",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: System :: Installation/Setup",
+    "Topic :: System :: Software Distribution",
+]
+dependencies = [
+    "packaging>=23",
+    "pip>=26.1.1",
+    "tomlkit>=0.15.0",
+    "wheel>=0.47.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/atsuoishimoto/pyappdist"
+Documentation = "https://pyappdist.readthedocs.io/"
+Repository = "https://github.com/atsuoishimoto/pyappdist"
+Issues = "https://github.com/atsuoishimoto/pyappdist/issues"
+
+[project.scripts]
+pyappdist = "pyappdist.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+
+[build-system]
+requires = ["uv_build>=0.11.6,<0.12.0"]
+build-backend = "uv_build"

@@ -1,0 +1,28 @@
+[project]
+name = "pandascli"
+version = "0.1.0"
+description = "pyappdist の pandas CLI サンプル"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.2",
+]
+
+[dependency-groups]
+dev = [
+    "pyappdist",
+]
+
+[tool.pyappdist]
+name = "Pandas CLI"
+identifier = "com.example.pandascli"
+python = "3.12"
+target = "windows-x86_64"
+
+launchers = [
+  { name = "pandascli", entry = "pandascli:main", gui = false },
+]
+
+[tool.pyappdist.wix]
+manufacturer = "Example Inc."
+upgrade_code = "5E2A9C71-4B83-4D6F-9A02-1C3E5B7D9F40"

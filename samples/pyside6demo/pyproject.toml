@@ -1,0 +1,28 @@
+[project]
+name = "pyside6demo"
+version = "0.1.0"
+description = "pyappdist の PySide6 GUI サンプル"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "PySide6>=6.7",
+]
+
+[dependency-groups]
+dev = [
+    "pyappdist",
+]
+
+[tool.pyappdist]
+name = "PySide6 Demo"
+identifier = "com.example.pyside6demo"
+python = "3.12"
+target = "windows-x86_64"
+
+launchers = [
+  { name = "pyside6demo", entry = "pyside6demo:main", gui = true, icon = "assets/pyside6demo.ico" },
+]
+
+[tool.pyappdist.wix]
+manufacturer = "Example Inc."
+upgrade_code = "3B7C1E5A-9D24-4F86-A1C3-7E0F2B4D6A88"

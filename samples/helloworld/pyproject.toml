@@ -1,0 +1,25 @@
+[project]
+name = "helloworld"
+version = "0.1.0"
+description = "pyappdist のサンプルアプリ"
+readme = "README.md"
+requires-python = ">=3.11"
+
+[dependency-groups]
+dev = [
+    "pyappdist",
+]
+
+[tool.pyappdist]
+name = "Hello World"
+identifier = "com.example.helloworld"
+python = "3.12"
+target = "windows-x86_64"
+
+launchers = [
+  { name = "helloworld", entry = "helloworld:main", gui = false },
+]
+
+[tool.pyappdist.wix]
+manufacturer = "Example Inc."
+upgrade_code = "7E3F9A2C-5B1D-4E8A-9C6F-1A2B3C4D5E6F"

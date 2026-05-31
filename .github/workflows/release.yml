@@ -1,0 +1,44 @@
+name: Release
+
+# タグ push でクリーンルーム（windows-latest）E2E を行い、MSI + portable zip を
+# リリース成果物として生成・検証する。サンプル helloworld を E2E フィクスチャに使う。
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install WiX (v5, OSMF フィー無し)
+        run: dotnet tool install --global wix --version 5.0.2
+
+      - name: Build (wheels -> runtime -> image -> launcher -> wix -> MSI)
+        env:
+          # 署名する場合のみ secret を設定（未設定なら未署名で出荷）。
+          # 例: 'signtool.exe sign /fd SHA256 /tr <ts-url> /td SHA256 /f cert.pfx /p $PWD "{file}"'
+          PYAPPDIST_SIGN_CMD: ${{ secrets.PYAPPDIST_SIGN_CMD }}
+        run: uv run pyappdist build sample/helloworld
+
+      - name: Smoke test (install -> run -> uninstall)
+        shell: pwsh
+        run: |
+          $msi = "sample/helloworld/appdist/dist/helloworld.msi"
+          Start-Process msiexec -ArgumentList "/i `"$msi`" /qn" -Wait
+          $exe = Join-Path $env:ProgramFiles "Hello World/helloworld.exe"
+          $out = & $exe
+          if ($LASTEXITCODE -ne 0) { throw "exe exit code $LASTEXITCODE" }
+          if ($out -notmatch "Hello from helloworld!") { throw "unexpected output: $out" }
+          Start-Process msiexec -ArgumentList "/x `"$msi`" /qn" -Wait
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: helloworld-windows
+          path: |
+            sample/helloworld/appdist/dist/*.msi
+            sample/helloworld/appdist/dist/*.zip
