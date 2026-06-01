@@ -26,6 +26,7 @@ from .config import ensure_upgrade_code, load_configs
 from .context import BuildContext
 from .errors import BuildError, PyappdistError
 from .launcher import build_launchers
+from .msix import build_msix
 from .runtime import fetch_runtime
 from .sign import sign_artifact
 from .wheels import build_wheelhouse
@@ -128,6 +129,18 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
     exes = build_launchers(ctx.config, layout, ctx.out_dir / "_launcher_build")
     for exe in exes:
         sign_artifact(exe)
+
+    if ctx.config.format == "msix":
+        # MSIX packs the image directly; no portable zip (the .msix is the deliverable).
+        msix_name = f"{ctx.config.dist_name}-{ctx.config.version}.msix"
+        pkg = build_msix(ctx.config, ctx.image_dir, ctx.dist_dir / msix_name)
+        if pkg is not None:
+            sign_artifact(pkg)
+            print(f"OK [{_tag(ctx)}]: msix -> {pkg} ({len(exes)} launcher)")
+        else:
+            print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} (msix skipped on non-Windows)")
+        return
+
     if not args.no_zip:
         image_mod.make_portable_zip(ctx)
 

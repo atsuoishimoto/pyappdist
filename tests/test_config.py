@@ -169,6 +169,36 @@ def test_license_must_be_rtf(tmp_path: Path):
         load_configs(_write(tmp_path, target_extra='license = "EULA.txt"'))
 
 
+def test_format_default_msi(tmp_path: Path):
+    assert load_configs(_write(tmp_path))[0].format == "msi"
+
+
+def test_format_msix(tmp_path: Path):
+    cfg = load_configs(_write(tmp_path, target_extra='format = "msix"'))[0]
+    assert cfg.format == "msix"
+
+
+def test_format_invalid(tmp_path: Path):
+    with pytest.raises(ConfigError, match="format"):
+        load_configs(_write(tmp_path, target_extra='format = "appx"'))
+
+
+def test_msix_fields(tmp_path: Path):
+    cfg = load_configs(
+        _write(
+            tmp_path,
+            target_extra='format = "msix"\nidentity_name = "Contoso.App"\npublisher = "CN=Contoso"',
+        )
+    )[0]
+    assert cfg.msix.identity_name == "Contoso.App"
+    assert cfg.msix.publisher == "CN=Contoso"
+
+
+def test_msix_logo_must_be_png(tmp_path: Path):
+    with pytest.raises(ConfigError, match="png"):
+        load_configs(_write(tmp_path, target_extra='logo = "logo.jpg"'))
+
+
 def test_ensure_upgrade_code_generates_and_persists(tmp_path: Path):
     proj = _write(tmp_path)  # target has no upgrade_code yet
     code = ensure_upgrade_code(proj, "windows-x86_64", log=lambda _m: None)

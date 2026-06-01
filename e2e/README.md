@@ -26,10 +26,14 @@ uv run python -c "import pyappdist, pathlib; print(pathlib.Path(pyappdist.__file
 ## Projects
 
 - `smoke/` — a minimal, dependency-free console app. Smoke-tests the whole build
-  pipeline, including the `user` scope and a license dialog.
+  pipeline. It defines two targets: an **MSI** (`user` scope, with a license dialog) and
+  an **MSIX** (`format = "msix"`, named `msix`). `uv run pyappdist build` builds both;
+  `uv run pyappdist build msix` builds just the MSIX.
 
-> `smoke/` sets a `license`, so building it needs the WiX UI extension once:
-> `wix extension add -g WixToolset.UI.wixext/5.0.2`.
+> Building the MSI target needs the WiX UI extension once
+> (`wix extension add -g WixToolset.UI.wixext/5.0.2`); the MSIX target needs the Windows
+> SDK `makeappx` (located automatically). Installing the unsigned `.msix` locally needs
+> **Developer Mode** (`Add-AppxPackage -Register <image>\AppxManifest.xml`).
 >
 > When running from WSL, the build output must live on a Windows volume (`/mnt/...`),
 > because cmd.exe cannot start from a UNC path.
