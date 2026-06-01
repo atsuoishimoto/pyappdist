@@ -24,7 +24,9 @@ def test_golden(sample_config, sample_tree):
 def test_golden_peruser(sample_config, sample_tree):
     cfg = dataclasses.replace(
         sample_config,
-        wix=dataclasses.replace(sample_config.wix, scope="perUserOrMachine"),
+        wix=dataclasses.replace(
+            sample_config.wix, scope="perUserOrMachine", license="EULA.rtf"
+        ),
     )
     expected = GOLDEN_PERUSER.read_text(encoding="utf-8")
     actual = generate_wxs(cfg, sample_tree)

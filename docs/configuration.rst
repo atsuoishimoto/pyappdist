@@ -137,26 +137,47 @@ Settings for the WiX/MSI installer.
      - no
      - Install scope of the MSI. ``"perMachine"`` (default) installs for all users
        into ``Program Files`` and requires administrator rights.
-       ``"perUserOrMachine"`` lets the install be directed at all users or just the
-       current user: the install folder uses the redirectable ``APPLICATIONFOLDER``
-       and registry writes go to ``HKMU`` (the per-user / per-machine hive that
-       matches the chosen scope). See the note below.
+       ``"perUserOrMachine"`` produces a dual-purpose package: an all-users install
+       goes to ``Program Files`` (admin), a just-me install goes to
+       ``%LocalAppData%\Programs\<name>`` (no admin). Registry writes go to ``HKMU``
+       (the per-user / per-machine hive matching the chosen scope). This scope
+       **requires** ``license`` (see below).
+   * - ``license``
+     - for ``perUserOrMachine``
+     - Path (relative to the project) to an **RTF** end-user license agreement. When
+       set, the installer shows a license page. Required for ``perUserOrMachine``;
+       optional for ``perMachine`` (where it adds a simple welcome + license dialog).
 
 .. code-block:: toml
 
    [tool.pyappdist.wix]
    manufacturer = "Example Inc."
    # upgrade_code is filled in automatically on first build
-   # scope = "perUserOrMachine"  # allow a per-user (no-admin) install
+   scope = "perUserOrMachine"   # all-users or just-me
+   license = "EULA.rtf"          # required for perUserOrMachine
 
 .. note::
 
-   With ``scope = "perUserOrMachine"`` the package supports both per-user and
-   per-machine installation, selectable at install time via the
-   ``MSIINSTALLPERUSER`` / ``ALLUSERS`` properties (e.g.
-   ``msiexec /i app.msi MSIINSTALLPERUSER=1 ALLUSERS=2`` for a per-user install).
-   An interactive dialog for choosing "all users / just me" (the WixUI scope page)
-   is not generated yet.
+   With ``scope = "perUserOrMachine"`` the MSI uses the stock WixUI_Advanced dialog
+   set. The first page is the license/welcome; the all-users vs just-me choice is
+   behind its **"Advanced"** button, and the radio only appears when the installer is
+   run elevated (a normal double-click installs just-me into ``%LocalAppData%\Programs``).
+
+   Either way the scope and install location can be driven from the command line,
+   independent of the dialogs:
+
+   .. code-block:: bat
+
+      msiexec /i app.msi /qn MSIINSTALLPERUSER=1 ALLUSERS=2   :: per-user, silent
+      msiexec /i app.msi /qn ALLUSERS=1                       :: per-machine (elevated), silent
+      msiexec /i app.msi /qn APPLICATIONFOLDER="C:\MyApp"     :: explicit folder
+
+   Silent installs (``/qn`` / ``/qb``) skip the UI, so the license is not shown and no
+   acceptance step is required.
+
+   Building any package with installer UI (the ``perUserOrMachine`` scope or a
+   ``license``) requires the WiX UI extension; install it once with
+   ``wix extension add -g WixToolset.UI.wixext/5.0.2``.
 
 .. note::
 

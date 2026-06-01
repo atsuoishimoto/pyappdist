@@ -38,6 +38,7 @@ class WixConfig:
     manufacturer: str | None = None
     upgrade_code: str | None = None
     scope: str = "perMachine"  # one of _WIX_SCOPES
+    license: str | None = None  # path (relative to project_dir) to an RTF license to show
 
 
 @dataclass(frozen=True)
@@ -181,8 +182,19 @@ def _parse_wix(raw: object) -> WixConfig:
         raise ConfigError(
             f"[tool.pyappdist.wix].scope must be one of {_WIX_SCOPES}: {scope!r}"
         )
+    license_ = raw.get("license")
+    if license_ is not None and not str(license_).lower().endswith(".rtf"):
+        raise ConfigError(
+            f"[tool.pyappdist.wix].license must be an .rtf file: {license_!r}"
+        )
+    if scope == "perUserOrMachine" and license_ is None:
+        raise ConfigError(
+            '[tool.pyappdist.wix].license (an .rtf EULA) is required when '
+            'scope = "perUserOrMachine"'
+        )
     return WixConfig(
         manufacturer=raw.get("manufacturer"),
         upgrade_code=raw.get("upgrade_code"),
         scope=str(scope),
+        license=str(license_) if license_ is not None else None,
     )

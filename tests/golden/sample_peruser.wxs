@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package Name="Hello World" Manufacturer="Example Inc." Version="1.2.3" UpgradeCode="7E3F9A2C-5B1D-4E8A-9C6F-1A2B3C4D5E6F" Language="1033" Codepage="65001" Scope="perUserOrMachine">
     <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
     <MediaTemplate EmbedCab="yes" />
+    <Property Id="ApplicationFolderName" Value="Hello World" />
+    <Property Id="WixAppFolder" Value="WixPerMachineFolder" />
+    <SetProperty Id="WixPerUserFolder" Value="[LocalAppDataFolder]Programs\[ApplicationFolderName]" After="WixSetDefaultPerUserFolder" Sequence="both" />
+    <ui:WixUI Id="WixUI_Advanced" />
+    <WixVariable Id="WixUILicenseRtf" Value="pyappdist_license.rtf" />
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="APPLICATIONFOLDER" Name="Hello World">
         <Component Id="cmp_6330f635c852" Guid="9641F219-56EF-59DC-9F26-84A56E0379B2">

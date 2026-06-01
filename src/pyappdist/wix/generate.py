@@ -1,9 +1,14 @@
 """Pure function that generates WiX v4 XML from the neutral IR (DirNode).
 
-No CustomActions are used; only file copy, shortcuts, and registry entries.
-File@Source is emitted as a path relative to the image root and resolved via the
-``wix build -b <image>`` bind path (no absolute paths are embedded, so golden
-comparisons stay stable).
+For ``Scope="perMachine"`` only file copy, shortcuts, and registry entries are used.
+``Scope="perUserOrMachine"`` adds the stock WixUI_Advanced dialog set (welcome + EULA;
+the all-users / just-me choice is behind its "Advanced" button and the radio appears
+only when elevated) and a ``SetProperty`` that redirects the per-user install folder to
+``%LocalAppData%\\Programs``. That scope requires ``[tool.pyappdist.wix].license`` (an
+RTF EULA), wired via ``WixUILicenseRtf``. Any UI needs the ``WixToolset.UI.wixext``
+extension at build time. File@Source is emitted as a path relative to the image root and
+resolved via the ``wix build -b <image>`` bind path (no absolute paths are embedded, so
+golden comparisons stay stable).
 """
 
 from __future__ import annotations
@@ -17,6 +22,11 @@ from .guid import is_guid, stable_guid
 from .scan import DirNode
 
 WIX_NS = "http://wixtoolset.org/schemas/v4/wxs"
+WIX_UI_NS = "http://wixtoolset.org/schemas/v4/wxs/ui"
+
+# Filename the license RTF is staged to next to the .wxs (see wix/build.py); referenced
+# from WixUILicenseRtf so it resolves relative to the wix build working directory.
+LICENSE_STAGED_NAME = "pyappdist_license.rtf"
 
 
 def generate_wxs(config: Config, tree: DirNode) -> str:
@@ -30,16 +40,19 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
             "MSI generation requires a valid GUID in [tool.pyappdist.wix].upgrade_code"
         )
 
-    # With Scope="perUserOrMachine" the install location is chosen at install time,
-    # so the install folder uses the redirectable APPLICATIONFOLDER property and
-    # registry writes go to HKMU (maps to HKLM per-machine / HKCU per-user). Writing
-    # to HKLM in a per-user install would require admin rights and fail.
+    # Scope="perUserOrMachine" lets the user pick an all-users or just-me install at
+    # install time (via the stock WixUI_Advanced dialog set). The install folder is the
+    # redirectable APPLICATIONFOLDER: per-machine -> Program Files, per-user ->
+    # %LocalAppData%\Programs\<Name>. Registry writes go to HKMU (maps to HKLM
+    # per-machine / HKCU per-user) -- writing HKLM in a per-user install would require
+    # admin rights and fail.
     per_machine = config.wix.scope == "perMachine"
     install_id = "INSTALLFOLDER" if per_machine else "APPLICATIONFOLDER"
     install_root_reg = "HKLM" if per_machine else "HKMU"
     shortcut_reg = "HKCU" if per_machine else "HKMU"
 
     ET.register_namespace("", WIX_NS)
+    ET.register_namespace("ui", WIX_UI_NS)
     wix = ET.Element(_q("Wix"))
     pkg = _sub(
         wix, "Package",
@@ -53,6 +66,30 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
     )
     _sub(pkg, "MajorUpgrade", DowngradeErrorMessage="A newer version is already installed.")
     _sub(pkg, "MediaTemplate", EmbedCab="yes")
+
+    license_configured = bool(config.wix.license)
+    if not per_machine:
+        # WixUI_Advanced shows the all-users / just-me selection (behind its "Advanced"
+        # button; the radio appears only when elevated). Default the radio to all-users
+        # and redirect the per-user default to %LocalAppData%\Programs\<Name> (WixUI's
+        # own default is ...\Apps\...). The license (required for this scope) shows as
+        # the EULA on the welcome dialog.
+        _sub(pkg, "Property", Id="ApplicationFolderName", Value=config.name)
+        _sub(pkg, "Property", Id="WixAppFolder", Value="WixPerMachineFolder")
+        _sub(
+            pkg, "SetProperty",
+            Id="WixPerUserFolder",
+            Value="[LocalAppDataFolder]Programs\\[ApplicationFolderName]",
+            After="WixSetDefaultPerUserFolder",
+            Sequence="both",
+        )
+        _ui_sub(pkg, "WixUI", Id="WixUI_Advanced")
+    elif license_configured:
+        # perMachine + license: stock minimal dialog set (welcome + license + install).
+        _ui_sub(pkg, "WixUI", Id="WixUI_Minimal")
+    if license_configured:
+        # The RTF is staged next to the .wxs by wix/build.py under this name.
+        _sub(pkg, "WixVariable", Id="WixUILicenseRtf", Value=LICENSE_STAGED_NAME)
 
     reg_key = f"Software\\{manufacturer}\\{config.name}"
     component_ids: list[str] = []
@@ -118,6 +155,14 @@ def _q(tag: str) -> str:
 
 def _sub(parent: ET.Element, tag: str, **attrs: str) -> ET.Element:
     el = ET.SubElement(parent, _q(tag))
+    for key, value in attrs.items():
+        el.set(key, value)
+    return el
+
+
+def _ui_sub(parent: ET.Element, tag: str, **attrs: str) -> ET.Element:
+    """Like ``_sub`` but in the WixUI extension namespace (e.g. ``ui:WixUI``)."""
+    el = ET.SubElement(parent, f"{{{WIX_UI_NS}}}{tag}")
     for key, value in attrs.items():
         el.set(key, value)
     return el
