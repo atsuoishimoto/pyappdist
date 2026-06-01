@@ -28,7 +28,16 @@ from .config import ensure_upgrade_code, load_configs
 from .context import BuildContext
 from .errors import BuildError, PyappdistError
 from .launcher import build_launchers
-from .macos import build_dmg, build_macos_apps, deep_sign
+from .macos import (
+    build_dmg,
+    build_macos_apps,
+    deep_sign,
+    notarize_and_staple,
+    notarize_app,
+    resolve_notary_profile,
+    resolve_sign_options,
+    sign_file,
+)
 from .msix import build_msix
 from .runtime import fetch_runtime
 from .sign import sign_artifact
@@ -142,9 +151,17 @@ def _build_macos(ctx: BuildContext, args: argparse.Namespace) -> None:
     layout = image_mod.build_image(ctx, info, compile_pyc=not args.no_compile)
     build_launchers(cfg, layout, ctx.out_dir / "_launcher_build")  # Mach-O into image/<name>
 
-    apps = build_macos_apps(cfg, layout.image_dir, ctx.out_dir / "_app_build")
+    build_dir = ctx.out_dir / "_app_build"
+    sign_opts = resolve_sign_options(cfg, build_dir)
+    apps = build_macos_apps(cfg, layout.image_dir, build_dir)
     for app in apps:
-        deep_sign(app)
+        deep_sign(app, sign_opts)
+
+    # Notarization requires a real Developer ID signature; ad-hoc cannot be notarized.
+    profile = resolve_notary_profile(cfg)
+    notarize = profile is not None and not sign_opts.adhoc
+    if profile is not None and sign_opts.adhoc:
+        print(f"OK [{tag}]: notarization skipped (ad-hoc signature; set signing_identity for Developer ID)")
 
     if cfg.format == "app":
         ctx.dist_dir.mkdir(parents=True, exist_ok=True)
@@ -155,11 +172,18 @@ def _build_macos(ctx: BuildContext, args: argparse.Namespace) -> None:
                 shutil.rmtree(dest)
             shutil.copytree(app, dest, symlinks=True)
             finals.append(dest)
+        if notarize:
+            for dest in finals:
+                notarize_app(dest, profile)  # zip-submit, then staple the bundle
         print(f"OK [{tag}]: {len(finals)} .app -> {ctx.dist_dir}")
         return
 
     dmg = build_dmg(cfg, apps, ctx.dist_dir / f"{cfg.dist_name}-{cfg.version}.dmg")
-    sign_artifact(dmg)  # optional Developer ID dmg signing via PYAPPDIST_SIGN_CMD; ad-hoc otherwise
+    if not sign_opts.adhoc:
+        sign_file(dmg, sign_opts)  # sign the disk image itself with the Developer ID
+    sign_artifact(dmg)  # optional extra signing via PYAPPDIST_SIGN_CMD
+    if notarize:
+        notarize_and_staple(dmg, profile)
     print(f"OK [{tag}]: dmg -> {dmg} ({len(apps)} app)")
 
 

@@ -161,8 +161,11 @@ target is required.
      - *(macOS)* ``LSApplicationCategoryType`` (e.g. ``"public.app-category.utilities"``).
    * - ``signing_identity``, ``team_id``, ``notary_profile``, ``entitlements``
      - no
-     - *(macOS)* Reserved for Developer ID signing + notarization. Parsed but unused in the
-       current ad-hoc-signing MVP.
+     - *(macOS)* Developer ID signing + notarization. ``signing_identity`` (or
+       ``PYAPPDIST_SIGNING_IDENTITY``) switches from ad-hoc to a Developer ID signature with
+       hardened runtime; ``notary_profile`` (or ``PYAPPDIST_NOTARY_PROFILE``) additionally
+       notarizes and staples. ``entitlements`` overrides the bundled-python default plist.
+       See :doc:`signing`. Without these, the build signs **ad-hoc** (local-only).
 
 .. code-block:: toml
 
