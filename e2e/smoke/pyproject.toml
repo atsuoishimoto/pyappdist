@@ -32,3 +32,9 @@ manufacturer = "pyappdist"
 upgrade_code = "472A7365-2828-49C1-8B71-5B4FFB33D8F9"
 scope = "user"
 license = "EULA.rtf"
+
+[[tool.pyappdist.targets]]
+name = "msix"
+platform = "windows-x86_64"
+format = "msix"
+manufacturer = "pyappdist"

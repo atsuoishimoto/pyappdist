@@ -27,6 +27,9 @@ _MANAGERS = ("uv", "poetry", "pipenv", "pdm", "requirements.txt")
 #   user    - current user only, installs into %LocalAppData%\Programs (no admin)
 _WIX_SCOPES = ("machine", "user")
 
+# Output package format per target.
+_FORMATS = ("msi", "msix")
+
 
 @dataclass(frozen=True)
 class LauncherConfig:
@@ -46,6 +49,16 @@ class WixConfig:
 
 
 @dataclass(frozen=True)
+class MsixConfig:
+    """MSIX-specific settings; defaults are resolved when the manifest is generated."""
+
+    identity_name: str | None = None  # MSIX Identity/Name (default: dist_name)
+    publisher: str | None = None      # MSIX Identity/Publisher DN (default: CN=<manufacturer>)
+    display_name: str | None = None   # default: app display name
+    logo: str | None = None           # path (relative to project_dir) to a source PNG
+
+
+@dataclass(frozen=True)
 class Config:
     """One fully-resolved build target (app-level settings + one target's settings)."""
 
@@ -56,8 +69,10 @@ class Config:
     python: str         # "X.Y" or "X.Y.Z"
     target: Target
     target_name: str    # the [[tool.pyappdist.targets]].name label (defaults to the platform)
+    format: str         # output package format: "msi" | "msix"
     launchers: tuple[LauncherConfig, ...]
     wix: WixConfig
+    msix: MsixConfig
     manager: str | None  # manager used for dependency resolution (uv/poetry/pipenv/pdm/requirements.txt). None=auto-detect
 
     @property
@@ -125,15 +140,17 @@ def load_configs(
             python=str(python),
             target=target,
             target_name=target_name,
+            format=fmt,
             launchers=launchers,
             wix=wix,
+            msix=msix,
             manager=manager,
         )
-        for (target_name, target, wix) in specs
+        for (target_name, target, fmt, wix, msix) in specs
     ]
 
 
-def _parse_targets(raw: object) -> list[tuple[str, Target, WixConfig]]:
+def _parse_targets(raw: object) -> list[tuple[str, Target, str, WixConfig, MsixConfig]]:
     if not raw:
         raise ConfigError(
             "at least one [[tool.pyappdist.targets]] is required"
@@ -141,7 +158,7 @@ def _parse_targets(raw: object) -> list[tuple[str, Target, WixConfig]]:
     if not isinstance(raw, list):
         raise ConfigError("[[tool.pyappdist.targets]] must be an array of tables")
 
-    specs: list[tuple[str, Target, WixConfig]] = []
+    specs: list[tuple[str, Target, str, WixConfig, MsixConfig]] = []
     for i, item in enumerate(raw):
         if not isinstance(item, dict):
             raise ConfigError(f"targets[{i}] must be a table")
@@ -152,7 +169,12 @@ def _parse_targets(raw: object) -> list[tuple[str, Target, WixConfig]]:
             )
         target = get_target(str(platform))
         target_name = str(item.get("name") or platform)
-        specs.append((target_name, target, _parse_wix(item, i)))
+        fmt = item.get("format", "msi")
+        if fmt not in _FORMATS:
+            raise ConfigError(f"targets[{i}].format must be one of {_FORMATS}: {fmt!r}")
+        specs.append(
+            (target_name, target, str(fmt), _parse_wix(item, i), _parse_msix(item, i))
+        )
 
     names = [s[0] for s in specs]
     dups = sorted({n for n in names if names.count(n) > 1})
@@ -177,6 +199,18 @@ def _parse_wix(raw: dict, index: int) -> WixConfig:
         upgrade_code=raw.get("upgrade_code"),
         scope=str(scope),
         license=str(license_) if license_ is not None else None,
+    )
+
+
+def _parse_msix(raw: dict, index: int) -> MsixConfig:
+    logo = raw.get("logo")
+    if logo is not None and not str(logo).lower().endswith(".png"):
+        raise ConfigError(f"targets[{index}].logo must be a .png file: {logo!r}")
+    return MsixConfig(
+        identity_name=raw.get("identity_name"),
+        publisher=raw.get("publisher"),
+        display_name=raw.get("display_name"),
+        logo=str(logo) if logo is not None else None,
     )
 
 

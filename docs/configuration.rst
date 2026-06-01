@@ -104,35 +104,61 @@ target is required.
      - no
      - Label used to select this target on the command line and as its output
        subdirectory (``appdist/<name>/``). Defaults to ``platform``; must be unique.
+   * - ``format``
+     - no
+     - Output package: ``"msi"`` (default) or ``"msix"`` (for the Microsoft Store or
+       sideloading). The keys below are grouped by which format uses them.
    * - ``manufacturer``
      - for MSI
      - Manufacturer / vendor name. Required to generate the MSI; also used as the
-       launcher's version-resource company name.
+       launcher's version-resource company name and the MSIX PublisherDisplayName.
    * - ``upgrade_code``
      - no
-     - Stable upgrade GUID. **If omitted, pyappdist generates a UUID and writes it back
-       into this target's table** on first build. It must remain stable for the life of
-       the product, and is per target.
+     - *(MSI)* Stable upgrade GUID. **If omitted, pyappdist generates a UUID and writes
+       it back into this target's table** on first build. Must stay stable for the life
+       of the product, and is per target.
    * - ``scope``
      - no
-     - Install scope, a build-time choice. ``"user"`` (default) makes a per-user package
-       that installs into ``%LocalAppData%\Programs\<name>`` with no administrator rights
-       (registry in ``HKCU``). ``"machine"`` makes a per-machine package that installs
-       into ``Program Files`` and requires administrator rights (registry in ``HKLM``).
+     - *(MSI)* Install scope. ``"user"`` (default) makes a per-user package that installs
+       into ``%LocalAppData%\Programs\<name>`` with no administrator rights (registry in
+       ``HKCU``). ``"machine"`` installs into ``Program Files`` and requires admin
+       (registry in ``HKLM``).
    * - ``license``
      - no
-     - Optional path (relative to the project) to an **RTF** end-user license agreement.
-       When set, the installer shows a one-page license dialog (WixUI_Minimal).
+     - *(MSI)* Optional path (relative to the project) to an **RTF** end-user license
+       agreement. When set, the installer shows a one-page license dialog (WixUI_Minimal).
+   * - ``identity_name``
+     - no
+     - *(MSIX)* Package Identity Name (for the Store, the reserved ``Publisher.AppName``).
+       Defaults to ``[project].name``.
+   * - ``publisher``
+     - no
+     - *(MSIX)* Package Identity Publisher DN (e.g. ``"CN=Contoso"``); for the Store or
+       signing it must match. Defaults to ``CN=<manufacturer>``.
+   * - ``display_name``
+     - no
+     - *(MSIX)* App display name. Defaults to ``[tool.pyappdist].name``.
+   * - ``logo``
+     - no
+     - *(MSIX)* Path to a source PNG used for the package logos. A placeholder is
+       generated if omitted.
 
 .. code-block:: toml
 
-   [[tool.pyappdist.targets]]
+   [[tool.pyappdist.targets]]              # an MSI (default)
    platform = "windows-x86_64"
    manufacturer = "Example Inc."
-   # name = "win-x64"        # defaults to the platform
-   # upgrade_code is filled in automatically on first build
    scope = "user"            # "user" (default) or "machine"
    # license = "EULA.rtf"    # optional EULA shown at install time
+
+   [[tool.pyappdist.targets]]              # an MSIX for the Store
+   name = "store"
+   platform = "windows-x86_64"
+   format = "msix"
+   manufacturer = "Example Inc."
+   # identity_name = "Contoso.MyApp"   # from Partner Center for the Store
+   # publisher = "CN=Contoso"
+   # logo = "assets/logo.png"
 
 Platform values
 ~~~~~~~~~~~~~~~~
@@ -174,3 +200,20 @@ validating the pipeline on Linux (no MSI is produced for it).
 
    The ``upgrade_code`` is written back using ``tomlkit``, which preserves your
    file's existing formatting and comments.
+
+.. note::
+
+   **MSIX** (``format = "msix"``) packs the same image with ``makeappx`` (Windows SDK;
+   located automatically, or set ``PYAPPDIST_MAKEAPPX`` to its path). The
+   package is left **unsigned**: the Microsoft Store signs it for free on submission
+   (company registration is also free), and auto-updates are handled by the Store. The
+   launchers are packaged as full-trust Win32 apps (``runFullTrust``).
+
+   To test an unsigned ``.msix`` locally, enable **Developer Mode** (Settings → For
+   developers; one-time, requires admin), then::
+
+      Add-AppxPackage -Register <image>\AppxManifest.xml   # loose, from the built image
+      # or:  Add-AppxPackage -AllowUnsigned <app>.msix
+
+   Without the Store or Developer Mode, an unsigned MSIX cannot be installed (it would
+   need your own trusted code-signing certificate).
