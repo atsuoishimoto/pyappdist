@@ -11,5 +11,5 @@ as Windows wheels.
 ## Build the distribution
 
 ```bash
-pyappdist build -C samples/matplotlibdemo
+pyappdist build
 ```

@@ -10,5 +10,5 @@ Windows wheels and installed into the runtime's site-packages.
 ## Build the distribution
 
 ```bash
-pyappdist build -C samples/pandascli
+pyappdist build
 ```

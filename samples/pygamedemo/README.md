@@ -10,7 +10,7 @@ wheelhouse (as Windows wheels) and installed into the runtime's site-packages.
 ## Build the distribution
 
 ```bash
-pyappdist build -C samples/pygamedemo
+pyappdist build
 ```
 
 The image / portable zip / MSI are written under `samples/pygamedemo/appdist/<target>/`.
