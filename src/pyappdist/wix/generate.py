@@ -1,14 +1,13 @@
 """Pure function that generates WiX v4 XML from the neutral IR (DirNode).
 
-For ``Scope="perMachine"`` only file copy, shortcuts, and registry entries are used.
-``Scope="perUserOrMachine"`` adds the stock WixUI_Advanced dialog set (welcome + EULA;
-the all-users / just-me choice is behind its "Advanced" button and the radio appears
-only when elevated) and a ``SetProperty`` that redirects the per-user install folder to
-``%LocalAppData%\\Programs``. That scope requires ``[tool.pyappdist.wix].license`` (an
-RTF EULA), wired via ``WixUILicenseRtf``. Any UI needs the ``WixToolset.UI.wixext``
-extension at build time. File@Source is emitted as a path relative to the image root and
-resolved via the ``wix build -b <image>`` bind path (no absolute paths are embedded, so
-golden comparisons stay stable).
+``scope`` is a build-time choice: ``"user"`` (default) makes a per-user package that
+installs into ``%LocalAppData%\\Programs\\<name>`` with no admin, and ``"machine"`` makes
+a per-machine package that installs into ``Program Files`` (requires admin). An optional
+``[tool.pyappdist.wix].license`` (an RTF EULA) adds a one-page license dialog via the
+stock WixUI_Minimal set, which needs the ``WixToolset.UI.wixext`` extension at build
+time. File@Source is emitted as a path relative to the image root and resolved via the
+``wix build -b <image>`` bind path (no absolute paths are embedded, so golden comparisons
+stay stable).
 """
 
 from __future__ import annotations
@@ -40,16 +39,13 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
             "MSI generation requires a valid GUID in [tool.pyappdist.wix].upgrade_code"
         )
 
-    # Scope="perUserOrMachine" lets the user pick an all-users or just-me install at
-    # install time (via the stock WixUI_Advanced dialog set). The install folder is the
-    # redirectable APPLICATIONFOLDER: per-machine -> Program Files, per-user ->
-    # %LocalAppData%\Programs\<Name>. Registry writes go to HKMU (maps to HKLM
-    # per-machine / HKCU per-user) -- writing HKLM in a per-user install would require
-    # admin rights and fail.
-    per_machine = config.wix.scope == "perMachine"
-    install_id = "INSTALLFOLDER" if per_machine else "APPLICATIONFOLDER"
-    install_root_reg = "HKLM" if per_machine else "HKMU"
-    shortcut_reg = "HKCU" if per_machine else "HKMU"
+    # scope is a build-time choice (no install-time dialog):
+    #   user    -> per-user package, installs into %LocalAppData%\Programs\<Name>, HKCU,
+    #              no admin (ProgramFilesFolder is never used, so no redirection issues).
+    #   machine -> per-machine package, installs into Program Files, HKLM, requires admin.
+    per_user = config.wix.scope == "user"
+    pkg_scope = "perUser" if per_user else "perMachine"
+    install_root_reg = "HKCU" if per_user else "HKLM"
 
     ET.register_namespace("", WIX_NS)
     ET.register_namespace("ui", WIX_UI_NS)
@@ -62,41 +58,29 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
         UpgradeCode=str(upgrade_code).upper(),
         Language="1033",
         Codepage="65001",
-        Scope=config.wix.scope,
+        Scope=pkg_scope,
     )
     _sub(pkg, "MajorUpgrade", DowngradeErrorMessage="A newer version is already installed.")
     _sub(pkg, "MediaTemplate", EmbedCab="yes")
 
-    license_configured = bool(config.wix.license)
-    if not per_machine:
-        # WixUI_Advanced shows the all-users / just-me selection (behind its "Advanced"
-        # button; the radio appears only when elevated). Default the radio to all-users
-        # and redirect the per-user default to %LocalAppData%\Programs\<Name> (WixUI's
-        # own default is ...\Apps\...). The license (required for this scope) shows as
-        # the EULA on the welcome dialog.
-        _sub(pkg, "Property", Id="ApplicationFolderName", Value=config.name)
-        _sub(pkg, "Property", Id="WixAppFolder", Value="WixPerMachineFolder")
-        _sub(
-            pkg, "SetProperty",
-            Id="WixPerUserFolder",
-            Value="[LocalAppDataFolder]Programs\\[ApplicationFolderName]",
-            After="WixSetDefaultPerUserFolder",
-            Sequence="both",
-        )
-        _ui_sub(pkg, "WixUI", Id="WixUI_Advanced")
-    elif license_configured:
-        # perMachine + license: stock minimal dialog set (welcome + license + install).
+    # An optional license shows a one-page EULA via the stock WixUI_Minimal set; the RTF
+    # is staged next to the .wxs by wix/build.py under LICENSE_STAGED_NAME.
+    if config.wix.license:
         _ui_sub(pkg, "WixUI", Id="WixUI_Minimal")
-    if license_configured:
-        # The RTF is staged next to the .wxs by wix/build.py under this name.
         _sub(pkg, "WixVariable", Id="WixUILicenseRtf", Value=LICENSE_STAGED_NAME)
 
     reg_key = f"Software\\{manufacturer}\\{config.name}"
     component_ids: list[str] = []
 
-    # Application body (copy the image tree as-is)
-    program_files = _sub(pkg, "StandardDirectory", Id="ProgramFiles64Folder")
-    install = _sub(program_files, "Directory", Id=install_id, Name=config.name)
+    # Application body (copy the image tree as-is). The install root is the only thing
+    # that differs by scope; everything below uses the INSTALLFOLDER property.
+    if per_user:
+        root = _sub(pkg, "StandardDirectory", Id="LocalAppDataFolder")
+        programs = _sub(root, "Directory", Id="dir_programs", Name="Programs")
+        install = _sub(programs, "Directory", Id="INSTALLFOLDER", Name=config.name)
+    else:
+        root = _sub(pkg, "StandardDirectory", Id="ProgramFiles64Folder")
+        install = _sub(root, "Directory", Id="INSTALLFOLDER", Name=config.name)
     _emit_dir(install, tree, str(upgrade_code), component_ids)
 
     # Registry entry recording the install location (usable for uninstall detection, etc.)
@@ -104,7 +88,7 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
     _sub(
         reg_comp, "RegistryValue",
         Root=install_root_reg, Key=reg_key, Name="InstallDir",
-        Type="string", Value=f"[{install_id}]", KeyPath="yes",
+        Type="string", Value="[INSTALLFOLDER]", KeyPath="yes",
     )
     component_ids.append("cmp_registry")
 
@@ -118,13 +102,13 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
                 sc_comp, "Shortcut",
                 Id=f"sc_{_h(spec.name)}",
                 Name=spec.name,
-                Target=f"[{install_id}]{spec.name}.exe",
-                WorkingDirectory=install_id,
+                Target=f"[INSTALLFOLDER]{spec.name}.exe",
+                WorkingDirectory="INSTALLFOLDER",
             )
         _sub(sc_comp, "RemoveFolder", Id="rm_ShortcutFolder", On="uninstall")
         _sub(
             sc_comp, "RegistryValue",
-            Root=shortcut_reg, Key=reg_key, Name="installed",
+            Root="HKCU", Key=reg_key, Name="installed",
             Type="integer", Value="1", KeyPath="yes",
         )
         component_ids.append("cmp_shortcuts")

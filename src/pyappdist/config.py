@@ -18,10 +18,10 @@ _PYTHON_RE = re.compile(r"^\d+\.\d+(\.\d+)?$")
 
 _MANAGERS = ("uv", "poetry", "pipenv", "pdm", "requirements.txt")
 
-# Install scope of the generated MSI.
-#   perMachine        - all users, installs into Program Files (requires admin)
-#   perUserOrMachine  - the user picks "all users" or "just me" at install time
-_WIX_SCOPES = ("perMachine", "perUserOrMachine")
+# Install scope of the generated MSI (a build-time choice).
+#   machine - all users, installs into Program Files (requires admin)
+#   user    - current user only, installs into %LocalAppData%\Programs (no admin)
+_WIX_SCOPES = ("machine", "user")
 
 
 @dataclass(frozen=True)
@@ -37,8 +37,8 @@ class LauncherConfig:
 class WixConfig:
     manufacturer: str | None = None
     upgrade_code: str | None = None
-    scope: str = "perMachine"  # one of _WIX_SCOPES
-    license: str | None = None  # path (relative to project_dir) to an RTF license to show
+    scope: str = "user"  # one of _WIX_SCOPES
+    license: str | None = None  # optional path (relative to project_dir) to an RTF EULA
 
 
 @dataclass(frozen=True)
@@ -177,7 +177,7 @@ def _parse_wix(raw: object) -> WixConfig:
         return WixConfig()
     if not isinstance(raw, dict):
         raise ConfigError("[tool.pyappdist.wix] must be a table")
-    scope = raw.get("scope", "perMachine")
+    scope = raw.get("scope", "user")
     if scope not in _WIX_SCOPES:
         raise ConfigError(
             f"[tool.pyappdist.wix].scope must be one of {_WIX_SCOPES}: {scope!r}"
@@ -186,11 +186,6 @@ def _parse_wix(raw: object) -> WixConfig:
     if license_ is not None and not str(license_).lower().endswith(".rtf"):
         raise ConfigError(
             f"[tool.pyappdist.wix].license must be an .rtf file: {license_!r}"
-        )
-    if scope == "perUserOrMachine" and license_ is None:
-        raise ConfigError(
-            '[tool.pyappdist.wix].license (an .rtf EULA) is required when '
-            'scope = "perUserOrMachine"'
         )
     return WixConfig(
         manufacturer=raw.get("manufacturer"),

@@ -31,5 +31,5 @@ launchers = [
 [tool.pyappdist.wix]
 manufacturer = "pyappdist"
 upgrade_code = "472A7365-2828-49C1-8B71-5B4FFB33D8F9"
-scope = "perUserOrMachine"
+scope = "user"
 license = "EULA.rtf"

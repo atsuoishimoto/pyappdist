@@ -1,15 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
-  <Package Name="Hello World" Manufacturer="Example Inc." Version="1.2.3" UpgradeCode="7E3F9A2C-5B1D-4E8A-9C6F-1A2B3C4D5E6F" Language="1033" Codepage="65001" Scope="perUserOrMachine">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Hello World" Manufacturer="Example Inc." Version="1.2.3" UpgradeCode="7E3F9A2C-5B1D-4E8A-9C6F-1A2B3C4D5E6F" Language="1033" Codepage="65001" Scope="perMachine">
     <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
     <MediaTemplate EmbedCab="yes" />
-    <Property Id="ApplicationFolderName" Value="Hello World" />
-    <Property Id="WixAppFolder" Value="WixPerMachineFolder" />
-    <SetProperty Id="WixPerUserFolder" Value="[LocalAppDataFolder]Programs\[ApplicationFolderName]" After="WixSetDefaultPerUserFolder" Sequence="both" />
-    <ui:WixUI Id="WixUI_Advanced" />
-    <WixVariable Id="WixUILicenseRtf" Value="pyappdist_license.rtf" />
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="APPLICATIONFOLDER" Name="Hello World">
+      <Directory Id="INSTALLFOLDER" Name="Hello World">
         <Component Id="cmp_6330f635c852" Guid="9641F219-56EF-59DC-9F26-84A56E0379B2">
           <File Id="fil_6330f635c852" Source="helloworld.exe" KeyPath="yes" />
         </Component>
@@ -27,16 +22,16 @@
           </Directory>
         </Directory>
         <Component Id="cmp_registry" Guid="AF42A7D0-2648-5A0B-86D7-FF717FF65E33">
-          <RegistryValue Root="HKMU" Key="Software\Example Inc.\Hello World" Name="InstallDir" Type="string" Value="[APPLICATIONFOLDER]" KeyPath="yes" />
+          <RegistryValue Root="HKLM" Key="Software\Example Inc.\Hello World" Name="InstallDir" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
         </Component>
       </Directory>
     </StandardDirectory>
     <StandardDirectory Id="ProgramMenuFolder">
       <Directory Id="ShortcutFolder" Name="Hello World">
         <Component Id="cmp_shortcuts" Guid="352D8241-17A5-5EA3-A7CA-2716C6B39C41">
-          <Shortcut Id="sc_6adfb183a4a2" Name="helloworld" Target="[APPLICATIONFOLDER]helloworld.exe" WorkingDirectory="APPLICATIONFOLDER" />
+          <Shortcut Id="sc_6adfb183a4a2" Name="helloworld" Target="[INSTALLFOLDER]helloworld.exe" WorkingDirectory="INSTALLFOLDER" />
           <RemoveFolder Id="rm_ShortcutFolder" On="uninstall" />
-          <RegistryValue Root="HKMU" Key="Software\Example Inc.\Hello World" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+          <RegistryValue Root="HKCU" Key="Software\Example Inc.\Hello World" Name="installed" Type="integer" Value="1" KeyPath="yes" />
         </Component>
       </Directory>
     </StandardDirectory>

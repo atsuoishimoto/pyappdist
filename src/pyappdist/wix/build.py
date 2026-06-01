@@ -33,9 +33,9 @@ def build_msi(config: Config, image_dir: Path, wxs_path: Path, out_msi: Path, *,
     # ancestor and pass relative paths so no wslpath conversion is needed.
     base = Path(os.path.commonpath([str(wxs_path), str(image_dir), str(out_msi)]))
 
-    # Any installer UI (the WixUI_Advanced scope dialogs and/or a license) lives in the
-    # UI extension. perUserOrMachine always has UI; perMachine only when a license is set.
-    needs_ui = config.wix.scope != "perMachine" or bool(config.wix.license)
+    # The only installer UI is the optional license dialog (WixUI_Minimal), which lives
+    # in the UI extension. Scope ("user"/"machine") has no dialogs.
+    needs_ui = bool(config.wix.license)
 
     if config.wix.license:
         license_src = (config.project_dir / config.wix.license).resolve()

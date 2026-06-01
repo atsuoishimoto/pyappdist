@@ -26,10 +26,10 @@ uv run python -c "import pyappdist, pathlib; print(pathlib.Path(pyappdist.__file
 ## Projects
 
 - `smoke/` — a minimal, dependency-free console app. Smoke-tests the whole build
-  pipeline, including the `perUserOrMachine` scope with a license (WixUI_Advanced).
+  pipeline, including the `user` scope and a license dialog.
 
-> `smoke/` uses `scope = "perUserOrMachine"` + a `license`, so building it needs the
-> WiX UI extension once: `wix extension add -g WixToolset.UI.wixext/5.0.2`.
+> `smoke/` sets a `license`, so building it needs the WiX UI extension once:
+> `wix extension add -g WixToolset.UI.wixext/5.0.2`.
 >
 > When running from WSL, the build output must live on a Windows volume (`/mnt/...`),
 > because cmd.exe cannot start from a UNC path.

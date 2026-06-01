@@ -32,8 +32,8 @@ launcher executable and the MSI) you also need:
      Pin to **v5.0.2**. WiX v6/v7 require accepting the Open Source Maintenance
      Fee EULA, which blocks an unattended ``wix build``.
 
-  Only if you use ``scope = "perUserOrMachine"``, also add the UI extension
-  (pin it to v5 as well):
+  Only if you set ``[tool.pyappdist.wix].license`` (to show a license dialog), also
+  add the UI extension (pin it to v5 as well):
 
   .. code-block:: bash
 

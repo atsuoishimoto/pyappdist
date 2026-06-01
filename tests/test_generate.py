@@ -12,25 +12,32 @@ from pyappdist.errors import ConfigError
 from pyappdist.wix.generate import generate_wxs
 
 GOLDEN = Path(__file__).parent / "golden" / "sample.wxs"
-GOLDEN_PERUSER = Path(__file__).parent / "golden" / "sample_peruser.wxs"
+GOLDEN_MACHINE = Path(__file__).parent / "golden" / "sample_machine.wxs"
 
 
 def test_golden(sample_config, sample_tree):
+    # sample_config uses the default scope ("user").
     expected = GOLDEN.read_text(encoding="utf-8")
     actual = generate_wxs(sample_config, sample_tree)
     assert actual == expected, "WiX output differs from the golden (update the golden if intentional)"
 
 
-def test_golden_peruser(sample_config, sample_tree):
+def test_golden_machine(sample_config, sample_tree):
     cfg = dataclasses.replace(
-        sample_config,
-        wix=dataclasses.replace(
-            sample_config.wix, scope="perUserOrMachine", license="EULA.rtf"
-        ),
+        sample_config, wix=dataclasses.replace(sample_config.wix, scope="machine")
     )
-    expected = GOLDEN_PERUSER.read_text(encoding="utf-8")
+    expected = GOLDEN_MACHINE.read_text(encoding="utf-8")
     actual = generate_wxs(cfg, sample_tree)
-    assert actual == expected, "WiX output differs from the per-user golden (update the golden if intentional)"
+    assert actual == expected, "WiX output differs from the machine golden (update the golden if intentional)"
+
+
+def test_license_adds_minimal_ui(sample_config, sample_tree):
+    cfg = dataclasses.replace(
+        sample_config, wix=dataclasses.replace(sample_config.wix, license="EULA.rtf")
+    )
+    xml = generate_wxs(cfg, sample_tree)
+    assert 'Id="WixUI_Minimal"' in xml
+    assert 'Id="WixUILicenseRtf"' in xml
 
 
 def test_requires_manufacturer(sample_config, sample_tree):
