@@ -1,4 +1,4 @@
-"""helloworld サンプルアプリ。"""
+"""Sample app for pyappdist."""
 
 
 def main() -> int:

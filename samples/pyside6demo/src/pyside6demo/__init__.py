@@ -1,7 +1,7 @@
-"""PySide6 を使った最小 GUI サンプル。
+"""Minimal PySide6 GUI sample.
 
-ラベルと「閉じる」ボタンだけのウィンドウを表示する。GUI アプリなので
-pyappdist 側は ``gui = true``（pythonw.exe 起動）で配布する。
+Shows a window with a label and a Close button. It is a GUI app, so pyappdist
+ships it with ``gui = true`` (launched via pythonw.exe).
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ def main() -> int:
 
     layout = QVBoxLayout(window)
     layout.addWidget(QLabel("Hello from PySide6!"))
-    close_button = QPushButton("閉じる")
+    close_button = QPushButton("Close")
     close_button.clicked.connect(window.close)
     layout.addWidget(close_button)
 

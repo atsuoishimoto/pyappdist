@@ -1,7 +1,7 @@
-"""pandas を使った CLI サンプル。
+"""pandas-based CLI sample.
 
-小さな DataFrame を組み立てて整形表示するだけ。コンソールアプリなので
-pyappdist 側は ``gui = false``（python.exe 起動）で配布する。
+Builds a small DataFrame and prints it. It is a console app, so pyappdist
+ships it with ``gui = false`` (launched via python.exe).
 """
 
 from __future__ import annotations

@@ -1,18 +1,18 @@
-"""matplotlib を使った GUI サンプル。
+"""matplotlib-based GUI sample.
 
-sin / cos のグラフをウィンドウに描画する。バックエンドは TkAgg を使う
-（tkinter は python-build-standalone の runtime に同梱されているので追加依存が要らない）。
-GUI アプリなので pyappdist 側は ``gui = true``（pythonw.exe 起動）で配布する。
+Draws sin / cos curves in a window using the TkAgg backend (tkinter ships with
+the python-build-standalone runtime, so no extra dependency is needed). It is a
+GUI app, so pyappdist ships it with ``gui = true`` (launched via pythonw.exe).
 """
 
 from __future__ import annotations
 
 import matplotlib
 
-matplotlib.use("TkAgg")  # 追加の GUI 依存なしで動く（runtime 同梱の tkinter）
+matplotlib.use("TkAgg")  # works with no extra GUI dependency (runtime-bundled tkinter)
 
 import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402  (matplotlib が numpy を持ち込む)
+import numpy as np  # noqa: E402  (matplotlib pulls in numpy)
 
 
 def main() -> int:
