@@ -1,0 +1,35 @@
+[project]
+name = "smoke"
+version = "0.1.0"
+description = "Minimal app for end-to-end verification of pyappdist run as an editable install"
+readme = "README.md"
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["uv_build>=0.11.6,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pyappdist",
+]
+
+# Unlike samples/, this references the working-tree pyappdist as editable (not PyPI).
+[tool.uv.sources]
+pyappdist = { path = "../../", editable = true }
+
+[tool.pyappdist]
+name = "pyappdist E2E Smoke"
+identifier = "com.example.pyappdist-e2e-smoke"
+python = "3.12"
+target = "windows-x86_64"
+
+launchers = [
+  { name = "smoke", entry = "smoke:main", gui = false },
+]
+
+[tool.pyappdist.wix]
+manufacturer = "pyappdist"
+upgrade_code = "472A7365-2828-49C1-8B71-5B4FFB33D8F9"
+scope = "perUserOrMachine"
+license = "EULA.rtf"

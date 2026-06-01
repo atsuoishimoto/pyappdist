@@ -1,0 +1,3 @@
+.venv
+# pyappdist build output
+appdist/
