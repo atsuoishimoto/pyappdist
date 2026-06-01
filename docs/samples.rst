@@ -32,7 +32,7 @@ Build any of them:
 
 .. code-block:: bash
 
-   uv run pyappdist build samples/pandascli
+   uv run pyappdist build -C samples/pandascli
 
 These exercise the cases freezers usually struggle with — C extensions, ``abi3``
 wheels, Qt plugins, and GUI toolkits relying on bundled tkinter — and run

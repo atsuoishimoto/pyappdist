@@ -3,10 +3,11 @@ Command-line interface
 
 .. code-block:: text
 
-   pyappdist <command> [project] [options]
+   pyappdist <command> [target ...] [options]
 
-``project`` is the path to the application's project directory (the one
-containing ``pyproject.toml``). It defaults to the current directory (``.``).
+Positional arguments are **target names** (from ``[[tool.pyappdist.targets]]``). With
+none given, the command applies to **all** targets. The project directory defaults to the
+current directory; use ``-C`` / ``--project`` to point elsewhere.
 
 Common options
 --------------
@@ -19,11 +20,12 @@ Available on every command:
 
    * - Option
      - Description
-   * - ``--target TARGET``
-     - Override the distribution target (e.g. ``windows-x86_64`` /
-       ``linux-x86_64``).
+   * - ``-C``, ``--project DIR``
+     - The application's project directory (the one containing ``pyproject.toml``).
+       Defaults to the current directory.
    * - ``--out-dir DIR``
-     - Output directory. Defaults to ``<project>/appdist``.
+     - Output base directory. Defaults to ``<project>/appdist``. Each target builds into
+       ``<out-dir>/<target>/``.
 
 Commands that fetch the runtime (``build``, ``build-wheels``,
 ``fetch-runtime``, ``build-image``) also accept:
@@ -45,12 +47,13 @@ Commands
 ``build``
 ~~~~~~~~~
 
-Run the whole pipeline: wheels → runtime → image → launcher → (sign) → zip →
-WiX → MSI → (sign).
+Run the whole pipeline for each selected target: wheels → runtime → image → launcher →
+(sign) → zip → WiX → MSI → (sign).
 
 .. code-block:: bash
 
-   uv run pyappdist build .
+   uv run pyappdist build              # all targets
+   uv run pyappdist build win-user     # just the target named "win-user"
 
 Extra options: ``--no-compile`` (skip byte-compilation), ``--no-zip`` (skip the
 portable zip). Plus the common and runtime options above.
@@ -58,15 +61,14 @@ portable zip). Plus the common and runtime options above.
 ``build-wheels``
 ~~~~~~~~~~~~~~~~
 
-Build the app wheel and collect dependency wheels into
-``appdist/wheelhouse``. Fetches the runtime first (dependencies are resolved
-with the target interpreter).
+Build the app wheel and collect dependency wheels into ``<target>/wheelhouse``. Fetches
+the runtime first (dependencies are resolved with the target interpreter).
 
 ``fetch-runtime``
 ~~~~~~~~~~~~~~~~~
 
 Download, verify, and extract the python-build-standalone runtime into
-``appdist/runtime``.
+``<target>/runtime``.
 
 ``build-image``
 ~~~~~~~~~~~~~~~
@@ -85,19 +87,19 @@ launcher(s), and create the portable zip. Options: ``--no-compile``,
 ~~~~~~~~~~~
 
 Scan an existing image and generate the WiX ``.wxs`` file. Requires a prior
-``build-image``. This also generates and persists ``upgrade_code`` if it is
-unset.
+``build-image``. This also generates and persists the target's ``upgrade_code`` if it
+is unset.
 
 Examples
 --------
 
 .. code-block:: bash
 
-   # Full build of a sample
-   uv run pyappdist build samples/pandascli
+   # Full build of a sample (all its targets)
+   uv run pyappdist build -C samples/pandascli
 
-   # Cross-validate the pipeline on Linux
-   uv run pyappdist build-image . --target linux-x86_64
+   # Build only specific targets by name
+   uv run pyappdist build win-user win-machine
 
    # Offline runtime from a local archive
-   uv run pyappdist fetch-runtime . --runtime-source ./cpython-3.12.tar.gz
+   uv run pyappdist fetch-runtime --runtime-source ./cpython-3.12.tar.gz

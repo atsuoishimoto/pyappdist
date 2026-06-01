@@ -23,24 +23,25 @@ Add a `[tool.pyappdist]` section to your app's `pyproject.toml`:
 [tool.pyappdist]
 name = "My App"
 python = "3.12"
-target = "windows-x86_64"
 
 [[tool.pyappdist.launchers]]
 name = "myapp"              # produces myapp.exe
 entry = "myapp:main"        # module:callable
 
-[tool.pyappdist.wix]
+[[tool.pyappdist.targets]]
+platform = "windows-x86_64"
 manufacturer = "Example Inc."
+# scope = "user"            # "user" (default, no admin) or "machine" (Program Files)
 ```
 
 Then add pyappdist and build:
 
 ```bash
 uv add --dev pyappdist
-uv run pyappdist build .    # wheels -> runtime -> image -> launcher -> wix -> MSI
+uv run pyappdist build      # builds all targets: wheels -> runtime -> image -> launcher -> wix -> MSI
 ```
 
-The result lands under `appdist/dist/`: a portable `.zip` and an `.msi` installer.
+The result lands under `appdist/<target>/dist/`: a portable `.zip` and an `.msi` installer.
 
 ## Documentation
 
