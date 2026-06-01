@@ -16,6 +16,7 @@ from pathlib import Path
 from .._hostexec import is_cross_windows, target_relpath
 from ..config import Config
 from ..errors import BuildError
+from .generate import LICENSE_STAGED_NAME
 
 
 def build_msi(config: Config, image_dir: Path, wxs_path: Path, out_msi: Path, *, log=print) -> Path | None:
@@ -31,17 +32,41 @@ def build_msi(config: Config, image_dir: Path, wxs_path: Path, out_msi: Path, *,
     # All inputs/outputs live under the appdist tree; run from their common
     # ancestor and pass relative paths so no wslpath conversion is needed.
     base = Path(os.path.commonpath([str(wxs_path), str(image_dir), str(out_msi)]))
+
+    # The only installer UI is the optional license dialog (WixUI_Minimal), which lives
+    # in the UI extension. Scope ("user"/"machine") has no dialogs.
+    needs_ui = bool(config.wix.license)
+
+    if config.wix.license:
+        license_src = (config.project_dir / config.wix.license).resolve()
+        if not license_src.is_file():
+            raise BuildError(
+                f"license file not found ([tool.pyappdist.wix].license): {license_src}"
+            )
+        # WixUILicenseRtf references this by name, resolved relative to cwd=base.
+        shutil.copy2(license_src, base / LICENSE_STAGED_NAME)
+
     cmd = [
         wix, "build",
         "-arch", target.wix_arch,  # make it a 64-bit package so it installs into C:\Program Files
+    ]
+    if needs_ui:
+        cmd += ["-ext", "WixToolset.UI.wixext"]
+    cmd += [
         target_relpath(target, wxs_path, base),
         "-b", target_relpath(target, image_dir, base),
         "-o", target_relpath(target, out_msi, base),
     ]
     proc = subprocess.run(cmd, cwd=str(base), capture_output=True, text=True, errors="replace")
     if proc.returncode != 0 or not out_msi.exists():
+        hint = ""
+        if needs_ui and "WixToolset.UI" in (proc.stdout + proc.stderr):
+            hint = (
+                "\nhint: install the WiX UI extension once: "
+                "wix extension add -g WixToolset.UI.wixext/5.0.2"
+            )
         raise BuildError(
-            f"wix build failed ({proc.returncode}):\n{proc.stdout}\n{proc.stderr}"
+            f"wix build failed ({proc.returncode}):\n{proc.stdout}\n{proc.stderr}{hint}"
         )
     return out_msi
 

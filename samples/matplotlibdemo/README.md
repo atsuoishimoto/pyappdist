@@ -1,14 +1,15 @@
 # matplotlibdemo
 
-pyappdist の GUI サンプル。matplotlib で sin / cos のグラフをウィンドウ表示する。
-`gui = true` の launcher なので、配布物では `pythonw.exe` 起動（コンソール非表示）になる。
+A pyappdist GUI sample. It plots sin / cos curves in a window with matplotlib.
+The launcher is `gui = true`, so the distribution launches via `pythonw.exe` (no console).
 
-バックエンドは **TkAgg**。tkinter / tcl-tk は python-build-standalone の runtime に
-同梱されているため、Qt 等の追加 GUI 依存なしで動く。matplotlib が持ち込む numpy 等の
-C 拡張つき依存が Windows wheel として収集・install されることも確認するサンプル。
+The backend is **TkAgg**. tkinter / tcl-tk ship with the python-build-standalone
+runtime, so it runs without extra GUI dependencies (Qt, etc.). It also shows that the
+C-extension dependencies matplotlib pulls in (numpy, etc.) are collected and installed
+as Windows wheels.
 
-## 配布物を作る
+## Build the distribution
 
 ```bash
-pyappdist build sample/matplotlibdemo
+pyappdist build samples/matplotlibdemo
 ```

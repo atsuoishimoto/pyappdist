@@ -1,7 +1,7 @@
-"""pygame-ce を使った最小 GUI サンプル。
+"""Minimal pygame-ce GUI sample.
 
-ウィンドウ内でボールが跳ね回るだけのアプリ。ウィンドウを閉じるか ESC で終了。
-GUI アプリなので pyappdist 側は ``gui = true``（pythonw.exe 起動）で配布する。
+A ball bounces around inside a window. Close the window or press ESC to quit.
+It is a GUI app, so pyappdist ships it with ``gui = true`` (launched via pythonw.exe).
 """
 
 from __future__ import annotations

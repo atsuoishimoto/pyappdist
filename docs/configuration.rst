@@ -133,12 +133,42 @@ Settings for the WiX/MSI installer.
      - Stable upgrade GUID. **If omitted, pyappdist generates a UUID and writes it
        back into this table** on first build (so subsequent upgrades stay
        consistent). It must remain stable for the life of the product.
+   * - ``scope``
+     - no
+     - Install scope of the MSI, a build-time choice. ``"user"`` (default) makes a
+       per-user package that installs into ``%LocalAppData%\Programs\<name>`` with no
+       administrator rights (registry in ``HKCU``). ``"machine"`` makes a per-machine
+       package that installs into ``Program Files`` and requires administrator rights
+       (registry in ``HKLM``). There is no install-time scope dialog.
+   * - ``license``
+     - no
+     - Optional path (relative to the project) to an **RTF** end-user license
+       agreement. When set, the installer shows a one-page license dialog
+       (WixUI_Minimal). Works with either scope.
 
 .. code-block:: toml
 
    [tool.pyappdist.wix]
    manufacturer = "Example Inc."
    # upgrade_code is filled in automatically on first build
+   scope = "user"          # "user" (default) or "machine"
+   license = "EULA.rtf"     # optional EULA shown at install time
+
+.. note::
+
+   A ``machine`` install always requires elevation: an admin gets a UAC consent prompt,
+   a standard user gets a UAC credential prompt (and cannot install without admin
+   rights). A ``user`` install never needs elevation.
+
+   For unattended installs, suppress the UI with ``/qn`` (silent) or ``/qb`` (progress
+   only); the license is then not shown and no acceptance step is required:
+
+   .. code-block:: bat
+
+      msiexec /i app.msi /qn
+
+   Building a package with a ``license`` requires the WiX UI extension; install it once
+   with ``wix extension add -g WixToolset.UI.wixext/5.0.2``.
 
 .. note::
 

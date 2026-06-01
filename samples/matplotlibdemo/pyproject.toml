@@ -1,7 +1,7 @@
 [project]
 name = "matplotlibdemo"
 version = "0.1.0"
-description = "pyappdist の matplotlib GUI サンプル"
+description = "matplotlib GUI sample for pyappdist"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

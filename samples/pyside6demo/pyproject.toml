@@ -1,7 +1,7 @@
 [project]
 name = "pyside6demo"
 version = "0.1.0"
-description = "pyappdist の PySide6 GUI サンプル"
+description = "PySide6 GUI sample for pyappdist"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

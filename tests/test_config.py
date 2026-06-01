@@ -97,6 +97,33 @@ def test_manager_invalid(tmp_path: Path):
         load_config(_write(tmp_path, extra='manager = "conda"'))
 
 
+def test_wix_scope_default_user(tmp_path: Path):
+    cfg = load_config(_write(tmp_path))
+    assert cfg.wix.scope == "user"
+
+
+def test_wix_scope_machine(tmp_path: Path):
+    cfg = load_config(
+        _write(tmp_path, extra='[tool.pyappdist.wix]\nscope = "machine"')
+    )
+    assert cfg.wix.scope == "machine"
+
+
+def test_wix_scope_invalid(tmp_path: Path):
+    with pytest.raises(ConfigError, match="scope"):
+        load_config(_write(tmp_path, extra='[tool.pyappdist.wix]\nscope = "perMachine"'))
+
+
+def test_wix_license_optional_and_parsed(tmp_path: Path):
+    cfg = load_config(_write(tmp_path, extra='[tool.pyappdist.wix]\nlicense = "EULA.rtf"'))
+    assert cfg.wix.license == "EULA.rtf"
+
+
+def test_wix_license_must_be_rtf(tmp_path: Path):
+    with pytest.raises(ConfigError, match="rtf"):
+        load_config(_write(tmp_path, extra='[tool.pyappdist.wix]\nlicense = "EULA.txt"'))
+
+
 def test_ensure_upgrade_code_generates_and_persists(tmp_path: Path):
     proj = _write(tmp_path)  # no [tool.pyappdist.wix] section
     code = ensure_upgrade_code(proj, log=lambda _m: None)

@@ -1,13 +1,13 @@
 # pyside6demo
 
-pyappdist の GUI サンプル。PySide6（Qt）でウィンドウを表示する。
-`gui = true` の launcher なので、配布物では `pythonw.exe` 起動（コンソール非表示）になる。
+A pyappdist GUI sample. It shows a window with PySide6 (Qt). The launcher is
+`gui = true`, so the distribution launches via `pythonw.exe` (no console).
 
-PySide6 のような大きな C 拡張つき依存（abi3 wheel: `cp39-abi3-win_amd64`）でも
-cp312 ランタイムへ収集・install できることを確認するサンプルでもある。
+It also shows that a large C-extension dependency like PySide6 (an abi3 wheel:
+`cp39-abi3-win_amd64`) can be collected and installed into the cp312 runtime.
 
-## 配布物を作る
+## Build the distribution
 
 ```bash
-pyappdist build sample/pyside6demo
+pyappdist build samples/pyside6demo
 ```

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Hello World" Manufacturer="Example Inc." Version="1.2.3" UpgradeCode="7E3F9A2C-5B1D-4E8A-9C6F-1A2B3C4D5E6F" Language="1033" Codepage="65001" Scope="perMachine">
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Hello World">
+        <Component Id="cmp_6330f635c852" Guid="9641F219-56EF-59DC-9F26-84A56E0379B2">
+          <File Id="fil_6330f635c852" Source="helloworld.exe" KeyPath="yes" />
+        </Component>
+        <Directory Id="dir_4235227b5143" Name="python">
+          <Component Id="cmp_5a8bd0fdf232" Guid="4ACB1FC5-73A3-52BB-86D6-8D8884037913">
+            <File Id="fil_5a8bd0fdf232" Source="python\python.exe" KeyPath="yes" />
+          </Component>
+          <Component Id="cmp_1bc2716b50c0" Guid="E8A341D9-5FE8-5491-B6D6-9913BC140C21">
+            <File Id="fil_1bc2716b50c0" Source="python\python312.dll" KeyPath="yes" />
+          </Component>
+          <Directory Id="dir_20d3f799a9c4" Name="Lib">
+            <Component Id="cmp_dcedd642cb07" Guid="66E9A021-854F-5937-B553-6973D435B6BE">
+              <File Id="fil_dcedd642cb07" Source="python\Lib\os.py" KeyPath="yes" />
+            </Component>
+          </Directory>
+        </Directory>
+        <Component Id="cmp_registry" Guid="AF42A7D0-2648-5A0B-86D7-FF717FF65E33">
+          <RegistryValue Root="HKLM" Key="Software\Example Inc.\Hello World" Name="InstallDir" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ShortcutFolder" Name="Hello World">
+        <Component Id="cmp_shortcuts" Guid="352D8241-17A5-5EA3-A7CA-2716C6B39C41">
+          <Shortcut Id="sc_6adfb183a4a2" Name="helloworld" Target="[INSTALLFOLDER]helloworld.exe" WorkingDirectory="INSTALLFOLDER" />
+          <RemoveFolder Id="rm_ShortcutFolder" On="uninstall" />
+          <RegistryValue Root="HKCU" Key="Software\Example Inc.\Hello World" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+    <Feature Id="Main" Title="Hello World" Level="1">
+      <ComponentRef Id="cmp_6330f635c852" />
+      <ComponentRef Id="cmp_5a8bd0fdf232" />
+      <ComponentRef Id="cmp_1bc2716b50c0" />
+      <ComponentRef Id="cmp_dcedd642cb07" />
+      <ComponentRef Id="cmp_registry" />
+      <ComponentRef Id="cmp_shortcuts" />
+    </Feature>
+  </Package>
+</Wix>

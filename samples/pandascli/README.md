@@ -1,14 +1,14 @@
 # pandascli
 
-pyappdist の CLI サンプル。pandas（C 拡張 + numpy 依存）で小さな DataFrame を
-整形表示する。`gui = false` の launcher なので、配布物では `python.exe` 起動
-（コンソール表示）になる。
+A pyappdist CLI sample. It formats and prints a small DataFrame with pandas
+(a C extension that depends on numpy). The launcher is `gui = false`, so the
+distribution launches via `python.exe` (console shown).
 
-pandas / numpy のような C 拡張つき依存が Windows wheel として収集され、
-runtime の site-packages へ install されることを確認するサンプルでもある。
+It also shows that C-extension dependencies like pandas / numpy are collected as
+Windows wheels and installed into the runtime's site-packages.
 
-## 配布物を作る
+## Build the distribution
 
 ```bash
-pyappdist build sample/pandascli
+pyappdist build samples/pandascli
 ```

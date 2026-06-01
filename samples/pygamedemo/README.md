@@ -1,16 +1,16 @@
 # pygamedemo
 
-pyappdist の GUI サンプル。pygame-ce（C 拡張を含む依存）でウィンドウを開き、
-ボールが跳ね回る。ウィンドウを閉じるか ESC で終了する。
+A pyappdist GUI sample. It opens a window with pygame-ce (a dependency with C
+extensions) where a ball bounces around. Close the window or press ESC to quit.
 
-`gui = true` の launcher なので、配布物では `pythonw.exe` 起動（コンソール非表示）になる。
-pygame-ce のような C 拡張つき依存が wheelhouse（Windows wheel）として収集され、
-runtime の site-packages へ install されることを確認するサンプルでもある。
+The launcher is `gui = true`, so the distribution launches via `pythonw.exe` (no console).
+It also shows that C-extension dependencies like pygame-ce are collected into the
+wheelhouse (as Windows wheels) and installed into the runtime's site-packages.
 
-## 配布物を作る
+## Build the distribution
 
 ```bash
-pyappdist build sample/pygamedemo
+pyappdist build samples/pygamedemo
 ```
 
-`sample/pygamedemo/appdist/` に image / portable zip / MSI が出力される。
+The image / portable zip / MSI are written under `samples/pygamedemo/appdist/`.

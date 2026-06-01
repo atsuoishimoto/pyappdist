@@ -18,6 +18,11 @@ _PYTHON_RE = re.compile(r"^\d+\.\d+(\.\d+)?$")
 
 _MANAGERS = ("uv", "poetry", "pipenv", "pdm", "requirements.txt")
 
+# Install scope of the generated MSI (a build-time choice).
+#   machine - all users, installs into Program Files (requires admin)
+#   user    - current user only, installs into %LocalAppData%\Programs (no admin)
+_WIX_SCOPES = ("machine", "user")
+
 
 @dataclass(frozen=True)
 class LauncherConfig:
@@ -32,6 +37,8 @@ class LauncherConfig:
 class WixConfig:
     manufacturer: str | None = None
     upgrade_code: str | None = None
+    scope: str = "user"  # one of _WIX_SCOPES
+    license: str | None = None  # optional path (relative to project_dir) to an RTF EULA
 
 
 @dataclass(frozen=True)
@@ -170,7 +177,19 @@ def _parse_wix(raw: object) -> WixConfig:
         return WixConfig()
     if not isinstance(raw, dict):
         raise ConfigError("[tool.pyappdist.wix] must be a table")
+    scope = raw.get("scope", "user")
+    if scope not in _WIX_SCOPES:
+        raise ConfigError(
+            f"[tool.pyappdist.wix].scope must be one of {_WIX_SCOPES}: {scope!r}"
+        )
+    license_ = raw.get("license")
+    if license_ is not None and not str(license_).lower().endswith(".rtf"):
+        raise ConfigError(
+            f"[tool.pyappdist.wix].license must be an .rtf file: {license_!r}"
+        )
     return WixConfig(
         manufacturer=raw.get("manufacturer"),
         upgrade_code=raw.get("upgrade_code"),
+        scope=str(scope),
+        license=str(license_) if license_ is not None else None,
     )
