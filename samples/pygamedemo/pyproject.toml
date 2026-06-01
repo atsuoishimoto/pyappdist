@@ -15,14 +15,13 @@ dev = [
 
 [tool.pyappdist]
 name = "Pygame Demo"
-identifier = "com.example.pygamedemo"
 python = "3.12"
-target = "windows-x86_64"
 
 launchers = [
   { name = "pygamedemo", entry = "pygamedemo:main", gui = true, icon = "assets/pygamedemo.ico" },
 ]
 
-[tool.pyappdist.wix]
+[[tool.pyappdist.targets]]
+platform = "windows-x86_64"
 manufacturer = "Example Inc."
 upgrade_code = "C4E9D2F1-3A6B-4D8E-9F12-7B0A5C3E1D88"

@@ -22,7 +22,7 @@ def sample_config() -> Config:
         version="1.2.3",
         python="3.12",
         target=get_target("windows-x86_64"),
-        identifier="com.example.helloworld",
+        target_name="windows-x86_64",
         launchers=(LauncherConfig(name="helloworld", entry="helloworld:main"),),
         wix=WixConfig(
             manufacturer="Example Inc.",

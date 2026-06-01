@@ -11,9 +11,7 @@ Add a ``[tool.pyappdist]`` section to your app's ``pyproject.toml``:
 
    [tool.pyappdist]
    name = "My App"
-   identifier = "com.example.myapp"
    python = "3.12"
-   target = "windows-x86_64"
    # manager = "uv"            # optional; auto-detected from lockfile if omitted
 
    [[tool.pyappdist.launchers]]
@@ -23,10 +21,11 @@ Add a ``[tool.pyappdist]`` section to your app's ``pyproject.toml``:
    # icon = "assets/app.ico"   # optional
    # args = "--profile default"# optional fixed arguments
 
-   [tool.pyappdist.wix]
+   [[tool.pyappdist.targets]]
+   platform = "windows-x86_64"
    manufacturer = "Example Inc."
-   # upgrade_code = "..."   # stable GUID for upgrades; auto-generated and written
-                            # back here on first build if omitted
+   # scope = "user"         # "user" (default, no admin) or "machine" (Program Files)
+   # upgrade_code = "..."   # stable GUID; auto-generated and written back on first build
 
 See :doc:`configuration` for every option.
 
@@ -36,7 +35,7 @@ Build everything
 .. code-block:: bash
 
    uv add --dev pyappdist
-   uv run pyappdist build .          # wheels -> runtime -> image -> launcher -> wix -> MSI
+   uv run pyappdist build            # all targets: wheels -> runtime -> image -> launcher -> wix -> MSI
 
 Build step by step
 ------------------
@@ -45,18 +44,18 @@ Each stage of the pipeline is also its own subcommand:
 
 .. code-block:: bash
 
-   uv run pyappdist build-wheels    .   # app + deps -> appdist/wheelhouse
-   uv run pyappdist fetch-runtime   .   # python-build-standalone -> appdist/runtime
-   uv run pyappdist build-image     .   # install into the runtime + launcher(s) + portable zip
-   uv run pyappdist build-launchers .   # (re)build launcher.exe into the image
-   uv run pyappdist gen-wix         .   # generate the WiX .wxs from the image
+   uv run pyappdist build-wheels        # app + deps -> <target>/wheelhouse
+   uv run pyappdist fetch-runtime       # python-build-standalone -> <target>/runtime
+   uv run pyappdist build-image         # install into the runtime + launcher(s) + portable zip
+   uv run pyappdist build-launchers     # (re)build launcher.exe into the image
+   uv run pyappdist gen-wix             # generate the WiX .wxs from the image
 
 See :doc:`cli` for the full command reference.
 
 Outputs
 -------
 
-Everything lands under ``appdist/``:
+Each target's output lands under ``appdist/<target>/``:
 
 ==================  ==========================================================
 Directory           Contents
@@ -68,5 +67,5 @@ Directory           Contents
 ==================  ==========================================================
 
 The image directory itself is a portable app —
-``appdist/dist/<name>-<version>-portable.zip`` is shippable on its own, and
-``appdist/dist/<name>-<version>.msi`` is the installer.
+``appdist/<target>/dist/<name>-<version>-portable.zip`` is shippable on its own, and
+``appdist/<target>/dist/<name>-<version>.msi`` is the installer.

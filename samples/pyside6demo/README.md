@@ -9,5 +9,5 @@ It also shows that a large C-extension dependency like PySide6 (an abi3 wheel:
 ## Build the distribution
 
 ```bash
-pyappdist build samples/pyside6demo
+pyappdist build
 ```

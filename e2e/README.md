@@ -13,7 +13,7 @@ end-to-end (wheels → runtime → image → launcher → wix → MSI) on your m
 
 ```bash
 cd e2e/smoke
-uv run pyappdist build .
+uv run pyappdist build          # builds all targets; or `uv run pyappdist build -C e2e/smoke` from the repo root
 ```
 
 Confirm the editable reference is in effect:

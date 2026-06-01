@@ -1,13 +1,17 @@
 """Loading and validation of ``[tool.pyappdist]``.
 
-Treats pyproject.toml as the single source of truth and normalizes it into a
-typed dataclass.
+Treats pyproject.toml as the single source of truth and normalizes it into typed
+dataclasses. App-level settings live under ``[tool.pyappdist]``; each output package
+is one ``[[tool.pyappdist.targets]]`` entry. ``load_configs`` resolves the app-level
+settings together with each selected target into a flat ``Config`` (one per target),
+so the rest of the build pipeline stays single-target.
 """
 
 from __future__ import annotations
 
 import re
 import tomllib
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -43,13 +47,15 @@ class WixConfig:
 
 @dataclass(frozen=True)
 class Config:
+    """One fully-resolved build target (app-level settings + one target's settings)."""
+
     project_dir: Path
     name: str           # display name
     dist_name: str      # distribution package name ([project].name)
     version: str
     python: str         # "X.Y" or "X.Y.Z"
     target: Target
-    identifier: str | None
+    target_name: str    # the [[tool.pyappdist.targets]].name label (defaults to the platform)
     launchers: tuple[LauncherConfig, ...]
     wix: WixConfig
     manager: str | None  # manager used for dependency resolution (uv/poetry/pipenv/pdm/requirements.txt). None=auto-detect
@@ -60,7 +66,14 @@ class Config:
         return f"{parts[0]}.{parts[1]}"
 
 
-def load_config(project_dir: Path, *, target_override: str | None = None) -> Config:
+def load_configs(
+    project_dir: Path, *, select: Sequence[str] | None = None
+) -> list[Config]:
+    """Resolve the selected ``[[tool.pyappdist.targets]]`` into one ``Config`` each.
+
+    ``select`` is a list of target names to build; an empty/``None`` selection builds
+    all targets (in declaration order). Unknown names raise ``ConfigError``.
+    """
     project_dir = Path(project_dir).resolve()
     pyproject = project_dir / "pyproject.toml"
     if not pyproject.is_file():
@@ -85,11 +98,7 @@ def load_config(project_dir: Path, *, target_override: str | None = None) -> Con
     if not _PYTHON_RE.match(str(python)):
         raise ConfigError(f"python must be in X.Y or X.Y.Z format: {python!r}")
 
-    target_name = target_override or tool.get("target") or "windows-x86_64"
-    target = get_target(target_name)
-
     launchers = _parse_launchers(tool.get("launchers"))
-    wix = _parse_wix(tool.get("wix"))
 
     manager = tool.get("manager")
     if manager is not None and manager not in _MANAGERS:
@@ -97,17 +106,77 @@ def load_config(project_dir: Path, *, target_override: str | None = None) -> Con
             f"[tool.pyappdist].manager must be one of {_MANAGERS}: {manager!r}"
         )
 
-    return Config(
-        project_dir=project_dir,
-        name=str(name),
-        dist_name=str(dist_name),
-        version=str(version),
-        python=str(python),
-        target=target,
-        identifier=tool.get("identifier"),
-        launchers=launchers,
-        wix=wix,
-        manager=manager,
+    specs = _parse_targets(tool.get("targets"))
+    available = [s[0] for s in specs]
+    if select:
+        unknown = [s for s in select if s not in available]
+        if unknown:
+            raise ConfigError(
+                f"unknown target(s): {unknown} (available: {available})"
+            )
+        specs = [s for s in specs if s[0] in set(select)]
+
+    return [
+        Config(
+            project_dir=project_dir,
+            name=str(name),
+            dist_name=str(dist_name),
+            version=str(version),
+            python=str(python),
+            target=target,
+            target_name=target_name,
+            launchers=launchers,
+            wix=wix,
+            manager=manager,
+        )
+        for (target_name, target, wix) in specs
+    ]
+
+
+def _parse_targets(raw: object) -> list[tuple[str, Target, WixConfig]]:
+    if not raw:
+        raise ConfigError(
+            "at least one [[tool.pyappdist.targets]] is required"
+        )
+    if not isinstance(raw, list):
+        raise ConfigError("[[tool.pyappdist.targets]] must be an array of tables")
+
+    specs: list[tuple[str, Target, WixConfig]] = []
+    for i, item in enumerate(raw):
+        if not isinstance(item, dict):
+            raise ConfigError(f"targets[{i}] must be a table")
+        platform = item.get("platform")
+        if not platform:
+            raise ConfigError(
+                f"targets[{i}].platform is required (e.g. \"windows-x86_64\")"
+            )
+        target = get_target(str(platform))
+        target_name = str(item.get("name") or platform)
+        specs.append((target_name, target, _parse_wix(item, i)))
+
+    names = [s[0] for s in specs]
+    dups = sorted({n for n in names if names.count(n) > 1})
+    if dups:
+        raise ConfigError(
+            f"duplicate [[tool.pyappdist.targets]].name: {dups} "
+            "(target names must be unique)"
+        )
+    return specs
+
+
+def _parse_wix(raw: dict, index: int) -> WixConfig:
+    where = f"targets[{index}]"
+    scope = raw.get("scope", "user")
+    if scope not in _WIX_SCOPES:
+        raise ConfigError(f"{where}.scope must be one of {_WIX_SCOPES}: {scope!r}")
+    license_ = raw.get("license")
+    if license_ is not None and not str(license_).lower().endswith(".rtf"):
+        raise ConfigError(f"{where}.license must be an .rtf file: {license_!r}")
+    return WixConfig(
+        manufacturer=raw.get("manufacturer"),
+        upgrade_code=raw.get("upgrade_code"),
+        scope=str(scope),
+        license=str(license_) if license_ is not None else None,
     )
 
 
@@ -140,13 +209,14 @@ def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:
     return tuple(out)
 
 
-def ensure_upgrade_code(project_dir: Path, *, log=print) -> str:
-    """Return the WiX upgrade_code, generating and persisting one if unset.
+def ensure_upgrade_code(project_dir: Path, target_name: str, *, log=print) -> str:
+    """Return the WiX upgrade_code for ``target_name``, generating one if unset.
 
-    The upgrade code identifies the product across versions for MSI MajorUpgrade,
-    so it must stay stable across builds. When it is missing from pyproject.toml we
-    generate a UUID and write it back into [tool.pyappdist.wix], editing with
-    tomlkit so existing formatting and comments are preserved.
+    The upgrade code identifies the product across versions for MSI MajorUpgrade, so it
+    must stay stable across builds and is per target (each platform/scope needs its own).
+    When missing we generate a UUID and write it back into the matching
+    ``[[tool.pyappdist.targets]]`` entry, editing with tomlkit so existing formatting and
+    comments are preserved.
     """
     import uuid
 
@@ -157,39 +227,23 @@ def ensure_upgrade_code(project_dir: Path, *, log=print) -> str:
     pyproject = Path(project_dir).resolve() / "pyproject.toml"
     doc = tomlkit.parse(pyproject.read_text(encoding="utf-8"))
 
-    wix = doc.get("tool", {}).get("pyappdist", {}).get("wix")
-    existing = wix.get("upgrade_code") if wix is not None else None
+    targets = doc.get("tool", {}).get("pyappdist", {}).get("targets")
+    entry = None
+    for item in targets or []:
+        if str(item.get("name") or item.get("platform")) == target_name:
+            entry = item
+            break
+    if entry is None:
+        raise ConfigError(
+            f"target {target_name!r} not found in [[tool.pyappdist.targets]]"
+        )
+
+    existing = entry.get("upgrade_code")
     if existing and is_guid(str(existing)):
         return str(existing)
 
     code = str(uuid.uuid4()).upper()
-    tool = doc.setdefault("tool", tomlkit.table())
-    pyappdist = tool.setdefault("pyappdist", tomlkit.table())
-    wix_tbl = pyappdist.setdefault("wix", tomlkit.table())
-    wix_tbl["upgrade_code"] = code
+    entry["upgrade_code"] = code
     pyproject.write_text(tomlkit.dumps(doc), encoding="utf-8")
-    log(f"wix: generated upgrade_code {code} -> {pyproject}")
+    log(f"wix: generated upgrade_code {code} for target {target_name!r} -> {pyproject}")
     return code
-
-
-def _parse_wix(raw: object) -> WixConfig:
-    if raw is None:
-        return WixConfig()
-    if not isinstance(raw, dict):
-        raise ConfigError("[tool.pyappdist.wix] must be a table")
-    scope = raw.get("scope", "user")
-    if scope not in _WIX_SCOPES:
-        raise ConfigError(
-            f"[tool.pyappdist.wix].scope must be one of {_WIX_SCOPES}: {scope!r}"
-        )
-    license_ = raw.get("license")
-    if license_ is not None and not str(license_).lower().endswith(".rtf"):
-        raise ConfigError(
-            f"[tool.pyappdist.wix].license must be an .rtf file: {license_!r}"
-        )
-    return WixConfig(
-        manufacturer=raw.get("manufacturer"),
-        upgrade_code=raw.get("upgrade_code"),
-        scope=str(scope),
-        license=str(license_) if license_ is not None else None,
-    )

@@ -49,7 +49,7 @@ Windows toolchain available from this WSL session (used by the launcher/MSI stag
 
 ## Pipeline architecture
 
-`cli.py::cmd_build` orchestrates six stages in order; each is also its own subcommand. State flows through a frozen `BuildContext` (`context.py`) that owns `out_dir` (`appdist/`) and derives `wheelhouse/`, `runtime/`, `image/`, `dist/` paths.
+`cli.py::cmd_build` loops over the selected targets; for each it orchestrates six stages in order (each is also its own subcommand). State flows through a frozen `BuildContext` (`context.py`) that owns a per-target `out_dir` (`appdist/<target-name>/`) and derives `wheelhouse/`, `runtime/`, `image/`, `dist/` under it.
 
 1. **fetch-runtime** (`runtime.py`) — download + extract the python-build-standalone runtime into `appdist/runtime`. URLs are built purely from the python-build-standalone spec (`FLAVOR = install_only_stripped`), independent of uv. Cached and checksum-verified.
 2. **build-wheels** (`wheels.py`, `deps.py`) — `deps.py` exports `requirements.txt` from the project's lockfile (auto-detect order: uv → poetry → pipenv → pdm, overridable via `[tool.pyappdist].manager`), then `pip wheel -r` runs **with the target runtime's python** so wheels match the target. Output: `appdist/wheelhouse`.
@@ -60,7 +60,7 @@ Windows toolchain available from this WSL session (used by the launcher/MSI stag
 
 ## Config
 
-`pyproject.toml` `[tool.pyappdist]` is the single source of truth, normalized into the frozen `Config` dataclass in `config.py`. `targets.py` maps a target name (`windows-x86_64`, `linux-x86_64`) to the python-build-standalone triple and the `wix build -arch` value. The `linux-x86_64` target exists mainly to validate the non-MSI parts of the pipeline on Linux.
+`pyproject.toml` `[tool.pyappdist]` is the single source of truth. App-level keys (`name`, `python`, `launchers`, `manager`) live there; each output package is one `[[tool.pyappdist.targets]]` entry (`platform`, optional `name`, plus the MSI keys `manufacturer`/`upgrade_code`/`scope`/`license`). `config.py::load_configs` resolves the app-level keys + each selected target into a flat, frozen `Config` (one per target) — so the build stages stay single-target. `targets.py` maps a `platform` (`windows-x86_64`, `linux-x86_64`) to the python-build-standalone triple and the `wix build -arch` value. `scope` is `"user"` (default; per-user `%LocalAppData%\Programs`, `Scope="perUser"`) or `"machine"` (Program Files, `Scope="perMachine"`). The `linux-x86_64` platform exists mainly to validate the non-MSI parts of the pipeline on Linux.
 
 ## Errors
 

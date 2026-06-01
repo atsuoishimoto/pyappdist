@@ -1,12 +1,16 @@
 """pyappdist CLI.
 
+Each subcommand operates on one or more targets (``[[tool.pyappdist.targets]]``).
+Positional arguments select targets by name; with none given, all targets are built.
+Output goes to ``<out-dir>/<target-name>/`` (default ``<project>/appdist/<target-name>``).
+
 Subcommands:
-  build-wheels   app + dependency wheels into appdist/wheelhouse
-  fetch-runtime  python-build-standalone runtime into appdist/runtime
-  build-image    runtime + install + compileall + launcher + portable zip into appdist/image
+  build-wheels    app + dependency wheels into <target>/wheelhouse
+  fetch-runtime   python-build-standalone runtime into <target>/runtime
+  build-image     runtime + install + compileall + launcher + portable zip into <target>/image
   build-launchers build launcher.exe inside the image (Windows, MSVC)
-  gen-wix        scan the image and generate WiX XML (.wxs)
-  build          run wheels->runtime->image->launcher->wix->MSI in one go
+  gen-wix         scan the image and generate WiX XML (.wxs)
+  build           run wheels->runtime->image->launcher->wix->MSI in one go
 """
 
 from __future__ import annotations
@@ -18,7 +22,7 @@ from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
 
 from . import image as image_mod
-from .config import ensure_upgrade_code, load_config
+from .config import ensure_upgrade_code, load_configs
 from .context import BuildContext
 from .errors import BuildError, PyappdistError
 from .launcher import build_launchers
@@ -28,11 +32,12 @@ from .wheels import build_wheelhouse
 from .wix import build_msi, generate_wxs, scan_image
 
 
-def _build_context(args: argparse.Namespace) -> BuildContext:
+def _contexts(args: argparse.Namespace) -> list[BuildContext]:
+    """Resolve the selected targets into one BuildContext each (own output subdir)."""
     project_dir = Path(args.project).resolve()
-    config = load_config(project_dir, target_override=args.target)
-    out_dir = Path(args.out_dir).resolve() if args.out_dir else project_dir / "appdist"
-    return BuildContext(config=config, out_dir=out_dir)
+    configs = load_configs(project_dir, select=args.targets or None)
+    base = Path(args.out_dir).resolve() if args.out_dir else project_dir / "appdist"
+    return [BuildContext(config=c, out_dir=base / c.target_name) for c in configs]
 
 
 def _do_fetch_runtime(ctx: BuildContext, args: argparse.Namespace):
@@ -45,54 +50,56 @@ def _do_fetch_runtime(ctx: BuildContext, args: argparse.Namespace):
     )
 
 
+def _tag(ctx: BuildContext) -> str:
+    return ctx.config.target_name
+
+
 def cmd_build_wheels(args: argparse.Namespace) -> int:
-    ctx = _build_context(args)
-    # Dependencies are resolved with the target runtime's python, so prepare the runtime first.
-    info = _do_fetch_runtime(ctx, args)
-    wheels = build_wheelhouse(ctx.config, info, ctx.wheelhouse)
-    print(f"OK: {len(wheels)} wheel -> {ctx.wheelhouse}")
+    for ctx in _contexts(args):
+        # Dependencies are resolved with the target runtime's python, so prepare it first.
+        info = _do_fetch_runtime(ctx, args)
+        wheels = build_wheelhouse(ctx.config, info, ctx.wheelhouse)
+        print(f"OK [{_tag(ctx)}]: {len(wheels)} wheel -> {ctx.wheelhouse}")
     return 0
 
 
 def cmd_fetch_runtime(args: argparse.Namespace) -> int:
-    ctx = _build_context(args)
-    info = _do_fetch_runtime(ctx, args)
-    print(f"OK: runtime {info.version} -> {ctx.runtime_dir}")
+    for ctx in _contexts(args):
+        info = _do_fetch_runtime(ctx, args)
+        print(f"OK [{_tag(ctx)}]: runtime {info.version} -> {ctx.runtime_dir}")
     return 0
 
 
 def cmd_build_image(args: argparse.Namespace) -> int:
-    ctx = _build_context(args)
-    info = _do_fetch_runtime(ctx, args)
-    build_wheelhouse(ctx.config, info, ctx.wheelhouse)
-    layout = image_mod.build_image(ctx, info, compile_pyc=not args.no_compile)
-    exes = build_launchers(ctx.config, layout, ctx.out_dir / "_launcher_build")
-    # The zip includes launcher.exe, so do it after the launcher build.
-    if not args.no_zip:
-        image_mod.make_portable_zip(ctx)
-    print(f"OK: image -> {layout.image_dir} ({len(exes)} launcher)")
+    for ctx in _contexts(args):
+        info = _do_fetch_runtime(ctx, args)
+        build_wheelhouse(ctx.config, info, ctx.wheelhouse)
+        layout = image_mod.build_image(ctx, info, compile_pyc=not args.no_compile)
+        exes = build_launchers(ctx.config, layout, ctx.out_dir / "_launcher_build")
+        # The zip includes launcher.exe, so do it after the launcher build.
+        if not args.no_zip:
+            image_mod.make_portable_zip(ctx)
+        print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} ({len(exes)} launcher)")
     return 0
 
 
 def cmd_build_launchers(args: argparse.Namespace) -> int:
-    ctx = _build_context(args)
-    if not ctx.image_dir.is_dir():
-        raise BuildError(
-            f"image is missing: {ctx.image_dir} (run build-image first)"
+    for ctx in _contexts(args):
+        if not ctx.image_dir.is_dir():
+            raise BuildError(f"image is missing: {ctx.image_dir} (run build-image first)")
+        layout = image_mod.ImageLayout(
+            image_dir=ctx.image_dir,
+            target=ctx.config.target,
+            minor=ctx.config.python_minor,
         )
-    layout = image_mod.ImageLayout(
-        image_dir=ctx.image_dir,
-        target=ctx.config.target,
-        minor=ctx.config.python_minor,
-    )
-    exes = build_launchers(ctx.config, layout, ctx.out_dir / "_launcher_build")
-    print(f"OK: {len(exes)} launcher -> {layout.image_dir}")
+        exes = build_launchers(ctx.config, layout, ctx.out_dir / "_launcher_build")
+        print(f"OK [{_tag(ctx)}]: {len(exes)} launcher -> {layout.image_dir}")
     return 0
 
 
 def _write_wxs(ctx: BuildContext) -> Path:
-    # Ensure a stable upgrade_code exists (generated and persisted to pyproject.toml if unset).
-    upgrade_code = ensure_upgrade_code(ctx.config.project_dir)
+    # Ensure a stable per-target upgrade_code exists (persisted to pyproject.toml if unset).
+    upgrade_code = ensure_upgrade_code(ctx.config.project_dir, ctx.config.target_name)
     config = ctx.config
     if config.wix.upgrade_code != upgrade_code:
         config = dataclasses.replace(
@@ -106,17 +113,15 @@ def _write_wxs(ctx: BuildContext) -> Path:
 
 
 def cmd_gen_wix(args: argparse.Namespace) -> int:
-    ctx = _build_context(args)
-    if not ctx.image_dir.is_dir():
-        raise BuildError(f"image is missing: {ctx.image_dir} (run build-image first)")
-    wxs = _write_wxs(ctx)
-    print(f"OK: wxs -> {wxs}")
+    for ctx in _contexts(args):
+        if not ctx.image_dir.is_dir():
+            raise BuildError(f"image is missing: {ctx.image_dir} (run build-image first)")
+        wxs = _write_wxs(ctx)
+        print(f"OK [{_tag(ctx)}]: wxs -> {wxs}")
     return 0
 
 
-def cmd_build(args: argparse.Namespace) -> int:
-    """Run wheelhouse -> runtime -> image -> launcher -> wix -> MSI in one go (Phase 5)."""
-    ctx = _build_context(args)
+def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
     info = _do_fetch_runtime(ctx, args)
     build_wheelhouse(ctx.config, info, ctx.wheelhouse)
     layout = image_mod.build_image(ctx, info, compile_pyc=not args.no_compile)
@@ -131,16 +136,28 @@ def cmd_build(args: argparse.Namespace) -> int:
     msi = build_msi(ctx.config, ctx.image_dir, wxs, ctx.dist_dir / msi_name)
     if msi is not None:
         sign_artifact(msi)
-        print(f"OK: msi -> {msi} ({len(exes)} launcher)")
+        print(f"OK [{_tag(ctx)}]: msi -> {msi} ({len(exes)} launcher)")
     else:
-        print(f"OK: image -> {layout.image_dir} (msi skipped on non-Windows)")
+        print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} (msi skipped on non-Windows)")
+
+
+def cmd_build(args: argparse.Namespace) -> int:
+    """Run wheelhouse -> runtime -> image -> launcher -> wix -> MSI for each target."""
+    contexts = _contexts(args)
+    for ctx in contexts:
+        if len(contexts) > 1:
+            print(f"=== target: {ctx.config.target_name} ===")
+        _build_one(ctx, args)
     return 0
 
 
 def _add_common(p: argparse.ArgumentParser) -> None:
-    p.add_argument("project", nargs="?", default=".", help="the app's project directory")
-    p.add_argument("--target", help="distribution target (e.g. windows-x86_64 / linux-x86_64)")
-    p.add_argument("--out-dir", help="output directory (default: <project>/appdist)")
+    p.add_argument(
+        "targets", nargs="*",
+        help="target names to build (from [[tool.pyappdist.targets]]); default: all",
+    )
+    p.add_argument("-C", "--project", default=".", help="the app's project directory")
+    p.add_argument("--out-dir", help="output base directory (default: <project>/appdist)")
 
 
 def _add_runtime_opts(p: argparse.ArgumentParser) -> None:
@@ -160,17 +177,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"%(prog)s {_version()}")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p = sub.add_parser("build-wheels", help="wheels into appdist/wheelhouse")
+    p = sub.add_parser("build-wheels", help="wheels into <target>/wheelhouse")
     _add_common(p)
     _add_runtime_opts(p)
     p.set_defaults(func=cmd_build_wheels)
 
-    p = sub.add_parser("fetch-runtime", help="runtime into appdist/runtime")
+    p = sub.add_parser("fetch-runtime", help="runtime into <target>/runtime")
     _add_common(p)
     _add_runtime_opts(p)
     p.set_defaults(func=cmd_fetch_runtime)
 
-    p = sub.add_parser("build-image", help="image into appdist/image")
+    p = sub.add_parser("build-image", help="image into <target>/image")
     _add_common(p)
     _add_runtime_opts(p)
     p.add_argument("--no-compile", action="store_true", help="skip compileall")

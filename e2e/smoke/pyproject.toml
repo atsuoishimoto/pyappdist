@@ -20,15 +20,14 @@ pyappdist = { path = "../../", editable = true }
 
 [tool.pyappdist]
 name = "pyappdist E2E Smoke"
-identifier = "com.example.pyappdist-e2e-smoke"
 python = "3.12"
-target = "windows-x86_64"
 
 launchers = [
   { name = "smoke", entry = "smoke:main", gui = false },
 ]
 
-[tool.pyappdist.wix]
+[[tool.pyappdist.targets]]
+platform = "windows-x86_64"
 manufacturer = "pyappdist"
 upgrade_code = "472A7365-2828-49C1-8B71-5B4FFB33D8F9"
 scope = "user"

@@ -15,14 +15,13 @@ dev = [
 
 [tool.pyappdist]
 name = "Matplotlib Demo"
-identifier = "com.example.matplotlibdemo"
 python = "3.12"
-target = "windows-x86_64"
 
 launchers = [
   { name = "matplotlibdemo", entry = "matplotlibdemo:main", gui = true, icon = "assets/matplotlibdemo.ico" },
 ]
 
-[tool.pyappdist.wix]
+[[tool.pyappdist.targets]]
+platform = "windows-x86_64"
 manufacturer = "Example Inc."
 upgrade_code = "2D4F6A80-1C3E-4B57-9F8A-6E0D2C4B8A13"
