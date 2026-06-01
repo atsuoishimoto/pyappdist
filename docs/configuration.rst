@@ -24,6 +24,11 @@ All configuration lives in your app's ``pyproject.toml`` under
    * - ``version``
      - no
      - Product version. Defaults to ``[project].version`` (then ``"0.0.0"``).
+   * - ``identifier``
+     - for macOS
+     - Reverse-DNS bundle identifier (``CFBundleIdentifier``), e.g.
+       ``"com.example.myapp"``. Required for macOS (``app``/``dmg``) targets; unused on
+       Windows.
    * - ``manager``
      - no
      - Package manager used to pin dependencies: ``"uv"``, ``"poetry"``,
@@ -106,8 +111,9 @@ target is required.
        subdirectory (``appdist/<name>/``). Defaults to ``platform``; must be unique.
    * - ``format``
      - no
-     - Output package: ``"msi"`` (default) or ``"msix"`` (for the Microsoft Store or
-       sideloading). The keys below are grouped by which format uses them.
+     - Output package: ``"msi"`` (default) or ``"msix"`` on Windows; ``"app"`` (a bare
+       ``.app`` bundle) or ``"dmg"`` (the bundle in a disk image) on macOS. The keys below
+       are grouped by which format uses them.
    * - ``manufacturer``
      - for MSI
      - Manufacturer / vendor name. Required to generate the MSI; also used as the
@@ -142,6 +148,21 @@ target is required.
      - no
      - *(MSIX)* Path to a source PNG used for the package logos. A placeholder is
        generated if omitted.
+   * - ``icon``
+     - no
+     - *(macOS)* Path to a source PNG converted to ``AppIcon.icns`` (via ``sips`` +
+       ``iconutil``). A placeholder is generated if omitted.
+   * - ``min_macos``
+     - no
+     - *(macOS)* ``LSMinimumSystemVersion`` and the launcher's
+       ``-mmacosx-version-min``. Defaults to ``"11.0"``.
+   * - ``category``
+     - no
+     - *(macOS)* ``LSApplicationCategoryType`` (e.g. ``"public.app-category.utilities"``).
+   * - ``signing_identity``, ``team_id``, ``notary_profile``, ``entitlements``
+     - no
+     - *(macOS)* Reserved for Developer ID signing + notarization. Parsed but unused in the
+       current ad-hoc-signing MVP.
 
 .. code-block:: toml
 
@@ -160,6 +181,12 @@ target is required.
    # publisher = "CN=Contoso"
    # logo = "assets/logo.png"
 
+   [[tool.pyappdist.targets]]              # a macOS .dmg (needs [tool.pyappdist].identifier)
+   platform = "macos-arm64"
+   format = "dmg"
+   # icon = "assets/app.png"   # converted to AppIcon.icns
+   # min_macos = "11.0"
+
 Platform values
 ~~~~~~~~~~~~~~~~
 
@@ -176,9 +203,14 @@ Platform values
    * - ``linux-x86_64``
      - ``x86_64-unknown-linux-gnu``
      - linux
+   * - ``macos-arm64``
+     - ``aarch64-apple-darwin``
+     - macos
 
-``windows-x86_64`` is the real distribution target. ``linux-x86_64`` exists mainly for
-validating the pipeline on Linux (no MSI is produced for it).
+``windows-x86_64`` and ``macos-arm64`` are the real distribution targets.
+``linux-x86_64`` exists mainly for validating the pipeline on Linux (no installer is
+produced for it). macOS targets are **native-only**: they must be built on an Apple
+Silicon Mac (no cross-build).
 
 .. note::
 
@@ -217,3 +249,19 @@ validating the pipeline on Linux (no MSI is produced for it).
 
    Without the Store or Developer Mode, an unsigned MSIX cannot be installed (it would
    need your own trusted code-signing certificate).
+
+.. note::
+
+   **macOS** (``format = "app"`` / ``"dmg"``) assembles a ``.app`` bundle (one per
+   launcher) containing the bundled runtime under ``Contents/Resources/python`` and a thin
+   Mach-O launcher at ``Contents/MacOS/<name>``, then wraps it in a compressed ``.dmg``
+   (with an ``Applications`` drop-target). The build is **native-only** (Apple Silicon)
+   and requires the Xcode Command Line Tools (``clang``, ``codesign``, ``hdiutil``,
+   ``iconutil``, ``sips``).
+
+   The current MVP signs **ad-hoc** (``codesign -s -``), which is enough to run locally but
+   is **rejected by Gatekeeper** on other machines (``spctl`` will reject it). Distributable
+   signing — Developer ID + hardened runtime + notarization (``notarytool``/``stapler``) —
+   requires an Apple Developer account and is a planned follow-up; the
+   ``signing_identity``/``team_id``/``notary_profile``/``entitlements`` keys reserve the
+   schema for it.

@@ -16,7 +16,7 @@ class Target:
     name: str          # name used in config (windows-x86_64)
     triple: str        # python-build-standalone target triple
     os: str            # "windows" | "linux" | "macos"
-    wix_arch: str      # value passed to wix build -arch (x64 / arm64). Makes the MSI a 64-bit package
+    wix_arch: str      # value passed to wix build -arch (x64 / arm64). Windows-only; "" elsewhere.
 
 
 TARGETS: dict[str, Target] = {
@@ -32,6 +32,13 @@ TARGETS: dict[str, Target] = {
         triple="x86_64-unknown-linux-gnu",
         os="linux",
         wix_arch="x64",
+    ),
+    # macOS: native-only build of a .app/.dmg (no cross-build). wix_arch is unused.
+    "macos-arm64": Target(
+        name="macos-arm64",
+        triple="aarch64-apple-darwin",
+        os="macos",
+        wix_arch="",
     ),
 }
 

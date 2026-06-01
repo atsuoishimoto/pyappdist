@@ -18,7 +18,9 @@ from ..config import Config, LauncherConfig
 from ..errors import BuildError
 from ..image.layout import ImageLayout
 
-_LAUNCHER_C = Path(__file__).resolve().parent.parent / "resources" / "launcher.c"
+_RESOURCES = Path(__file__).resolve().parent.parent / "resources"
+_LAUNCHER_C = _RESOURCES / "launcher.c"
+_LAUNCHER_MAC_C = _RESOURCES / "launcher_mac.c"
 
 
 def _vswhere_path() -> Path:
@@ -31,11 +33,13 @@ def _vswhere_path() -> Path:
 
 
 def build_launchers(config: Config, layout: ImageLayout, workdir: Path, *, log=print) -> list[Path]:
-    if config.target.os != "windows":
-        log("launcher: skipping (non-Windows target)")
-        return []
     if not config.launchers:
         log("launcher: none defined")
+        return []
+    if config.target.os == "macos":
+        return build_macos_launchers(config, layout, workdir, log=log)
+    if config.target.os != "windows":
+        log("launcher: skipping (non-Windows target)")
         return []
     vcvars = _find_vcvars()
     workdir.mkdir(parents=True, exist_ok=True)
@@ -100,6 +104,73 @@ def _build_one(
             f"launcher build failed ({spec.name}):\n{proc.stdout}\n{proc.stderr}"
         )
     return exe
+
+
+# --- macOS (clang) ---------------------------------------------------------
+
+# The bundled python relative to Contents/MacOS/<name>; the bundler (macos/bundle.py)
+# places the launcher there and the runtime under Contents/Resources/python.
+_MACOS_PYREL = "../Resources/python/bin/python3"
+
+
+def build_macos_launchers(
+    config: Config, layout: ImageLayout, workdir: Path, *, log=print
+) -> list[Path]:
+    """Compile one Mach-O launcher per spec into the image dir (native arm64, clang).
+
+    The binaries resolve the bundled python relative to their own location, so they
+    are layout-independent at build time; the bundler relocates them into the .app.
+    """
+    workdir.mkdir(parents=True, exist_ok=True)
+    return [_build_one_macos(config, spec, layout, workdir, log) for spec in config.launchers]
+
+
+def _build_one_macos(
+    config: Config, spec: LauncherConfig, layout: ImageLayout, workdir: Path, log
+) -> Path:
+    log(f"launcher: build {spec.name} (macos)")
+    gen = workdir / spec.name
+    gen.mkdir(parents=True, exist_ok=True)
+
+    # macOS has no console/gui subsystem split, so the plain bootstrap is used for
+    # both (a native error dialog for gui launchers is a later refinement).
+    module, _, func = spec.entry.partition(":")
+    bootstrap = f"import sys; from {module} import {func}; sys.exit({func}())"
+    header = (
+        f'#define PYAPPDIST_PYREL "{_c_str(_MACOS_PYREL)}"\n'
+        f'#define PYAPPDIST_BOOTSTRAP "{_c_str(bootstrap)}"\n'
+        f"#define PYAPPDIST_FIXED_ARGS {_fixed_args_initializer(spec.args)}\n"
+    )
+    (gen / "pyappdist_launcher_config.h").write_text(header, encoding="utf-8")
+    shutil.copy2(_LAUNCHER_MAC_C, gen / "launcher_mac.c")
+
+    exe = layout.image_dir / spec.name
+    cmd = [
+        "clang",
+        "-arch", "arm64",
+        f"-mmacosx-version-min={config.macos.min_macos}",
+        "-O2", "-Wall", "-Wextra",
+        "-I.",
+        "-o", str(exe),
+        "launcher_mac.c",
+    ]
+    proc = subprocess.run(
+        cmd, cwd=str(gen), capture_output=True, text=True, errors="replace"
+    )
+    if proc.returncode != 0 or not exe.exists():
+        raise BuildError(
+            f"launcher build failed ({spec.name}):\n{proc.stdout}\n{proc.stderr}"
+        )
+    return exe
+
+
+def _fixed_args_initializer(args: str) -> str:
+    """POSIX-split fixed args into a NULL-terminated C array initializer."""
+    import shlex
+
+    parts = shlex.split(args)
+    items = "".join(f'"{_c_str(p)}", ' for p in parts)
+    return "{ " + items + "NULL }"
 
 
 def _render_rc(config: Config, spec: LauncherConfig, gen: Path) -> str:

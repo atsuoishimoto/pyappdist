@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import platform
+import shutil
 import sys
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
@@ -26,6 +28,7 @@ from .config import ensure_upgrade_code, load_configs
 from .context import BuildContext
 from .errors import BuildError, PyappdistError
 from .launcher import build_launchers
+from .macos import build_dmg, build_macos_apps, deep_sign
 from .msix import build_msix
 from .runtime import fetch_runtime
 from .sign import sign_artifact
@@ -122,7 +125,49 @@ def cmd_gen_wix(args: argparse.Namespace) -> int:
     return 0
 
 
+def _build_macos(ctx: BuildContext, args: argparse.Namespace) -> None:
+    """Build a macOS .app (and, for format=dmg, a .dmg). Native-only: needs a macOS host."""
+    cfg = ctx.config
+    tag = _tag(ctx)
+    if sys.platform != "darwin":
+        print(f"OK [{tag}]: skipped ({cfg.format} requires a macOS host)")
+        return
+    if platform.machine() != "arm64":
+        raise BuildError(
+            f"{cfg.target_name} build requires an arm64 (Apple Silicon) host; got {platform.machine()!r}"
+        )
+
+    info = _do_fetch_runtime(ctx, args)
+    build_wheelhouse(cfg, info, ctx.wheelhouse)
+    layout = image_mod.build_image(ctx, info, compile_pyc=not args.no_compile)
+    build_launchers(cfg, layout, ctx.out_dir / "_launcher_build")  # Mach-O into image/<name>
+
+    apps = build_macos_apps(cfg, layout.image_dir, ctx.out_dir / "_app_build")
+    for app in apps:
+        deep_sign(app)
+
+    if cfg.format == "app":
+        ctx.dist_dir.mkdir(parents=True, exist_ok=True)
+        finals: list[Path] = []
+        for app in apps:
+            dest = ctx.dist_dir / app.name
+            if dest.exists():
+                shutil.rmtree(dest)
+            shutil.copytree(app, dest, symlinks=True)
+            finals.append(dest)
+        print(f"OK [{tag}]: {len(finals)} .app -> {ctx.dist_dir}")
+        return
+
+    dmg = build_dmg(cfg, apps, ctx.dist_dir / f"{cfg.dist_name}-{cfg.version}.dmg")
+    sign_artifact(dmg)  # optional Developer ID dmg signing via PYAPPDIST_SIGN_CMD; ad-hoc otherwise
+    print(f"OK [{tag}]: dmg -> {dmg} ({len(apps)} app)")
+
+
 def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
+    if ctx.config.format in ("app", "dmg"):
+        _build_macos(ctx, args)
+        return
+
     info = _do_fetch_runtime(ctx, args)
     build_wheelhouse(ctx.config, info, ctx.wheelhouse)
     layout = image_mod.build_image(ctx, info, compile_pyc=not args.no_compile)
@@ -186,7 +231,7 @@ def _version() -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="pyappdist", description="Create a Windows distribution of a Python app")
+    parser = argparse.ArgumentParser(prog="pyappdist", description="Create a native distribution (Windows .msi/.msix, macOS .app/.dmg) of a Python app")
     parser.add_argument("--version", action="version", version=f"%(prog)s {_version()}")
     sub = parser.add_subparsers(dest="command", required=True)
 

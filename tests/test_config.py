@@ -217,3 +217,84 @@ def test_ensure_upgrade_code_keeps_existing(tmp_path: Path):
     assert ensure_upgrade_code(proj, "windows-x86_64", log=lambda _m: None) == existing
     # unchanged file (no rewrite when a valid code is already present)
     assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == before
+
+
+# --- macOS targets ---------------------------------------------------------
+
+_MACOS = """
+[project]
+name = "helloworld"
+version = "0.1.0"
+
+[tool.pyappdist]
+name = "Hello World"
+python = "3.12"
+identifier = "com.example.helloworld"
+launchers = [ {{ name = "helloworld", entry = "helloworld:main" }} ]
+
+[[tool.pyappdist.targets]]
+platform = "macos-arm64"
+format = "dmg"
+{target_extra}
+"""
+
+
+def _write_macos(tmp_path: Path, *, target_extra: str = "") -> Path:
+    (tmp_path / "pyproject.toml").write_text(
+        _MACOS.format(target_extra=target_extra), encoding="utf-8"
+    )
+    return tmp_path
+
+
+def test_macos_target_basic(tmp_path: Path):
+    cfg = load_configs(_write_macos(tmp_path))[0]
+    assert cfg.target.os == "macos"
+    assert cfg.target.triple == "aarch64-apple-darwin"
+    assert cfg.format == "dmg"
+    assert cfg.identifier == "com.example.helloworld"
+    assert cfg.macos.min_macos == "11.0"  # default
+
+
+def test_format_app(tmp_path: Path):
+    text = _MACOS.format(target_extra="").replace('format = "dmg"', 'format = "app"')
+    cfg = load_configs(_write_text(tmp_path, text))[0]
+    assert cfg.format == "app"
+
+
+def test_macos_requires_identifier(tmp_path: Path):
+    text = _MACOS.format(target_extra="").replace(
+        'identifier = "com.example.helloworld"\n', ""
+    )
+    with pytest.raises(ConfigError, match="identifier is required for macOS"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_identifier_must_be_reverse_dns(tmp_path: Path):
+    text = _MACOS.format(target_extra="").replace(
+        '"com.example.helloworld"', '"notreversedns"'
+    )
+    with pytest.raises(ConfigError, match="reverse-DNS"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_macos_fields_parsed(tmp_path: Path):
+    cfg = load_configs(
+        _write_macos(
+            tmp_path,
+            target_extra=(
+                'min_macos = "12.0"\n'
+                'category = "public.app-category.utilities"\n'
+                'team_id = "ABCDE12345"\n'
+                'notary_profile = "myprofile"'
+            ),
+        )
+    )[0]
+    assert cfg.macos.min_macos == "12.0"
+    assert cfg.macos.category == "public.app-category.utilities"
+    assert cfg.macos.team_id == "ABCDE12345"
+    assert cfg.macos.notary_profile == "myprofile"
+
+
+def test_macos_icon_must_be_png(tmp_path: Path):
+    with pytest.raises(ConfigError, match="png"):
+        load_configs(_write_macos(tmp_path, target_extra='icon = "icon.icns"'))

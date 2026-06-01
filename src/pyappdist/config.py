@@ -20,6 +20,9 @@ from .targets import Target, get_target
 
 _PYTHON_RE = re.compile(r"^\d+\.\d+(\.\d+)?$")
 
+# CFBundleIdentifier: reverse-DNS, at least two dot-separated segments.
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
+
 _MANAGERS = ("uv", "poetry", "pipenv", "pdm", "requirements.txt")
 
 # Install scope of the generated MSI (a build-time choice).
@@ -28,7 +31,8 @@ _MANAGERS = ("uv", "poetry", "pipenv", "pdm", "requirements.txt")
 _WIX_SCOPES = ("machine", "user")
 
 # Output package format per target.
-_FORMATS = ("msi", "msix")
+#   msi/msix - Windows; app/dmg - macOS (app = raw bundle, dmg = bundle in a disk image)
+_FORMATS = ("msi", "msix", "app", "dmg")
 
 
 @dataclass(frozen=True)
@@ -59,6 +63,25 @@ class MsixConfig:
 
 
 @dataclass(frozen=True)
+class MacosConfig:
+    """macOS-specific settings (.app / .dmg targets).
+
+    ``min_macos`` and ``icon`` are used by the MVP. The signing/notarization fields are
+    parsed now so the schema is stable, but are only consumed by the later Developer ID
+    phase (the MVP ad-hoc-signs); see ``macos/sign.py``.
+    """
+
+    min_macos: str = "11.0"          # LSMinimumSystemVersion / clang -mmacosx-version-min
+    icon: str | None = None          # path (relative to project_dir) to a source PNG
+    # --- Developer ID / notarization seam (unused in the ad-hoc MVP) ---
+    signing_identity: str | None = None  # "Developer ID Application: Name (TEAMID)"
+    team_id: str | None = None
+    notary_profile: str | None = None    # notarytool keychain profile name
+    entitlements: str | None = None      # path to an entitlements plist
+    category: str | None = None          # LSApplicationCategoryType
+
+
+@dataclass(frozen=True)
 class Config:
     """One fully-resolved build target (app-level settings + one target's settings)."""
 
@@ -67,12 +90,14 @@ class Config:
     dist_name: str      # distribution package name ([project].name)
     version: str
     python: str         # "X.Y" or "X.Y.Z"
+    identifier: str | None  # CFBundleIdentifier (reverse-DNS); required for macOS targets
     target: Target
     target_name: str    # the [[tool.pyappdist.targets]].name label (defaults to the platform)
-    format: str         # output package format: "msi" | "msix"
+    format: str         # output package format: "msi" | "msix" | "app" | "dmg"
     launchers: tuple[LauncherConfig, ...]
     wix: WixConfig
     msix: MsixConfig
+    macos: MacosConfig
     manager: str | None  # manager used for dependency resolution (uv/poetry/pipenv/pdm/requirements.txt). None=auto-detect
 
     @property
@@ -107,6 +132,12 @@ def load_configs(
 
     version = tool.get("version") or project.get("version") or "0.0.0"
 
+    identifier = tool.get("identifier")
+    if identifier is not None and not _IDENTIFIER_RE.match(str(identifier)):
+        raise ConfigError(
+            f"[tool.pyappdist].identifier must be reverse-DNS (e.g. \"com.example.app\"): {identifier!r}"
+        )
+
     python = tool.get("python")
     if not python:
         raise ConfigError("[tool.pyappdist].python is required (e.g. \"3.12\")")
@@ -131,6 +162,13 @@ def load_configs(
             )
         specs = [s for s in specs if s[0] in set(select)]
 
+    for (_, target, _, _, _, _) in specs:
+        if target.os == "macos" and not identifier:
+            raise ConfigError(
+                "[tool.pyappdist].identifier is required for macOS targets "
+                "(reverse-DNS CFBundleIdentifier, e.g. \"com.example.app\")"
+            )
+
     return [
         Config(
             project_dir=project_dir,
@@ -138,19 +176,23 @@ def load_configs(
             dist_name=str(dist_name),
             version=str(version),
             python=str(python),
+            identifier=str(identifier) if identifier is not None else None,
             target=target,
             target_name=target_name,
             format=fmt,
             launchers=launchers,
             wix=wix,
             msix=msix,
+            macos=macos,
             manager=manager,
         )
-        for (target_name, target, fmt, wix, msix) in specs
+        for (target_name, target, fmt, wix, msix, macos) in specs
     ]
 
 
-def _parse_targets(raw: object) -> list[tuple[str, Target, str, WixConfig, MsixConfig]]:
+def _parse_targets(
+    raw: object,
+) -> list[tuple[str, Target, str, WixConfig, MsixConfig, MacosConfig]]:
     if not raw:
         raise ConfigError(
             "at least one [[tool.pyappdist.targets]] is required"
@@ -158,7 +200,7 @@ def _parse_targets(raw: object) -> list[tuple[str, Target, str, WixConfig, MsixC
     if not isinstance(raw, list):
         raise ConfigError("[[tool.pyappdist.targets]] must be an array of tables")
 
-    specs: list[tuple[str, Target, str, WixConfig, MsixConfig]] = []
+    specs: list[tuple[str, Target, str, WixConfig, MsixConfig, MacosConfig]] = []
     for i, item in enumerate(raw):
         if not isinstance(item, dict):
             raise ConfigError(f"targets[{i}] must be a table")
@@ -173,7 +215,10 @@ def _parse_targets(raw: object) -> list[tuple[str, Target, str, WixConfig, MsixC
         if fmt not in _FORMATS:
             raise ConfigError(f"targets[{i}].format must be one of {_FORMATS}: {fmt!r}")
         specs.append(
-            (target_name, target, str(fmt), _parse_wix(item, i), _parse_msix(item, i))
+            (
+                target_name, target, str(fmt),
+                _parse_wix(item, i), _parse_msix(item, i), _parse_macos(item, i),
+            )
         )
 
     names = [s[0] for s in specs]
@@ -211,6 +256,21 @@ def _parse_msix(raw: dict, index: int) -> MsixConfig:
         publisher=raw.get("publisher"),
         display_name=raw.get("display_name"),
         logo=str(logo) if logo is not None else None,
+    )
+
+
+def _parse_macos(raw: dict, index: int) -> MacosConfig:
+    icon = raw.get("icon")
+    if icon is not None and not str(icon).lower().endswith(".png"):
+        raise ConfigError(f"targets[{index}].icon must be a .png file: {icon!r}")
+    return MacosConfig(
+        min_macos=str(raw.get("min_macos", "11.0")),
+        icon=str(icon) if icon is not None else None,
+        signing_identity=raw.get("signing_identity"),
+        team_id=raw.get("team_id"),
+        notary_profile=raw.get("notary_profile"),
+        entitlements=raw.get("entitlements"),
+        category=raw.get("category"),
     )
 
 
