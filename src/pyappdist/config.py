@@ -74,6 +74,7 @@ class LinuxConfig:
     """
 
     categories: str = "Utility;"  # freedesktop .desktop Categories (icon launchers only)
+    compression: str = "xz"       # payload compression: "gzip" | "bzip2" | "xz"
 
 
 @dataclass(frozen=True)
@@ -246,9 +247,18 @@ def _parse_msix(raw: dict, index: int) -> MsixConfig:
     )
 
 
+_LINUX_COMPRESSION = ("gzip", "bzip2", "xz")
+
+
 def _parse_linux(raw: dict, index: int) -> LinuxConfig:
     categories = raw.get("categories", "Utility;")
-    return LinuxConfig(categories=str(categories))
+    compression = str(raw.get("compression", "xz"))
+    if compression not in _LINUX_COMPRESSION:
+        raise ConfigError(
+            f"targets[{index}].compression must be one of "
+            f"{', '.join(_LINUX_COMPRESSION)}: {compression!r}"
+        )
+    return LinuxConfig(categories=str(categories), compression=compression)
 
 
 def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:

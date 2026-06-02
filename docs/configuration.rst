@@ -149,6 +149,11 @@ target is required.
      - no
      - *(Linux)* freedesktop ``.desktop`` ``Categories`` value (default ``"Utility;"``).
        Used only for launchers that define an ``icon``.
+   * - ``compression``
+     - no
+     - *(Linux)* payload compression for the ``.tar`` and ``.run``: ``"gzip"``,
+       ``"bzip2"`` or ``"xz"`` (default ``"xz"``). The matching decompressor must be
+       present on the target machine at install time.
 
 .. code-block:: toml
 
@@ -168,10 +173,11 @@ target is required.
    # publisher = "CN=Contoso"
    # logo = "assets/logo.png"
 
-   [[tool.pyappdist.targets]]              # a Linux .tar.gz + .run installer
+   [[tool.pyappdist.targets]]              # a Linux .tar.xz + .run installer
    platform = "linux-x86_64"
    format = "linux"
    # categories = "Utility;Development;"   # for launchers that set an icon
+   # compression = "xz"                    # "gzip" | "bzip2" | "xz" (default "xz")
 
 Platform values
 ~~~~~~~~~~~~~~~~
@@ -237,10 +243,13 @@ Linux format
 
 **Linux** (``format = "linux"``) builds two artifacts in ``appdist/<name>/dist/``:
 
-* ``<name>-<version>-<target>.tar.gz`` — the image tree under a top-level directory.
-  Users who don't want an installer just extract it and run ``<dir>/<launcher>``.
+* ``<name>-<version>-<target>.tar{.gz,.bz2,.xz}`` — the image tree under a top-level
+  directory (extension follows ``compression``). Users who don't want an installer
+  just extract it and run ``<dir>/<launcher>``.
 * ``<name>-<version>-<target>.run`` — a self-extracting installer (a POSIX shell
-  script with the tarball appended). It needs no root and no FUSE: it copies the tree
+  script with the compressed tarball appended). It verifies the payload's SHA-256
+  before extracting, so a corrupted download is rejected rather than half-installed.
+  It needs no root and no FUSE: it copies the tree
   into ``<prefix>/lib/<name>`` (``$HOME/.local`` by default; override with
   ``--prefix``), symlinks each launcher into ``<prefix>/bin``, and — only for
   launchers that set an ``icon`` — writes a ``.desktop`` entry. It also drops an
