@@ -194,63 +194,64 @@ Platform values
 ``linux-x86_64`` is the Linux target (``format = "linux"``). ``format`` is required and must
 match the platform's OS — pairing, say, ``"msi"`` with ``linux-x86_64`` is rejected at load.
 
-.. note::
+MSI format
+~~~~~~~~~~
 
-   A ``machine`` install always requires elevation: an admin gets a UAC consent prompt,
-   a standard user gets a UAC credential prompt (and cannot install without admin
-   rights). A ``user`` install never needs elevation.
+A ``machine`` install always requires elevation: an admin gets a UAC consent prompt,
+a standard user gets a UAC credential prompt (and cannot install without admin
+rights). A ``user`` install never needs elevation.
 
-   For unattended installs, suppress the UI with ``/qn`` (silent) or ``/qb`` (progress
-   only); the license is then not shown and no acceptance step is required:
+For unattended installs, suppress the UI with ``/qn`` (silent) or ``/qb`` (progress
+only); the license is then not shown and no acceptance step is required:
 
-   .. code-block:: bat
+.. code-block:: bat
 
-      msiexec /i app.msi /qn
+   msiexec /i app.msi /qn
 
-   Building a target with a ``license`` requires the WiX UI extension; install it once
-   with ``wix extension add -g WixToolset.UI.wixext/5.0.2``.
+Building a target with a ``license`` requires the WiX UI extension; install it once
+with ``wix extension add -g WixToolset.UI.wixext/5.0.2``.
 
-.. note::
+The ``upgrade_code`` is written back using ``tomlkit``, which preserves your
+file's existing formatting and comments.
 
-   The ``upgrade_code`` is written back using ``tomlkit``, which preserves your
-   file's existing formatting and comments.
+MSIX format
+~~~~~~~~~~~
 
-.. note::
+**MSIX** (``format = "msix"``) packs the same image with ``makeappx`` (Windows SDK;
+located automatically, or set ``PYAPPDIST_MAKEAPPX`` to its path). The
+package is left **unsigned**: the Microsoft Store signs it for free on submission
+(company registration is also free), and auto-updates are handled by the Store. The
+launchers are packaged as full-trust Win32 apps (``runFullTrust``).
 
-   **MSIX** (``format = "msix"``) packs the same image with ``makeappx`` (Windows SDK;
-   located automatically, or set ``PYAPPDIST_MAKEAPPX`` to its path). The
-   package is left **unsigned**: the Microsoft Store signs it for free on submission
-   (company registration is also free), and auto-updates are handled by the Store. The
-   launchers are packaged as full-trust Win32 apps (``runFullTrust``).
+To test an unsigned ``.msix`` locally, enable **Developer Mode** (Settings → For
+developers; one-time, requires admin), then::
 
-   To test an unsigned ``.msix`` locally, enable **Developer Mode** (Settings → For
-   developers; one-time, requires admin), then::
+   Add-AppxPackage -Register <image>\AppxManifest.xml   # loose, from the built image
+   # or:  Add-AppxPackage -AllowUnsigned <app>.msix
 
-      Add-AppxPackage -Register <image>\AppxManifest.xml   # loose, from the built image
-      # or:  Add-AppxPackage -AllowUnsigned <app>.msix
+Without the Store or Developer Mode, an unsigned MSIX cannot be installed (it would
+need your own trusted code-signing certificate).
 
-   Without the Store or Developer Mode, an unsigned MSIX cannot be installed (it would
-   need your own trusted code-signing certificate).
+Linux format
+~~~~~~~~~~~~
 
-.. note::
+**Linux** (``format = "linux"``) builds two artifacts in ``appdist/<name>/dist/``:
 
-   **Linux** (``format = "linux"``) builds two artifacts in ``appdist/<name>/dist/``:
+* ``<name>-<version>-<target>.tar.gz`` — the image tree under a top-level directory.
+  Users who don't want an installer just extract it and run ``<dir>/<launcher>``.
+* ``<name>-<version>-<target>.run`` — a self-extracting installer (a POSIX shell
+  script with the tarball appended). It needs no root and no FUSE: it copies the tree
+  into ``<prefix>/lib/<name>`` (``$HOME/.local`` by default; override with
+  ``--prefix``), symlinks each launcher into ``<prefix>/bin``, and — only for
+  launchers that set an ``icon`` — writes a ``.desktop`` entry. It also drops an
+  ``uninstall.sh`` next to the install, and ``./<app>.run --uninstall`` removes it.
 
-   * ``<name>-<version>-<target>.tar.gz`` — the image tree under a top-level directory.
-     Users who don't want an installer just extract it and run ``<dir>/<launcher>``.
-   * ``<name>-<version>-<target>.run`` — a self-extracting installer (a POSIX shell
-     script with the tarball appended). It needs no root and no FUSE: it copies the tree
-     into ``<prefix>/lib/<name>`` (``$HOME/.local`` by default; override with
-     ``--prefix``), symlinks each launcher into ``<prefix>/bin``, and — only for
-     launchers that set an ``icon`` — writes a ``.desktop`` entry. It also drops an
-     ``uninstall.sh`` next to the install, and ``./<app>.run --uninstall`` removes it.
+.. code-block:: console
 
-   .. code-block:: console
+   $ ./myapp-1.0-linux-x86_64.run            # install into ~/.local
+   $ ./myapp-1.0-linux-x86_64.run --prefix ~/opt
+   $ ./myapp-1.0-linux-x86_64.run --uninstall
 
-      $ ./myapp-1.0-linux-x86_64.run            # install into ~/.local
-      $ ./myapp-1.0-linux-x86_64.run --prefix ~/opt
-      $ ./myapp-1.0-linux-x86_64.run --uninstall
-
-   Each launcher becomes a small relocatable shell wrapper that runs the entry point
-   with the bundled interpreter. Application updates are the app's own responsibility
-   (pyappdist provides no auto-update mechanism).
+Each launcher becomes a small relocatable shell wrapper that runs the entry point
+with the bundled interpreter. Application updates are the app's own responsibility
+(pyappdist provides no auto-update mechanism).
