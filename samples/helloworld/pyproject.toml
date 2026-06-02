@@ -20,6 +20,7 @@ launchers = [
 
 [[tool.pyappdist.targets]]
 platform = "windows-x86_64"
+format = "msi"
 manufacturer = "Example Inc."
 upgrade_code = "7E3F9A2C-5B1D-4E8A-9C6F-1A2B3C4D5E6F"
 
