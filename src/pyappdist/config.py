@@ -32,6 +32,9 @@ _WIX_SCOPES = ("machine", "user")
 #   linux    - a portable .tar.gz plus a self-extracting .run installer (see LinuxConfig)
 _FORMATS = ("msi", "msix", "linux")
 
+# Each output format produces a package for exactly one OS; a target's platform must match.
+_FORMAT_OS = {"msi": "windows", "msix": "windows", "linux": "linux"}
+
 
 @dataclass(frozen=True)
 class LauncherConfig:
@@ -188,9 +191,16 @@ def _parse_targets(
             )
         target = get_target(str(platform))
         target_name = str(item.get("name") or platform)
-        fmt = item.get("format", "msi")
+        fmt = item.get("format")
+        if fmt is None:
+            raise ConfigError(f"targets[{i}].format is required (one of {_FORMATS})")
         if fmt not in _FORMATS:
             raise ConfigError(f"targets[{i}].format must be one of {_FORMATS}: {fmt!r}")
+        if _FORMAT_OS[fmt] != target.os:
+            raise ConfigError(
+                f"targets[{i}]: format={fmt!r} is for {_FORMAT_OS[fmt]}, but platform "
+                f"{target.name!r} is {target.os}"
+            )
         specs.append(
             (
                 target_name, target, str(fmt),

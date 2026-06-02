@@ -30,6 +30,7 @@ entry = "myapp:main"        # module:callable
 
 [[tool.pyappdist.targets]]
 platform = "windows-x86_64"
+format = "msi"
 manufacturer = "Example Inc."
 # scope = "user"            # "user" (default, no admin) or "machine" (Program Files)
 ```

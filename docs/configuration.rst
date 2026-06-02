@@ -105,11 +105,12 @@ target is required.
      - Label used to select this target on the command line and as its output
        subdirectory (``appdist/<name>/``). Defaults to ``platform``; must be unique.
    * - ``format``
-     - no
-     - Output package: ``"msi"`` (default) or ``"msix"`` (for the Microsoft Store or
-       sideloading) on Windows, or ``"linux"`` (a portable ``.tar.gz`` plus a
-       self-extracting ``.run`` installer) on Linux. The keys below are grouped by
-       which format uses them.
+     - **yes**
+     - Output package, required and bound to the platform OS: ``"msi"`` or ``"msix"``
+       (for the Microsoft Store or sideloading) on Windows, or ``"linux"`` (a portable
+       ``.tar.gz`` plus a self-extracting ``.run`` installer) on Linux. A format that does
+       not match the platform's OS is rejected. The keys below are grouped by which format
+       uses them.
    * - ``manufacturer``
      - for MSI
      - Manufacturer / vendor name. Required to generate the MSI; also used as the
@@ -151,8 +152,9 @@ target is required.
 
 .. code-block:: toml
 
-   [[tool.pyappdist.targets]]              # an MSI (default)
+   [[tool.pyappdist.targets]]              # an MSI
    platform = "windows-x86_64"
+   format = "msi"
    manufacturer = "Example Inc."
    scope = "user"            # "user" (default) or "machine"
    # license = "EULA.rtf"    # optional EULA shown at install time
@@ -188,10 +190,9 @@ Platform values
      - ``x86_64-unknown-linux-gnu``
      - linux
 
-``windows-x86_64`` is the Windows distribution target (``msi``/``msix``).
-``linux-x86_64`` with ``format = "linux"`` produces a Linux distribution (``.tar.gz`` +
-``.run``); with the default ``msi`` format it only builds the image, which is useful for
-validating the pipeline on Linux.
+``windows-x86_64`` is the Windows distribution target (``format = "msi"`` or ``"msix"``);
+``linux-x86_64`` is the Linux target (``format = "linux"``). ``format`` is required and must
+match the platform's OS — pairing, say, ``"msi"`` with ``linux-x86_64`` is rejected at load.
 
 .. note::
 
