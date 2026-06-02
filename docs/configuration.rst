@@ -110,10 +110,12 @@ target is required.
      - Label used to select this target on the command line and as its output
        subdirectory (``appdist/<name>/``). Defaults to ``platform``; must be unique.
    * - ``format``
-     - no
-     - Output package: ``"msi"`` (default) or ``"msix"`` on Windows; ``"app"`` (a bare
-       ``.app`` bundle) or ``"dmg"`` (the bundle in a disk image) on macOS. The keys below
-       are grouped by which format uses them.
+     - **yes**
+     - Output package, required and bound to the platform OS: ``"msi"`` or ``"msix"`` on
+       Windows; ``"app"`` (a bare ``.app`` bundle) or ``"dmg"`` (the bundle in a disk image)
+       on macOS; ``"linux"`` (a portable ``.tar.gz`` plus a self-extracting ``.run``
+       installer) on Linux. A format that does not match the platform's OS is rejected. The
+       keys below are grouped by which format uses them.
    * - ``manufacturer``
      - for MSI
      - Manufacturer / vendor name. Required to generate the MSI; also used as the
@@ -166,11 +168,16 @@ target is required.
        hardened runtime; ``notary_profile`` (or ``PYAPPDIST_NOTARY_PROFILE``) additionally
        notarizes and staples. ``entitlements`` overrides the bundled-python default plist.
        See :doc:`signing`. Without these, the build signs **ad-hoc** (local-only).
+   * - ``categories``
+     - no
+     - *(Linux)* freedesktop ``.desktop`` ``Categories`` value (default ``"Utility;"``).
+       Used only for launchers that define an ``icon``.
 
 .. code-block:: toml
 
-   [[tool.pyappdist.targets]]              # an MSI (default)
+   [[tool.pyappdist.targets]]              # an MSI
    platform = "windows-x86_64"
+   format = "msi"
    manufacturer = "Example Inc."
    scope = "user"            # "user" (default) or "machine"
    # license = "EULA.rtf"    # optional EULA shown at install time
@@ -189,6 +196,11 @@ target is required.
    format = "dmg"
    # icon = "assets/app.png"   # converted to AppIcon.icns
    # min_macos = "11.0"
+
+   [[tool.pyappdist.targets]]              # a Linux .tar.gz + .run installer
+   platform = "linux-x86_64"
+   format = "linux"
+   # categories = "Utility;Development;"   # for launchers that set an icon
 
 Platform values
 ~~~~~~~~~~~~~~~~
@@ -210,10 +222,11 @@ Platform values
      - ``aarch64-apple-darwin``
      - macos
 
-``windows-x86_64`` and ``macos-arm64`` are the real distribution targets.
-``linux-x86_64`` exists mainly for validating the pipeline on Linux (no installer is
-produced for it). macOS targets are **native-only**: they must be built on an Apple
-Silicon Mac (no cross-build).
+``windows-x86_64`` is the Windows distribution target (``format = "msi"`` or ``"msix"``);
+``macos-arm64`` is the macOS target (``format = "app"`` or ``"dmg"``); ``linux-x86_64`` is
+the Linux target (``format = "linux"``). ``format`` is required and must match the
+platform's OS — pairing, say, ``"msi"`` with ``linux-x86_64`` is rejected at load. macOS
+targets are **native-only**: they must be built on an Apple Silicon Mac (no cross-build).
 
 .. note::
 
@@ -262,9 +275,31 @@ Silicon Mac (no cross-build).
    and requires the Xcode Command Line Tools (``clang``, ``codesign``, ``hdiutil``,
    ``iconutil``, ``sips``).
 
-   The current MVP signs **ad-hoc** (``codesign -s -``), which is enough to run locally but
-   is **rejected by Gatekeeper** on other machines (``spctl`` will reject it). Distributable
-   signing — Developer ID + hardened runtime + notarization (``notarytool``/``stapler``) —
-   requires an Apple Developer account and is a planned follow-up; the
-   ``signing_identity``/``team_id``/``notary_profile``/``entitlements`` keys reserve the
-   schema for it.
+   With no identity configured the build signs **ad-hoc** (``codesign -s -``), which is
+   enough to run locally but is **rejected by Gatekeeper** on other machines (``spctl``
+   will reject it). Set ``signing_identity`` (or ``PYAPPDIST_SIGNING_IDENTITY``) for a
+   Developer ID signature with hardened runtime, and ``notary_profile`` (or
+   ``PYAPPDIST_NOTARY_PROFILE``) to also notarize and staple — see :doc:`signing`.
+
+.. note::
+
+   **Linux** (``format = "linux"``) builds two artifacts in ``appdist/<name>/dist/``:
+
+   * ``<name>-<version>-<target>.tar.gz`` — the image tree under a top-level directory.
+     Users who don't want an installer just extract it and run ``<dir>/<launcher>``.
+   * ``<name>-<version>-<target>.run`` — a self-extracting installer (a POSIX shell
+     script with the tarball appended). It needs no root and no FUSE: it copies the tree
+     into ``<prefix>/lib/<name>`` (``$HOME/.local`` by default; override with
+     ``--prefix``), symlinks each launcher into ``<prefix>/bin``, and — only for
+     launchers that set an ``icon`` — writes a ``.desktop`` entry. It also drops an
+     ``uninstall.sh`` next to the install, and ``./<app>.run --uninstall`` removes it.
+
+   .. code-block:: console
+
+      $ ./myapp-1.0-linux-x86_64.run            # install into ~/.local
+      $ ./myapp-1.0-linux-x86_64.run --prefix ~/opt
+      $ ./myapp-1.0-linux-x86_64.run --uninstall
+
+   Each launcher becomes a small relocatable shell wrapper that runs the entry point
+   with the bundled interpreter. Application updates are the app's own responsibility
+   (pyappdist provides no auto-update mechanism).

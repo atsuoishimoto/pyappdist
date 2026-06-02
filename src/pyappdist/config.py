@@ -31,8 +31,19 @@ _MANAGERS = ("uv", "poetry", "pipenv", "pdm", "requirements.txt")
 _WIX_SCOPES = ("machine", "user")
 
 # Output package format per target.
-#   msi/msix - Windows; app/dmg - macOS (app = raw bundle, dmg = bundle in a disk image)
-_FORMATS = ("msi", "msix", "app", "dmg")
+#   msi/msix - Windows packages (see WixConfig/MsixConfig)
+#   app/dmg  - macOS (app = raw bundle, dmg = bundle in a disk image; see MacosConfig)
+#   linux    - a portable .tar.gz plus a self-extracting .run installer (see LinuxConfig)
+_FORMATS = ("msi", "msix", "app", "dmg", "linux")
+
+# Each output format produces a package for exactly one OS; a target's platform must match.
+_FORMAT_OS = {
+    "msi": "windows",
+    "msix": "windows",
+    "app": "macos",
+    "dmg": "macos",
+    "linux": "linux",
+}
 
 
 @dataclass(frozen=True)
@@ -82,6 +93,19 @@ class MacosConfig:
 
 
 @dataclass(frozen=True)
+class LinuxConfig:
+    """Linux ``format = "linux"`` settings.
+
+    The output is a portable ``.tar.gz`` (the image tree) plus a self-extracting
+    ``.run`` installer that copies into a per-user prefix (``$HOME/.local`` by default),
+    symlinks each launcher into ``<prefix>/bin``, and — only when a launcher has an
+    ``icon`` — writes a ``.desktop`` entry. No root required; updates are the app's job.
+    """
+
+    categories: str = "Utility;"  # freedesktop .desktop Categories (icon launchers only)
+
+
+@dataclass(frozen=True)
 class Config:
     """One fully-resolved build target (app-level settings + one target's settings)."""
 
@@ -93,12 +117,13 @@ class Config:
     identifier: str | None  # CFBundleIdentifier (reverse-DNS); required for macOS targets
     target: Target
     target_name: str    # the [[tool.pyappdist.targets]].name label (defaults to the platform)
-    format: str         # output package format: "msi" | "msix" | "app" | "dmg"
+    format: str         # output package format: "msi" | "msix" | "app" | "dmg" | "linux"
     launchers: tuple[LauncherConfig, ...]
     wix: WixConfig
     msix: MsixConfig
     macos: MacosConfig
     manager: str | None  # manager used for dependency resolution (uv/poetry/pipenv/pdm/requirements.txt). None=auto-detect
+    linux: LinuxConfig = LinuxConfig()
 
     @property
     def python_minor(self) -> str:
@@ -162,7 +187,7 @@ def load_configs(
             )
         specs = [s for s in specs if s[0] in set(select)]
 
-    for (_, target, _, _, _, _) in specs:
+    for (_, target, _, _, _, _, _) in specs:
         if target.os == "macos" and not identifier:
             raise ConfigError(
                 "[tool.pyappdist].identifier is required for macOS targets "
@@ -185,14 +210,15 @@ def load_configs(
             msix=msix,
             macos=macos,
             manager=manager,
+            linux=linux,
         )
-        for (target_name, target, fmt, wix, msix, macos) in specs
+        for (target_name, target, fmt, wix, msix, macos, linux) in specs
     ]
 
 
 def _parse_targets(
     raw: object,
-) -> list[tuple[str, Target, str, WixConfig, MsixConfig, MacosConfig]]:
+) -> list[tuple[str, Target, str, WixConfig, MsixConfig, MacosConfig, LinuxConfig]]:
     if not raw:
         raise ConfigError(
             "at least one [[tool.pyappdist.targets]] is required"
@@ -200,7 +226,9 @@ def _parse_targets(
     if not isinstance(raw, list):
         raise ConfigError("[[tool.pyappdist.targets]] must be an array of tables")
 
-    specs: list[tuple[str, Target, str, WixConfig, MsixConfig, MacosConfig]] = []
+    specs: list[
+        tuple[str, Target, str, WixConfig, MsixConfig, MacosConfig, LinuxConfig]
+    ] = []
     for i, item in enumerate(raw):
         if not isinstance(item, dict):
             raise ConfigError(f"targets[{i}] must be a table")
@@ -211,13 +239,21 @@ def _parse_targets(
             )
         target = get_target(str(platform))
         target_name = str(item.get("name") or platform)
-        fmt = item.get("format", "msi")
+        fmt = item.get("format")
+        if fmt is None:
+            raise ConfigError(f"targets[{i}].format is required (one of {_FORMATS})")
         if fmt not in _FORMATS:
             raise ConfigError(f"targets[{i}].format must be one of {_FORMATS}: {fmt!r}")
+        if _FORMAT_OS[fmt] != target.os:
+            raise ConfigError(
+                f"targets[{i}]: format={fmt!r} is for {_FORMAT_OS[fmt]}, but platform "
+                f"{target.name!r} is {target.os}"
+            )
         specs.append(
             (
                 target_name, target, str(fmt),
-                _parse_wix(item, i), _parse_msix(item, i), _parse_macos(item, i),
+                _parse_wix(item, i), _parse_msix(item, i),
+                _parse_macos(item, i), _parse_linux(item, i),
             )
         )
 
@@ -272,6 +308,11 @@ def _parse_macos(raw: dict, index: int) -> MacosConfig:
         entitlements=raw.get("entitlements"),
         category=raw.get("category"),
     )
+
+
+def _parse_linux(raw: dict, index: int) -> LinuxConfig:
+    categories = raw.get("categories", "Utility;")
+    return LinuxConfig(categories=str(categories))
 
 
 def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:

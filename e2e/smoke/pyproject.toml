@@ -29,6 +29,7 @@ launchers = [
 
 [[tool.pyappdist.targets]]
 platform = "windows-x86_64"
+format = "msi"
 manufacturer = "pyappdist"
 upgrade_code = "472A7365-2828-49C1-8B71-5B4FFB33D8F9"
 scope = "user"
@@ -43,3 +44,8 @@ manufacturer = "pyappdist"
 [[tool.pyappdist.targets]]
 platform = "macos-arm64"
 format = "dmg"
+
+[[tool.pyappdist.targets]]
+name = "linux"
+platform = "linux-x86_64"
+format = "linux"

@@ -25,6 +25,7 @@ launchers = [
 
 [[tool.pyappdist.targets]]
 platform = "windows-x86_64"
+format = "{fmt}"
 {target_extra}
 """
 
@@ -40,18 +41,23 @@ launchers = [ { name = "helloworld", entry = "helloworld:main" } ]
 [[tool.pyappdist.targets]]
 name = "win-user"
 platform = "windows-x86_64"
+format = "msi"
 scope = "user"
 
 [[tool.pyappdist.targets]]
 name = "win-machine"
 platform = "windows-x86_64"
+format = "msi"
 scope = "machine"
 """
 
 
-def _write(tmp_path: Path, *, app_extra: str = "", target_extra: str = "") -> Path:
+def _write(
+    tmp_path: Path, *, fmt: str = "msi", app_extra: str = "", target_extra: str = ""
+) -> Path:
     (tmp_path / "pyproject.toml").write_text(
-        _BASE.format(app_extra=app_extra, target_extra=target_extra), encoding="utf-8"
+        _BASE.format(fmt=fmt, app_extra=app_extra, target_extra=target_extra),
+        encoding="utf-8",
     )
     return tmp_path
 
@@ -103,7 +109,7 @@ def test_no_targets_error(tmp_path: Path):
 
 
 def test_unknown_platform(tmp_path: Path):
-    text = _BASE.format(app_extra="", target_extra="").replace(
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
         '"windows-x86_64"', '"solaris-sparc"'
     )
     with pytest.raises(ConfigError, match="unknown target"):
@@ -169,25 +175,44 @@ def test_license_must_be_rtf(tmp_path: Path):
         load_configs(_write(tmp_path, target_extra='license = "EULA.txt"'))
 
 
-def test_format_default_msi(tmp_path: Path):
-    assert load_configs(_write(tmp_path))[0].format == "msi"
+def test_format_required(tmp_path: Path):
+    # A target table with no `format` is rejected (no default).
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        '\nformat = "msi"', ""
+    )
+    with pytest.raises(ConfigError, match="format"):
+        load_configs(_write_text(tmp_path, text))
 
 
 def test_format_msix(tmp_path: Path):
-    cfg = load_configs(_write(tmp_path, target_extra='format = "msix"'))[0]
+    cfg = load_configs(_write(tmp_path, fmt="msix"))[0]
     assert cfg.format == "msix"
 
 
 def test_format_invalid(tmp_path: Path):
     with pytest.raises(ConfigError, match="format"):
-        load_configs(_write(tmp_path, target_extra='format = "appx"'))
+        load_configs(_write(tmp_path, fmt="appx"))
+
+
+def test_format_platform_mismatch(tmp_path: Path):
+    # msi/msix only on Windows; linux only on Linux.
+    msi_on_linux = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        '"windows-x86_64"', '"linux-x86_64"'
+    )
+    with pytest.raises(ConfigError, match="linux"):
+        load_configs(_write_text(tmp_path, msi_on_linux))
+
+    linux_on_windows = _BASE.format(fmt="linux", app_extra="", target_extra="")
+    with pytest.raises(ConfigError, match="windows"):
+        load_configs(_write_text(tmp_path, linux_on_windows))
 
 
 def test_msix_fields(tmp_path: Path):
     cfg = load_configs(
         _write(
             tmp_path,
-            target_extra='format = "msix"\nidentity_name = "Contoso.App"\npublisher = "CN=Contoso"',
+            fmt="msix",
+            target_extra='identity_name = "Contoso.App"\npublisher = "CN=Contoso"',
         )
     )[0]
     assert cfg.msix.identity_name == "Contoso.App"
