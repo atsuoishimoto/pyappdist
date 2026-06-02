@@ -48,7 +48,6 @@ def fetch_runtime(
     python: str,
     dest: Path,
     *,
-    runtime_source: Path | None = None,
     runtime_release: str | None = None,
     cache_dir: Path | None = None,
     log=print,
@@ -67,28 +66,22 @@ def fetch_runtime(
     if dest.exists():
         shutil.rmtree(dest)
 
-    # 1. offline source / bundled tarball
-    if runtime_source is not None:
-        info = _from_local(Path(runtime_source), target, minor, dest, log)
-        if info is not None:
-            return info
-
-    # 2. determine release tag and asset_url_prefix
+    # 1. determine release tag and asset_url_prefix
     tag, prefix = _resolve_release(runtime_release, log)
 
-    # 3. resolve full version and sha256 from SHA256SUMS
+    # 2. resolve full version and sha256 from SHA256SUMS
     filename, sha256, version = _select_asset(prefix, target.triple, minor, log)
 
-    # 4. download + verify (cache)
+    # 3. download + verify (cache)
     cache_dir.mkdir(parents=True, exist_ok=True)
     archive = cache_dir / filename
     url = f"{prefix}/{filename}"
     _download_verified(url, archive, sha256, log)
 
-    # 5. extract
+    # 4. extract
     _extract_install_only(archive, dest, log)
 
-    # 6. verify + marker
+    # 5. verify + marker
     info = RuntimeInfo(version=version, minor=minor, tag=tag, triple=target.triple, root=dest)
     _verify(info)
     _write_marker(dest, info, sha256)
@@ -139,27 +132,6 @@ def _select_asset(prefix: str, triple: str, minor: str, log) -> tuple[str, str, 
     return name, sha, ver
 
 
-def _from_local(source: Path, target: Target, minor: str, dest: Path, log) -> RuntimeInfo | None:
-    if not source.is_file():
-        return None
-    m = re.match(
-        r"cpython-(\d+\.\d+\.\d+)\+(\d+)-" + re.escape(target.triple) + r"-",
-        source.name,
-    )
-    if not m:
-        return None
-    version, tag = m.group(1), m.group(2)
-    if ".".join(version.split(".")[:2]) != minor:
-        return None
-    log(f"runtime: using local source {source.name}")
-    sha256 = _sha256(source)
-    _extract_install_only(source, dest, log)
-    info = RuntimeInfo(version=version, minor=minor, tag=tag, triple=target.triple, root=dest)
-    _verify(info)
-    _write_marker(dest, info, sha256)
-    return info
-
-
 def _extract_install_only(archive: Path, dest: Path, log) -> None:
     """Strip the leading ``python/`` and extract directly under dest."""
     log(f"runtime: extracting {archive.name} -> {dest}")
@@ -167,20 +139,21 @@ def _extract_install_only(archive: Path, dest: Path, log) -> None:
     with tempfile.TemporaryDirectory(dir=dest.parent) as tmp:
         tmp_path = Path(tmp)
         with tarfile.open(archive, "r:*") as tf:
-            # The standard filter (data/tar) realpath-verifies symlinks, which causes
-            # ELOOP on the terminfo symlink of a Linux runtime on DrvFs (a Windows
-            # volume). The official archive is trusted, so extract via passthrough
-            # without verification.
-            tf.extractall(tmp_path, filter=_passthrough_filter)
+            # The archive is a sha256-verified official python-build-standalone build, so
+            # the "tar" filter is the right trust level: it applies path-traversal safety
+            # and strips setuid/setgid/sticky + group/other-write bits, while preserving
+            # the things the runtime needs (executable bits, symlinks) and not rejecting
+            # or re-owning members the way the stricter "data" filter does.
+            #
+            # Note: extracting a Linux runtime onto a case-insensitive volume (DrvFs, i.e.
+            # a Windows /mnt path) fails regardless of filter — the terminfo database has
+            # case-colliding symlinks (e.g. N/NCR... vs n/ncr...) that loop. Build Linux
+            # targets on a native (case-sensitive) filesystem.
+            tf.extractall(tmp_path, filter="tar")
         inner = tmp_path / "python"
         if not inner.is_dir():
             raise BuildError(f"unexpected archive layout (no python/): {archive}")
         shutil.move(str(inner), str(dest))
-
-
-def _passthrough_filter(member, path):  # noqa: ARG001
-    # Used only for trusted official archives. Bypasses the standard filter's realpath verification.
-    return member
 
 
 def _verify(info: RuntimeInfo) -> None:

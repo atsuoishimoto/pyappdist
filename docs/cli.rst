@@ -38,8 +38,6 @@ Commands that fetch the runtime (``build``, ``build-wheels``,
      - Description
    * - ``--runtime-release TAG``
      - Pin a specific python-build-standalone release tag.
-   * - ``--runtime-source PATH``
-     - Use a local runtime ``tar.gz`` instead of downloading (offline).
 
 Commands
 --------
@@ -100,6 +98,3 @@ Examples
 
    # Build only specific targets by name
    uv run pyappdist build win-user win-machine
-
-   # Offline runtime from a local archive
-   uv run pyappdist fetch-runtime --runtime-source ./cpython-3.12.tar.gz
