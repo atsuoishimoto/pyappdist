@@ -39,7 +39,7 @@ Then add pyappdist and build:
 
 ```bash
 uv add --dev pyappdist
-uv run pyappdist build      # builds all targets: wheels -> runtime -> image -> launcher -> wix -> MSI
+uv run pyappdist build      # builds the sole target: wheels -> runtime -> image -> launcher -> wix -> MSI
 ```
 
 The result lands under `appdist/<target>/dist/`: a portable `.zip` and an `.msi` installer.

@@ -50,8 +50,13 @@ Run the whole pipeline for each selected target: wheels → runtime → image �
 
 .. code-block:: bash
 
-   uv run pyappdist build              # all targets
+   uv run pyappdist build              # the sole target, or error if several are defined
    uv run pyappdist build win-user     # just the target named "win-user"
+   uv run pyappdist build win-user win-machine   # both named targets
+
+Unlike the individual pipeline stages (which default to *all* targets), ``build``
+builds the single defined target when no name is given and otherwise requires an
+explicit selection, so it never builds every target at once by accident.
 
 Extra options: ``--no-compile`` (skip byte-compilation), ``--no-zip`` (skip the
 portable zip). Plus the common and runtime options above.
