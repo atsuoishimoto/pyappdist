@@ -1,12 +1,15 @@
 """Build the Linux deliverables from the image tree.
 
-Two artifacts are produced for a ``format = "linux"`` target:
+Two artifacts are produced for a ``format = "linux"`` target. Both use the
+``compression`` chosen in ``[[tool.pyappdist.targets]]`` (``gzip`` / ``bzip2`` /
+``xz``; default ``xz``):
 
-* ``<name>-<version>-<target>.tar.gz`` — the image tree under a top-level
+* ``<name>-<version>-<target>.tar{.gz,.bz2,.xz}`` — the image tree under a top-level
   ``<name>-<version>/`` directory, for users who just want to extract and run.
 * ``<name>-<version>-<target>.run`` — a self-extracting installer: a POSIX shell
-  script (``resources/linux_installer.sh``) with a gzip'd tar of the image tree
-  appended after a ``__PYAPPDIST_PAYLOAD__`` marker. Running it copies the tree into
+  script (``resources/linux_installer.sh``) with a compressed tar of the image tree
+  appended after a ``__PYAPPDIST_PAYLOAD__`` marker. The header carries the payload's
+  SHA-256, which the installer verifies before extracting. Running it copies the tree into
   ``<prefix>/lib/<name>`` (``$HOME/.local`` by default), symlinks each launcher into
   ``<prefix>/bin``, and — only for launchers with an icon — writes a ``.desktop`` entry.
 
@@ -17,6 +20,7 @@ point, so it works both from an extracted tarball and from the installed locatio
 
 from __future__ import annotations
 
+import hashlib
 import io
 import shutil
 import tarfile
@@ -27,6 +31,13 @@ from ..errors import BuildError
 from ..image.layout import ImageLayout
 
 _PAYLOAD_MARKER = b"__PYAPPDIST_PAYLOAD__\n"
+
+# compression name -> (tarfile mode suffix, tarball extension, installer decompress command)
+_COMPRESSION = {
+    "gzip": ("gz", ".tar.gz", "gzip -dc"),
+    "bzip2": ("bz2", ".tar.bz2", "bzip2 -dc"),
+    "xz": ("xz", ".tar.xz", "xz -dc"),
+}
 _INSTALLER_BODY = (
     Path(__file__).resolve().parent.parent / "resources" / "linux_installer.sh"
 ).read_text(encoding="utf-8")
@@ -40,6 +51,8 @@ def build_linux(
         log("linux: skipping because the target is not Linux")
         return None
 
+    mode, ext, decompress = _COMPRESSION[config.linux.compression]
+
     image_dir = layout.image_dir
     records = _write_launchers(config, image_dir, log=log)
     launchers_field = " ".join(
@@ -49,13 +62,14 @@ def build_linux(
     dist_dir.mkdir(parents=True, exist_ok=True)
     base = f"{config.dist_name}-{config.version}-{config.target_name}"
 
-    tarball = dist_dir / f"{base}.tar.gz"
-    _make_tarball(image_dir, tarball, top=f"{config.dist_name}-{config.version}")
+    tarball = dist_dir / f"{base}{ext}"
+    _make_tarball(image_dir, tarball, top=f"{config.dist_name}-{config.version}", mode=mode)
     log(f"linux: tarball -> {tarball}")
 
     run = dist_dir / f"{base}.run"
-    header = _render_header(config, launchers_field)
-    payload = _targz_bytes(image_dir)
+    payload = _targz_bytes(image_dir, mode=mode)
+    sha256 = hashlib.sha256(payload).hexdigest()
+    header = _render_header(config, launchers_field, decompress=decompress, sha256=sha256)
     run.write_bytes(
         header.encode("utf-8")
         + _INSTALLER_BODY.encode("utf-8")
@@ -63,7 +77,7 @@ def build_linux(
         + payload
     )
     run.chmod(0o755)
-    log(f"linux: installer -> {run}")
+    log(f"linux: installer -> {run} ({config.linux.compression}, sha256 {sha256[:12]}…)")
     return [tarball, run]
 
 
@@ -107,7 +121,9 @@ def _wrapper(spec: LauncherConfig) -> str:
     )
 
 
-def _render_header(config: Config, launchers_field: str) -> str:
+def _render_header(
+    config: Config, launchers_field: str, *, decompress: str, sha256: str
+) -> str:
     """The generated variable block prepended to the static installer body."""
     return (
         "#!/bin/sh\n"
@@ -118,6 +134,8 @@ def _render_header(config: Config, launchers_field: str) -> str:
         f"VERSION={_sq(config.version)}\n"
         f"CATEGORIES={_sq(config.linux.categories)}\n"
         f"LAUNCHERS={_sq(launchers_field)}\n"
+        f"DECOMPRESS={_sq(decompress)}\n"
+        f"PAYLOAD_SHA256={_sq(sha256)}\n"
     )
 
 
@@ -126,17 +144,17 @@ def _sq(s: str) -> str:
     return "'" + s.replace("'", "'\\''") + "'"
 
 
-def _targz_bytes(src_dir: Path) -> bytes:
-    """gzip'd tar of the directory contents (no top-level dir), preserving symlinks."""
+def _targz_bytes(src_dir: Path, *, mode: str) -> bytes:
+    """Compressed tar of the directory contents (no top-level dir), preserving symlinks."""
     buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w:gz") as tf:
+    with tarfile.open(fileobj=buf, mode=f"w:{mode}") as tf:
         for child in sorted(src_dir.iterdir()):
             tf.add(child, arcname=child.name)
     return buf.getvalue()
 
 
-def _make_tarball(src_dir: Path, out_path: Path, *, top: str) -> None:
-    """gzip'd tar of the directory contents under a ``top/`` prefix, preserving symlinks."""
-    with tarfile.open(out_path, "w:gz") as tf:
+def _make_tarball(src_dir: Path, out_path: Path, *, top: str, mode: str) -> None:
+    """Compressed tar of the directory contents under a ``top/`` prefix, preserving symlinks."""
+    with tarfile.open(out_path, f"w:{mode}") as tf:
         for child in sorted(src_dir.iterdir()):
             tf.add(child, arcname=f"{top}/{child.name}")

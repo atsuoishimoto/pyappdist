@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import io
+import shutil
 import subprocess
 import tarfile
 from pathlib import Path
@@ -25,7 +27,17 @@ def _make_image(tmp_path: Path) -> ImageLayout:
     return ImageLayout(image_dir=image_dir, target=get_target("linux-x86_64"), minor="3.12")
 
 
-def _linux_config(sample_config, project_dir: Path, **launcher_kwargs):
+# compression name -> (payload magic bytes, tarfile read mode, tarball extension)
+_COMPRESSION = {
+    "gzip": (b"\x1f\x8b", "r:gz", ".tar.gz"),
+    "bzip2": (b"BZh", "r:bz2", ".tar.bz2"),
+    "xz": (b"\xfd7zXZ\x00", "r:xz", ".tar.xz"),
+}
+# CLI decompressor each compression needs at install time (for skipping E2E).
+_DECOMP_TOOL = {"gzip": "gzip", "bzip2": "bzip2", "xz": "xz"}
+
+
+def _linux_config(sample_config, project_dir: Path, *, compression="xz", **launcher_kwargs):
     launcher = LauncherConfig(name="helloworld", entry="helloworld:main", **launcher_kwargs)
     return dataclasses.replace(
         sample_config,
@@ -34,7 +46,7 @@ def _linux_config(sample_config, project_dir: Path, **launcher_kwargs):
         target_name="linux-x86_64",
         format="linux",
         launchers=(launcher,),
-        linux=LinuxConfig(),
+        linux=LinuxConfig(compression=compression),
     )
 
 
@@ -53,7 +65,7 @@ def test_build_linux_produces_both_artifacts(tmp_path, sample_config):
     names = sorted(p.name for p in arts)
     assert names == [
         "helloworld-1.2.3-linux-x86_64.run",
-        "helloworld-1.2.3-linux-x86_64.tar.gz",
+        "helloworld-1.2.3-linux-x86_64.tar.xz",  # xz is the default
     ]
     run = next(p for p in arts if p.suffix == ".run")
     assert run.stat().st_mode & 0o111  # executable
@@ -72,7 +84,9 @@ def test_run_header_has_metadata_and_marker(tmp_path, sample_config):
     assert "VERSION='1.2.3'" in script
     # No icon -> the launcher record carries an empty icon field.
     assert "LAUNCHERS='helloworld:0:'" in script
-    assert payload[:2] == b"\x1f\x8b"  # gzip magic
+    assert "DECOMPRESS='xz -dc'" in script
+    assert f"PAYLOAD_SHA256='{hashlib.sha256(payload).hexdigest()}'" in script
+    assert payload[:6] == b"\xfd7zXZ\x00"  # xz magic (the default)
 
 
 def test_run_payload_is_the_image_tree(tmp_path, sample_config):
@@ -82,7 +96,7 @@ def test_run_payload_is_the_image_tree(tmp_path, sample_config):
     run = next(p for p in arts if p.suffix == ".run")
 
     _, payload = _split_run(run)
-    with tarfile.open(fileobj=io.BytesIO(payload), mode="r:gz") as tf:
+    with tarfile.open(fileobj=io.BytesIO(payload), mode="r:xz") as tf:
         members = set(tf.getnames())
     # Payload has no top-level dir; it includes the generated launcher wrapper.
     assert "python/bin/python3" in members
@@ -93,9 +107,9 @@ def test_tarball_has_top_level_dir(tmp_path, sample_config):
     layout = _make_image(tmp_path)
     config = _linux_config(sample_config, tmp_path)
     arts = build_linux(config, layout, tmp_path / "dist", log=lambda *a: None)
-    tarball = next(p for p in arts if p.name.endswith(".tar.gz"))
+    tarball = next(p for p in arts if p.name.endswith(".tar.xz"))
 
-    with tarfile.open(tarball, "r:gz") as tf:
+    with tarfile.open(tarball, "r:xz") as tf:
         names = tf.getnames()
     assert all(n.startswith("helloworld-1.2.3/") for n in names)
 
@@ -109,7 +123,7 @@ def test_icon_triggers_desktop_record(tmp_path, sample_config):
 
     script, payload = _split_run(run)
     assert "LAUNCHERS='helloworld:1:helloworld.png'" in script
-    with tarfile.open(fileobj=io.BytesIO(payload), mode="r:gz") as tf:
+    with tarfile.open(fileobj=io.BytesIO(payload), mode="r:xz") as tf:
         assert "helloworld.png" in tf.getnames()  # icon staged into the image
 
 
@@ -132,11 +146,58 @@ def test_sq_escapes_single_quotes():
     assert _sq("a'b") == "'a'\\''b'"
 
 
+@pytest.mark.parametrize("compression", ["gzip", "bzip2", "xz"])
+def test_compression_option(tmp_path, sample_config, compression):
+    """Each compression sets the payload format, extension, decompressor and sha256."""
+    magic, read_mode, ext = _COMPRESSION[compression]
+    layout = _make_image(tmp_path)
+    config = _linux_config(sample_config, tmp_path, compression=compression)
+    arts = build_linux(config, layout, tmp_path / "dist", log=lambda *a: None)
+
+    tarball = next(p for p in arts if p.suffix != ".run")
+    assert tarball.name.endswith(ext)
+    with tarfile.open(tarball, read_mode) as tf:  # opens => correct compression
+        assert tf.getnames()
+
+    run = next(p for p in arts if p.suffix == ".run")
+    script, payload = _split_run(run)
+    assert payload[: len(magic)] == magic
+    assert f"PAYLOAD_SHA256='{hashlib.sha256(payload).hexdigest()}'" in script
+    assert f"DECOMPRESS='{_DECOMP_TOOL[compression]} -dc'" in script
+
+
 @pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
-def test_run_installs_and_uninstalls(tmp_path, sample_config):
-    """End-to-end: execute the .run into a throwaway prefix, then uninstall."""
+def test_run_detects_corrupt_payload(tmp_path, sample_config):
+    """A flipped payload byte fails the checksum and leaves an existing install intact."""
     layout = _make_image(tmp_path)
     config = _linux_config(sample_config, tmp_path)
+    arts = build_linux(config, layout, tmp_path / "dist", log=lambda *a: None)
+    run = next(p for p in arts if p.suffix == ".run")
+
+    # Flip the final byte of the payload to corrupt it.
+    data = bytearray(run.read_bytes())
+    data[-1] ^= 0xFF
+    run.write_bytes(data)
+
+    prefix = tmp_path / "prefix"
+    env = {"HOME": str(tmp_path / "home"), "PATH": "/usr/bin:/bin"}
+    res = subprocess.run(
+        ["/bin/sh", str(run), "--prefix", str(prefix)],
+        capture_output=True, text=True, env=env,
+    )
+    assert res.returncode != 0
+    assert "checksum mismatch" in res.stderr
+    assert not (prefix / "lib" / "helloworld").exists()  # nothing was extracted
+
+
+@pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
+@pytest.mark.parametrize("compression", ["gzip", "bzip2", "xz"])
+def test_run_installs_and_uninstalls(tmp_path, sample_config, compression):
+    """End-to-end: execute the .run into a throwaway prefix, then uninstall."""
+    if shutil.which(_DECOMP_TOOL[compression]) is None:
+        pytest.skip(f"{_DECOMP_TOOL[compression]} not available")
+    layout = _make_image(tmp_path)
+    config = _linux_config(sample_config, tmp_path, compression=compression)
     arts = build_linux(config, layout, tmp_path / "dist", log=lambda *a: None)
     run = next(p for p in arts if p.suffix == ".run")
 

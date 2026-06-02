@@ -207,6 +207,29 @@ def test_format_platform_mismatch(tmp_path: Path):
         load_configs(_write_text(tmp_path, linux_on_windows))
 
 
+def _linux_pyproject(target_extra: str) -> str:
+    return _BASE.format(fmt="linux", app_extra="", target_extra=target_extra).replace(
+        '"windows-x86_64"', '"linux-x86_64"'
+    )
+
+
+def test_linux_compression_default_xz(tmp_path: Path):
+    cfg = load_configs(_write_text(tmp_path, _linux_pyproject("")))[0]
+    assert cfg.linux.compression == "xz"
+
+
+def test_linux_compression_valid(tmp_path: Path):
+    text = _linux_pyproject('compression = "bzip2"\n')
+    cfg = load_configs(_write_text(tmp_path, text))[0]
+    assert cfg.linux.compression == "bzip2"
+
+
+def test_linux_compression_invalid(tmp_path: Path):
+    text = _linux_pyproject('compression = "zip"\n')
+    with pytest.raises(ConfigError, match="compression"):
+        load_configs(_write_text(tmp_path, text))
+
+
 def test_msix_fields(tmp_path: Path):
     cfg = load_configs(
         _write(
