@@ -14,7 +14,8 @@ import pytest
 
 from pyappdist.config import LauncherConfig, LinuxConfig
 from pyappdist.image.layout import ImageLayout
-from pyappdist.linux.build import _PAYLOAD_MARKER, _sq, _wrapper, build_linux
+from pyappdist.linux.build import build_linux
+from pyappdist.posix.build import _PAYLOAD_MARKER, _sq, _wrapper
 from pyappdist.targets import get_target
 
 
@@ -137,7 +138,10 @@ def test_build_linux_skips_non_linux(tmp_path, sample_config):
 def test_wrapper_is_relocatable():
     spec = LauncherConfig(name="app", entry="pkg.mod:main")
     w = _wrapper(spec)
-    assert "readlink -f" in w
+    # Resolves symlinks via a POSIX loop (no `readlink -f`, absent on macOS/BSD) so the
+    # wrapper works both in place and when invoked through a <prefix>/bin symlink.
+    assert "readlink -f" not in w
+    assert 'while [ -L "$p" ]' in w
     assert '"$HERE/python/bin/python3"' in w
     assert "from pkg.mod import main" in w
 

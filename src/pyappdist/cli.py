@@ -29,6 +29,7 @@ from .context import BuildContext
 from .errors import BuildError, PyappdistError
 from .launcher import build_launchers
 from .linux import build_linux
+from .macos import build_macos
 from .msix import build_msix
 from .runtime import fetch_runtime
 from .sign import sign_artifact
@@ -129,14 +130,17 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
     build_wheelhouse(ctx.config, info, ctx.wheelhouse)
     layout = image_mod.build_image(ctx, info, compile_pyc=not args.no_compile)
 
-    if ctx.config.format == "linux":
-        # Linux launchers are shell wrappers (no MSVC); build_linux writes them into
-        # the image and produces the .tar.gz + self-extracting .run.
-        arts = build_linux(ctx.config, layout, ctx.dist_dir)
+    if ctx.config.format in ("linux", "macos"):
+        # Linux/macOS launchers are shell wrappers (no MSVC); the builder writes them into
+        # the image and produces the portable tarball + self-extracting .run.
+        fmt = ctx.config.format
+        build = build_linux if fmt == "linux" else build_macos
+        arts = build(ctx.config, layout, ctx.dist_dir)
         if arts is not None:
-            print(f"OK [{_tag(ctx)}]: linux -> {', '.join(str(a) for a in arts)}")
+            print(f"OK [{_tag(ctx)}]: {fmt} -> {', '.join(str(a) for a in arts)}")
         else:
-            print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} (linux skipped on non-Linux)")
+            os_name = "Linux" if fmt == "linux" else "macOS"
+            print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} ({fmt} skipped on non-{os_name})")
         return
 
     exes = build_launchers(ctx.config, layout, ctx.out_dir / "_launcher_build")

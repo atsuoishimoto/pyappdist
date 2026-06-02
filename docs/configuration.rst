@@ -107,10 +107,10 @@ target is required.
    * - ``format``
      - **yes**
      - Output package, required and bound to the platform OS: ``"msi"`` or ``"msix"``
-       (for the Microsoft Store or sideloading) on Windows, or ``"linux"`` (a portable
-       ``.tar.gz`` plus a self-extracting ``.run`` installer) on Linux. A format that does
-       not match the platform's OS is rejected. The keys below are grouped by which format
-       uses them.
+       (for the Microsoft Store or sideloading) on Windows, ``"linux"`` on Linux, or
+       ``"macos"`` on macOS. ``"linux"`` and ``"macos"`` both produce a portable tarball
+       plus a self-extracting ``.run`` installer. A format that does not match the
+       platform's OS is rejected. The keys below are grouped by which format uses them.
    * - ``manufacturer``
      - for MSI
      - Manufacturer / vendor name. Required to generate the MSI; also used as the
@@ -151,9 +151,10 @@ target is required.
        Used only for launchers that define an ``icon``.
    * - ``compression``
      - no
-     - *(Linux)* payload compression for the ``.tar`` and ``.run``: ``"gzip"``,
-       ``"bzip2"`` or ``"xz"`` (default ``"xz"``). The matching decompressor must be
-       present on the target machine at install time.
+     - *(Linux/macOS)* payload compression for the ``.tar`` and ``.run``: ``"gzip"``,
+       ``"bzip2"`` or ``"xz"``. Default ``"xz"`` on Linux, ``"gzip"`` on macOS (where
+       ``xz`` is not preinstalled). The matching decompressor must be present on the
+       target machine at install time.
 
 .. code-block:: toml
 
@@ -179,6 +180,12 @@ target is required.
    # categories = "Utility;Development;"   # for launchers that set an icon
    # compression = "xz"                    # "gzip" | "bzip2" | "xz" (default "xz")
 
+   [[tool.pyappdist.targets]]              # a macOS .tar.gz + .run installer
+   name = "macos-arm"
+   platform = "macos-aarch64"             # or "macos-x86_64" for Intel
+   format = "macos"
+   # compression = "gzip"                  # "gzip" | "bzip2" | "xz" (default "gzip")
+
 Platform values
 ~~~~~~~~~~~~~~~~
 
@@ -195,10 +202,18 @@ Platform values
    * - ``linux-x86_64``
      - ``x86_64-unknown-linux-gnu``
      - linux
+   * - ``macos-aarch64``
+     - ``aarch64-apple-darwin``
+     - macos
+   * - ``macos-x86_64``
+     - ``x86_64-apple-darwin``
+     - macos
 
 ``windows-x86_64`` is the Windows distribution target (``format = "msi"`` or ``"msix"``);
-``linux-x86_64`` is the Linux target (``format = "linux"``). ``format`` is required and must
-match the platform's OS — pairing, say, ``"msi"`` with ``linux-x86_64`` is rejected at load.
+``linux-x86_64`` is the Linux target (``format = "linux"``); ``macos-aarch64`` (Apple
+Silicon) and ``macos-x86_64`` (Intel) are the macOS targets (``format = "macos"``).
+``format`` is required and must match the platform's OS — pairing, say, ``"msi"`` with
+``linux-x86_64`` is rejected at load.
 
 MSI format
 ~~~~~~~~~~
@@ -264,3 +279,25 @@ Linux format
 Each launcher becomes a small relocatable shell wrapper that runs the entry point
 with the bundled interpreter. Application updates are the app's own responsibility
 (pyappdist provides no auto-update mechanism).
+
+macOS format
+~~~~~~~~~~~~
+
+**macOS** (``format = "macos"``) builds the same two artifacts as Linux — a portable
+tarball and a self-extracting ``.run`` installer — with the same per-user install
+model (``<prefix>/lib/<name>`` plus ``<prefix>/bin`` symlinks, ``--prefix`` /
+``--uninstall``). The differences are macOS-specific:
+
+* The default ``compression`` is ``"gzip"`` rather than ``"xz"``, because ``xz`` is not
+  preinstalled on macOS (``gzip`` and ``bzip2`` are).
+* There is no freedesktop ``.desktop`` equivalent, so launcher ``icon`` and ``gui`` are
+  ignored — the installer creates the ``<prefix>/bin`` symlinks only. (No ``.app``
+  bundle is produced; GUI apps are launched from a terminal or by their bin name.)
+
+.. code-block:: console
+
+   $ ./myapp-1.0-macos-aarch64.run            # install into ~/.local
+   $ ./myapp-1.0-macos-aarch64.run --uninstall
+
+Build a macOS target on macOS (an Apple Silicon host for ``macos-aarch64``, an Intel
+host for ``macos-x86_64``).
