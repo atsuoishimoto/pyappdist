@@ -1,7 +1,9 @@
 """pyappdist CLI.
 
 Each subcommand operates on one or more targets (``[[tool.pyappdist.targets]]``).
-Positional arguments select targets by name; with none given, all targets are built.
+Positional arguments select targets by name. With none given, the pipeline stages
+default to all targets, while ``build`` builds the sole target if only one is defined
+and otherwise requires an explicit selection (so it doesn't build every target at once).
 Output goes to ``<out-dir>/<target-name>/`` (default ``<project>/appdist/<target-name>``).
 
 Subcommands:
@@ -168,6 +170,14 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
 def cmd_build(args: argparse.Namespace) -> int:
     """Run wheelhouse -> runtime -> image -> launcher -> wix -> MSI for each target."""
     contexts = _contexts(args)
+    # Unlike the individual pipeline stages, build doesn't fan out over every target by
+    # default: with several defined, an explicit selection is required so we don't build
+    # them all at once. A sole target may still be built with no argument.
+    if not args.targets and len(contexts) > 1:
+        names = [ctx.config.target_name for ctx in contexts]
+        raise BuildError(
+            f"multiple targets are defined ({names}); specify which target(s) to build"
+        )
     for ctx in contexts:
         if len(contexts) > 1:
             print(f"=== target: {ctx.config.target_name} ===")
@@ -178,7 +188,8 @@ def cmd_build(args: argparse.Namespace) -> int:
 def _add_common(p: argparse.ArgumentParser) -> None:
     p.add_argument(
         "targets", nargs="*",
-        help="target names to build (from [[tool.pyappdist.targets]]); default: all",
+        help="target names (from [[tool.pyappdist.targets]]); default: all defined "
+             "(build: the sole target, else a selection is required)",
     )
     p.add_argument("-C", "--project", default=".", help="the app's project directory")
     p.add_argument("--out-dir", help="output base directory (default: <project>/appdist)")

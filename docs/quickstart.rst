@@ -35,7 +35,7 @@ Build everything
 .. code-block:: bash
 
    uv add --dev pyappdist
-   uv run pyappdist build            # all targets: wheels -> runtime -> image -> launcher -> wix -> MSI
+   uv run pyappdist build            # the sole target: wheels -> runtime -> image -> launcher -> wix -> MSI
 
 Build step by step
 ------------------
