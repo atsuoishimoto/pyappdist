@@ -22,3 +22,8 @@ launchers = [
 platform = "windows-x86_64"
 manufacturer = "Example Inc."
 upgrade_code = "7E3F9A2C-5B1D-4E8A-9C6F-1A2B3C4D5E6F"
+
+[[tool.pyappdist.targets]]
+name = "linux"
+platform = "linux-x86_64"
+format = "linux"

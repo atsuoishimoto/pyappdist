@@ -26,6 +26,7 @@ from .config import ensure_upgrade_code, load_configs
 from .context import BuildContext
 from .errors import BuildError, PyappdistError
 from .launcher import build_launchers
+from .linux import build_linux
 from .msix import build_msix
 from .runtime import fetch_runtime
 from .sign import sign_artifact
@@ -126,6 +127,17 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
     info = _do_fetch_runtime(ctx, args)
     build_wheelhouse(ctx.config, info, ctx.wheelhouse)
     layout = image_mod.build_image(ctx, info, compile_pyc=not args.no_compile)
+
+    if ctx.config.format == "linux":
+        # Linux launchers are shell wrappers (no MSVC); build_linux writes them into
+        # the image and produces the .tar.gz + self-extracting .run.
+        arts = build_linux(ctx.config, layout, ctx.dist_dir)
+        if arts is not None:
+            print(f"OK [{_tag(ctx)}]: linux -> {', '.join(str(a) for a in arts)}")
+        else:
+            print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} (linux skipped on non-Linux)")
+        return
+
     exes = build_launchers(ctx.config, layout, ctx.out_dir / "_launcher_build")
     for exe in exes:
         sign_artifact(exe)
