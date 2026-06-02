@@ -47,7 +47,6 @@ def _do_fetch_runtime(ctx: BuildContext, args: argparse.Namespace):
         ctx.config.target,
         ctx.config.python,
         ctx.runtime_dir,
-        runtime_source=Path(args.runtime_source) if args.runtime_source else None,
         runtime_release=args.runtime_release,
     )
 
@@ -187,7 +186,6 @@ def _add_common(p: argparse.ArgumentParser) -> None:
 
 def _add_runtime_opts(p: argparse.ArgumentParser) -> None:
     p.add_argument("--runtime-release", help="pin the python-build-standalone release tag")
-    p.add_argument("--runtime-source", help="local runtime tar.gz (offline)")
 
 
 def _version() -> str:
