@@ -38,3 +38,8 @@ name = "msix"
 platform = "windows-x86_64"
 format = "msix"
 manufacturer = "pyappdist"
+
+[[tool.pyappdist.targets]]
+name = "linux"
+platform = "linux-x86_64"
+format = "linux"

@@ -8,7 +8,6 @@ dependencies = [
     "pillow>=12.2.0",
 ]
 
-
 [tool.pyappdist]
 name = "Data files"
 python = "3.12"
@@ -21,6 +20,10 @@ platform = "windows-x86_64"
 manufacturer = "Example Inc."
 upgrade_code = "CDE63634-F3D5-4D40-9521-241A0A763540"
 
+[[tool.pyappdist.targets]]
+name = "linux"
+platform = "linux-x86_64"
+format = "linux"
 
 [build-system]
 requires = ["uv_build>=0.11.6,<0.12.0"]
@@ -33,5 +36,4 @@ dev = [
 
 [tool.uv.build-backend]
 data = { data = "data" }
-
 
