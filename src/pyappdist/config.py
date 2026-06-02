@@ -28,7 +28,9 @@ _MANAGERS = ("uv", "poetry", "pipenv", "pdm", "requirements.txt")
 _WIX_SCOPES = ("machine", "user")
 
 # Output package format per target.
-_FORMATS = ("msi", "msix")
+#   msi/msix - Windows packages (see WixConfig/MsixConfig)
+#   linux    - a portable .tar.gz plus a self-extracting .run installer (see LinuxConfig)
+_FORMATS = ("msi", "msix", "linux")
 
 
 @dataclass(frozen=True)
@@ -59,6 +61,19 @@ class MsixConfig:
 
 
 @dataclass(frozen=True)
+class LinuxConfig:
+    """Linux ``format = "linux"`` settings.
+
+    The output is a portable ``.tar.gz`` (the image tree) plus a self-extracting
+    ``.run`` installer that copies into a per-user prefix (``$HOME/.local`` by default),
+    symlinks each launcher into ``<prefix>/bin``, and — only when a launcher has an
+    ``icon`` — writes a ``.desktop`` entry. No root required; updates are the app's job.
+    """
+
+    categories: str = "Utility;"  # freedesktop .desktop Categories (icon launchers only)
+
+
+@dataclass(frozen=True)
 class Config:
     """One fully-resolved build target (app-level settings + one target's settings)."""
 
@@ -69,11 +84,12 @@ class Config:
     python: str         # "X.Y" or "X.Y.Z"
     target: Target
     target_name: str    # the [[tool.pyappdist.targets]].name label (defaults to the platform)
-    format: str         # output package format: "msi" | "msix"
+    format: str         # output package format: "msi" | "msix" | "linux"
     launchers: tuple[LauncherConfig, ...]
     wix: WixConfig
     msix: MsixConfig
     manager: str | None  # manager used for dependency resolution (uv/poetry/pipenv/pdm/requirements.txt). None=auto-detect
+    linux: LinuxConfig = LinuxConfig()
 
     @property
     def python_minor(self) -> str:
@@ -145,12 +161,15 @@ def load_configs(
             wix=wix,
             msix=msix,
             manager=manager,
+            linux=linux,
         )
-        for (target_name, target, fmt, wix, msix) in specs
+        for (target_name, target, fmt, wix, msix, linux) in specs
     ]
 
 
-def _parse_targets(raw: object) -> list[tuple[str, Target, str, WixConfig, MsixConfig]]:
+def _parse_targets(
+    raw: object,
+) -> list[tuple[str, Target, str, WixConfig, MsixConfig, LinuxConfig]]:
     if not raw:
         raise ConfigError(
             "at least one [[tool.pyappdist.targets]] is required"
@@ -158,7 +177,7 @@ def _parse_targets(raw: object) -> list[tuple[str, Target, str, WixConfig, MsixC
     if not isinstance(raw, list):
         raise ConfigError("[[tool.pyappdist.targets]] must be an array of tables")
 
-    specs: list[tuple[str, Target, str, WixConfig, MsixConfig]] = []
+    specs: list[tuple[str, Target, str, WixConfig, MsixConfig, LinuxConfig]] = []
     for i, item in enumerate(raw):
         if not isinstance(item, dict):
             raise ConfigError(f"targets[{i}] must be a table")
@@ -173,7 +192,10 @@ def _parse_targets(raw: object) -> list[tuple[str, Target, str, WixConfig, MsixC
         if fmt not in _FORMATS:
             raise ConfigError(f"targets[{i}].format must be one of {_FORMATS}: {fmt!r}")
         specs.append(
-            (target_name, target, str(fmt), _parse_wix(item, i), _parse_msix(item, i))
+            (
+                target_name, target, str(fmt),
+                _parse_wix(item, i), _parse_msix(item, i), _parse_linux(item, i),
+            )
         )
 
     names = [s[0] for s in specs]
@@ -212,6 +234,11 @@ def _parse_msix(raw: dict, index: int) -> MsixConfig:
         display_name=raw.get("display_name"),
         logo=str(logo) if logo is not None else None,
     )
+
+
+def _parse_linux(raw: dict, index: int) -> LinuxConfig:
+    categories = raw.get("categories", "Utility;")
+    return LinuxConfig(categories=str(categories))
 
 
 def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:

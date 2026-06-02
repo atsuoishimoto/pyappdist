@@ -107,7 +107,9 @@ target is required.
    * - ``format``
      - no
      - Output package: ``"msi"`` (default) or ``"msix"`` (for the Microsoft Store or
-       sideloading). The keys below are grouped by which format uses them.
+       sideloading) on Windows, or ``"linux"`` (a portable ``.tar.gz`` plus a
+       self-extracting ``.run`` installer) on Linux. The keys below are grouped by
+       which format uses them.
    * - ``manufacturer``
      - for MSI
      - Manufacturer / vendor name. Required to generate the MSI; also used as the
@@ -142,6 +144,10 @@ target is required.
      - no
      - *(MSIX)* Path to a source PNG used for the package logos. A placeholder is
        generated if omitted.
+   * - ``categories``
+     - no
+     - *(Linux)* freedesktop ``.desktop`` ``Categories`` value (default ``"Utility;"``).
+       Used only for launchers that define an ``icon``.
 
 .. code-block:: toml
 
@@ -160,6 +166,11 @@ target is required.
    # publisher = "CN=Contoso"
    # logo = "assets/logo.png"
 
+   [[tool.pyappdist.targets]]              # a Linux .tar.gz + .run installer
+   platform = "linux-x86_64"
+   format = "linux"
+   # categories = "Utility;Development;"   # for launchers that set an icon
+
 Platform values
 ~~~~~~~~~~~~~~~~
 
@@ -177,8 +188,10 @@ Platform values
      - ``x86_64-unknown-linux-gnu``
      - linux
 
-``windows-x86_64`` is the real distribution target. ``linux-x86_64`` exists mainly for
-validating the pipeline on Linux (no MSI is produced for it).
+``windows-x86_64`` is the Windows distribution target (``msi``/``msix``).
+``linux-x86_64`` with ``format = "linux"`` produces a Linux distribution (``.tar.gz`` +
+``.run``); with the default ``msi`` format it only builds the image, which is useful for
+validating the pipeline on Linux.
 
 .. note::
 
@@ -217,3 +230,26 @@ validating the pipeline on Linux (no MSI is produced for it).
 
    Without the Store or Developer Mode, an unsigned MSIX cannot be installed (it would
    need your own trusted code-signing certificate).
+
+.. note::
+
+   **Linux** (``format = "linux"``) builds two artifacts in ``appdist/<name>/dist/``:
+
+   * ``<name>-<version>-<target>.tar.gz`` — the image tree under a top-level directory.
+     Users who don't want an installer just extract it and run ``<dir>/<launcher>``.
+   * ``<name>-<version>-<target>.run`` — a self-extracting installer (a POSIX shell
+     script with the tarball appended). It needs no root and no FUSE: it copies the tree
+     into ``<prefix>/lib/<name>`` (``$HOME/.local`` by default; override with
+     ``--prefix``), symlinks each launcher into ``<prefix>/bin``, and — only for
+     launchers that set an ``icon`` — writes a ``.desktop`` entry. It also drops an
+     ``uninstall.sh`` next to the install, and ``./<app>.run --uninstall`` removes it.
+
+   .. code-block:: console
+
+      $ ./myapp-1.0-linux-x86_64.run            # install into ~/.local
+      $ ./myapp-1.0-linux-x86_64.run --prefix ~/opt
+      $ ./myapp-1.0-linux-x86_64.run --uninstall
+
+   Each launcher becomes a small relocatable shell wrapper that runs the entry point
+   with the bundled interpreter. Application updates are the app's own responsibility
+   (pyappdist provides no auto-update mechanism).
