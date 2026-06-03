@@ -1,8 +1,11 @@
 """Preparing wheels (building the app wheel + collecting dependency wheels).
 
 * App itself: built into a wheel via ``pip wheel --no-deps`` using the project's
-  build backend (PEP 517 = backend-agnostic. The app is assumed pure-Python, so the
-  host python is fine).
+  build backend (PEP 517 = backend-agnostic). This runs with the **target runtime's
+  python**, not the host python: even for a pure-Python app the build can be
+  version-sensitive (``requires-python``, build-backend / build-dependency version
+  constraints, version-conditional build logic), so building with a host python of a
+  different version than the target may fail or produce a wrong wheel.
 * Dependencies: pinned **based on the project's lockfile**. Using the manager
   (uv/poetry/pipenv/PDM), ``requirements.txt`` is exported from the lock
   (:mod:`pyappdist.deps`) and passed to the **target runtime's python** to run
@@ -19,9 +22,9 @@
 from __future__ import annotations
 
 import subprocess
-import sys
 from pathlib import Path
 
+from ._hostexec import target_relpath
 from .config import Config
 from .deps import resolve_requirements
 from .errors import BuildError
@@ -31,20 +34,30 @@ from .runtime import RuntimeInfo
 def build_wheelhouse(config: Config, runtime: RuntimeInfo, wheelhouse: Path, *, log=print) -> list[Path]:
     """Prepare the app + dependency wheels in the wheelhouse and return the list."""
     wheelhouse.mkdir(parents=True, exist_ok=True)
-    build_app_wheel(config.project_dir, wheelhouse, log=log)
+    build_app_wheel(config, runtime, wheelhouse, log=log)
     requirements = resolve_requirements(config, wheelhouse, log=log)
     collect_dependencies(runtime, requirements, wheelhouse, log=log)
     return sorted(wheelhouse.glob("*.whl"))
 
 
-def build_app_wheel(project_dir: Path, wheelhouse: Path, *, log=print) -> Path:
+def build_app_wheel(config: Config, runtime: RuntimeInfo, wheelhouse: Path, *, log=print) -> Path:
+    project_dir = config.project_dir
     log(f"wheels: building app wheel ({project_dir.name})")
     before = set(wheelhouse.glob("*.whl"))
-    # PEP 517 build: create the wheel with the project's build-system backend (backend-agnostic).
-    _run([
-        sys.executable, "-m", "pip", "wheel",
-        "--no-deps", "--wheel-dir", str(wheelhouse), str(project_dir),
-    ])
+    # PEP 517 build with the target runtime's python (backend-agnostic). cwd=wheelhouse so
+    # --wheel-dir is "." and the project is passed relative to it (WSL interop converts the
+    # cwd to the Windows side, so no wslpath is needed even for a Linux host -> Windows target).
+    cmd = [
+        str(runtime.python_exe), "-m", "pip", "wheel", "--no-deps",
+        "--wheel-dir", ".", target_relpath(config.target, project_dir, wheelhouse),
+    ]
+    proc = subprocess.run(
+        cmd, cwd=str(wheelhouse), capture_output=True, text=True, errors="replace"
+    )
+    if proc.returncode != 0:
+        raise BuildError(
+            f"app wheel build failed ({proc.returncode}): {' '.join(cmd)}\n{proc.stderr.strip()}"
+        )
     after = set(wheelhouse.glob("*.whl"))
     new = sorted(after - before)
     if not new:
@@ -79,12 +92,3 @@ def collect_dependencies(runtime: RuntimeInfo, requirements_file: Path, wheelhou
             f"dependency wheel collection failed ({proc.returncode}): {' '.join(cmd)}\n{proc.stderr.strip()}"
         )
     return sorted(set(wheelhouse.glob("*.whl")) - before)
-
-
-def _run(cmd: list[str]) -> None:
-    # pip outputs UTF-8 by default (non-ASCII may garble on native Windows, but acceptable for diagnostics).
-    proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
-    if proc.returncode != 0:
-        raise BuildError(
-            f"command failed ({proc.returncode}): {' '.join(cmd)}\n{proc.stderr.strip()}"
-        )
