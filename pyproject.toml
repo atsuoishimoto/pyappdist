@@ -1,7 +1,7 @@
 [project]
 name = "pyappdist"
 version = "0.1.1"
-description = "Turn a Python app into a Windows installer(msi)"
+description = "Turn a Python app into a native installer (Windows msi/msix, Linux, macOS)"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -9,13 +9,18 @@ license-files = ["LICENSE"]
 authors = [
     { name = "Atsuo Ishimoto", email = "atsuoishimoto@gmail.com" },
 ]
-keywords = ["windows", "installer", "msi", "packaging", "distribution", "wheel", "wix"]
+keywords = [
+    "installer", "packaging", "distribution", "wheel",
+    "windows", "msi", "msix", "wix", "linux", "macos",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Environment :: Win32 (MS Windows)",
     "Intended Audience :: Developers",
     "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
