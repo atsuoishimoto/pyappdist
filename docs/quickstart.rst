@@ -62,14 +62,17 @@ Outputs
 
 Each target's output lands under ``appdist/<target>/``:
 
-==================  ==========================================================
-Directory           Contents
-==================  ==========================================================
-``wheelhouse/``     the app wheel + dependency wheels (and ``requirements.txt``)
-``runtime/``        the extracted python-build-standalone runtime
-``image/``          the installed, ready-to-run app (a portable directory)
-``dist/``           the shippable package(s) for the target's format
-==================  ==========================================================
+``wheelhouse/``
+   The app wheel + dependency wheels (and ``requirements.txt``).
+
+``runtime/``
+   The extracted python-build-standalone runtime.
+
+``image/``
+   The installed, ready-to-run app (a portable directory).
+
+``dist/``
+   The shippable package(s) for the target's format.
 
 The image directory itself is a portable app. The shippable artifacts in ``dist/``
 depend on the format — see the per-format pages under

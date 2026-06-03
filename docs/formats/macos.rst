@@ -14,17 +14,9 @@ Only ``platform = "macos-aarch64"`` or ``"macos-x86_64"`` may use this format.
 Configuration
 -------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 20 15 65
-
-   * - Key
-     - Required
-     - Description
-   * - ``compression``
-     - no
-     - Payload compression for the ``.tar`` and ``.run``: ``"gzip"``, ``"bzip2"`` or
-       ``"xz"`` (default ``"gzip"``, because ``xz`` is not preinstalled on macOS).
+``compression``
+   Payload compression for the ``.tar`` and ``.run``: ``"gzip"``, ``"bzip2"`` or
+   ``"xz"`` (default ``"gzip"``, because ``xz`` is not preinstalled on macOS).
 
 .. code-block:: toml
 

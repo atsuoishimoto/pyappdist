@@ -14,30 +14,19 @@ Common options
 
 Available on every command:
 
-.. list-table::
-   :header-rows: 1
-   :widths: 25 75
+``-C``, ``--project DIR``
+   The application's project directory (the one containing ``pyproject.toml``).
+   Defaults to the current directory.
 
-   * - Option
-     - Description
-   * - ``-C``, ``--project DIR``
-     - The application's project directory (the one containing ``pyproject.toml``).
-       Defaults to the current directory.
-   * - ``--out-dir DIR``
-     - Output base directory. Defaults to ``<project>/appdist``. Each target builds into
-       ``<out-dir>/<target>/``.
+``--out-dir DIR``
+   Output base directory. Defaults to ``<project>/appdist``. Each target builds into
+   ``<out-dir>/<target>/``.
 
 Commands that fetch the runtime (``build``, ``build-wheels``,
 ``fetch-runtime``, ``build-image``) also accept:
 
-.. list-table::
-   :header-rows: 1
-   :widths: 25 75
-
-   * - Option
-     - Description
-   * - ``--runtime-release TAG``
-     - Pin a specific python-build-standalone release tag.
+``--runtime-release TAG``
+   Pin a specific python-build-standalone release tag.
 
 Commands
 --------

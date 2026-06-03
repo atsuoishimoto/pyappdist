@@ -15,22 +15,14 @@ Only ``platform = "linux-x86_64"`` may use this format.
 Configuration
 -------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 20 15 65
+``categories``
+   freedesktop ``.desktop`` ``Categories`` value (default ``"Utility;"``). Used
+   only for launchers that define an ``icon``.
 
-   * - Key
-     - Required
-     - Description
-   * - ``categories``
-     - no
-     - freedesktop ``.desktop`` ``Categories`` value (default ``"Utility;"``). Used
-       only for launchers that define an ``icon``.
-   * - ``compression``
-     - no
-     - Payload compression for the ``.tar`` and ``.run``: ``"gzip"``, ``"bzip2"`` or
-       ``"xz"`` (default ``"xz"``). The matching decompressor must be present on the
-       target machine at install time.
+``compression``
+   Payload compression for the ``.tar`` and ``.run``: ``"gzip"``, ``"bzip2"`` or
+   ``"xz"`` (default ``"xz"``). The matching decompressor must be present on the
+   target machine at install time.
 
 .. code-block:: toml
 

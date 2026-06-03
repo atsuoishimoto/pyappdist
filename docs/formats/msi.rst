@@ -13,32 +13,24 @@ Only ``platform = "windows-x86_64"`` may use this format.
 Configuration
 -------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 20 15 65
+``manufacturer`` (**required**)
+   Manufacturer / vendor name. Required to generate the MSI; also used as the
+   launcher's version-resource company name.
 
-   * - Key
-     - Required
-     - Description
-   * - ``manufacturer``
-     - **yes**
-     - Manufacturer / vendor name. Required to generate the MSI; also used as the
-       launcher's version-resource company name.
-   * - ``scope``
-     - no
-     - Install scope. ``"user"`` (default) makes a per-user package that installs
-       into ``%LocalAppData%\Programs\<name>`` with no administrator rights (registry
-       in ``HKCU``). ``"machine"`` installs into ``Program Files`` and requires admin
-       (registry in ``HKLM``).
-   * - ``upgrade_code``
-     - no
-     - Stable upgrade GUID. **If omitted, pyappdist generates a UUID and writes it
-       back into this target's table** on the first build. Must stay stable for the
-       life of the product, and is per target.
-   * - ``license``
-     - no
-     - Path (relative to the project) to an **RTF** end-user license agreement. When
-       set, the installer shows a one-page license dialog (WixUI_Minimal).
+``scope``
+   Install scope. ``"user"`` (default) makes a per-user package that installs
+   into ``%LocalAppData%\Programs\<name>`` with no administrator rights (registry
+   in ``HKCU``). ``"machine"`` installs into ``Program Files`` and requires admin
+   (registry in ``HKLM``).
+
+``upgrade_code``
+   Stable upgrade GUID. **If omitted, pyappdist generates a UUID and writes it
+   back into this target's table** on the first build. Must stay stable for the
+   life of the product, and is per target.
+
+``license``
+   Path (relative to the project) to an **RTF** end-user license agreement. When
+   set, the installer shows a one-page license dialog (WixUI_Minimal).
 
 .. code-block:: toml
 

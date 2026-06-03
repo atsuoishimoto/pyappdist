@@ -23,30 +23,17 @@ Output formats
 One ``pyproject.toml`` can describe several output packages at once — each is a
 :ref:`target <config-targets>` with its own platform and format:
 
-.. list-table::
-   :header-rows: 1
-   :widths: 12 22 26 40
+:doc:`msi <formats/msi>`
+   ``windows-x86_64`` → ``.msi`` installer + portable ``.zip``.
 
-   * - Format
-     - Platform
-     - Output
-     - Page
-   * - ``msi``
-     - ``windows-x86_64``
-     - ``.msi`` installer + portable ``.zip``
-     - :doc:`formats/msi`
-   * - ``msix``
-     - ``windows-x86_64``
-     - ``.msix`` (Store / sideloading)
-     - :doc:`formats/msix`
-   * - ``linux``
-     - ``linux-x86_64``
-     - ``.tar.{gz,bz2,xz}`` + ``.run`` installer
-     - :doc:`formats/linux`
-   * - ``macos``
-     - ``macos-aarch64`` / ``macos-x86_64``
-     - ``.tar.{gz,bz2,xz}`` + ``.run`` installer
-     - :doc:`formats/macos`
+:doc:`msix <formats/msix>`
+   ``windows-x86_64`` → ``.msix`` (Store / sideloading).
+
+:doc:`linux <formats/linux>`
+   ``linux-x86_64`` → ``.tar.{gz,bz2,xz}`` + ``.run`` installer.
+
+:doc:`macos <formats/macos>`
+   ``macos-aarch64`` / ``macos-x86_64`` → ``.tar.{gz,bz2,xz}`` + ``.run`` installer.
 
 Why "just works"
 ----------------

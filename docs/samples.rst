@@ -6,31 +6,23 @@ end-to-end. Each is an independent project that declares pyappdist as an editabl
 dev dependency, mirroring how you would use it in your own project. Most declare
 several targets (Windows ``msi`` plus ``linux`` and ``macos``) in one config.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 20 50 15
+``helloworld``
+   Minimal, no dependencies (console launcher).
 
-   * - Sample
-     - Shows
-     - Launcher
-   * - ``helloworld``
-     - minimal, no dependencies
-     - console
-   * - ``datafiles``
-     - bundled package data / resources
-     - console
-   * - ``pandascli``
-     - pandas + numpy (C extensions)
-     - console
-   * - ``pygamedemo``
-     - pygame-ce (SDL)
-     - GUI
-   * - ``pyside6demo``
-     - PySide6 / Qt (large ``abi3`` wheels)
-     - GUI
-   * - ``matplotlibdemo``
-     - matplotlib (TkAgg, bundled tkinter)
-     - GUI
+``datafiles``
+   Bundled package data / resources (console launcher).
+
+``pandascli``
+   pandas + numpy, i.e. C extensions (console launcher).
+
+``pygamedemo``
+   pygame-ce (SDL), a GUI launcher.
+
+``pyside6demo``
+   PySide6 / Qt with large ``abi3`` wheels, a GUI launcher.
+
+``matplotlibdemo``
+   matplotlib (TkAgg, bundled tkinter), a GUI launcher.
 
 Build any of them (name a target when the sample defines several):
 
