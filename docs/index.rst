@@ -1,7 +1,7 @@
 pyappdist
 =========
 
-**Turn a Python app into a Windows installer — and it just works.**
+**Turn a Python app into a native installer — and it just works.**
 
 .. warning::
 
@@ -16,6 +16,37 @@ exactly the way ``pip`` would — and ships that.
 Because the runtime is a normal Python environment, **most apps run as-is**: no
 hooks, no ``--hidden-import``, no ``--add-data``, no per-library workarounds. If
 it runs under ``uv run``, it almost certainly runs after ``pyappdist build``.
+
+Output formats
+--------------
+
+One ``pyproject.toml`` can describe several output packages at once — each is a
+:ref:`target <config-targets>` with its own platform and format:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 12 22 26 40
+
+   * - Format
+     - Platform
+     - Output
+     - Page
+   * - ``msi``
+     - ``windows-x86_64``
+     - ``.msi`` installer + portable ``.zip``
+     - :doc:`formats/msi`
+   * - ``msix``
+     - ``windows-x86_64``
+     - ``.msix`` (Store / sideloading)
+     - :doc:`formats/msix`
+   * - ``linux``
+     - ``linux-x86_64``
+     - ``.tar.{gz,bz2,xz}`` + ``.run`` installer
+     - :doc:`formats/linux`
+   * - ``macos``
+     - ``macos-aarch64`` / ``macos-x86_64``
+     - ``.tar.{gz,bz2,xz}`` + ``.run`` installer
+     - :doc:`formats/macos`
 
 Why "just works"
 ----------------
@@ -33,19 +64,34 @@ break and needs manual patching. pyappdist skips all of that:
 * **Real GUI stacks** — Qt plugins ship in PySide6's normal wheel layout;
   matplotlib's TkAgg backend uses the runtime's bundled tkinter. They just load.
 
-The launcher is a tiny C stub that starts the bundled ``python.exe`` /
+On Windows the launcher is a tiny C stub that starts the bundled ``python.exe`` /
 ``pythonw.exe`` as a subprocess, so there is no ``pythonXX.dll`` embedding and no
-C-API version risk — the stub never changes when the Python version does.
+C-API version risk — the stub never changes when the Python version does. On
+Linux/macOS the launcher is a relocatable shell wrapper. See :doc:`how-it-works`.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents
+   :caption: Getting started
 
    installation
    quickstart
-   how-it-works
    configuration
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Output formats
+
+   formats/msi
+   formats/msix
+   formats/linux
+   formats/macos
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Reference
+
    cli
+   how-it-works
    dependencies
    signing
    samples
@@ -58,6 +104,8 @@ Status
 **Alpha** — the pipeline works end-to-end, but expect breaking changes to the
 config schema, CLI, and output layout as it matures.
 
-Windows x64 is the current target. macOS/Linux packaging, auto-update, and
-code-signing certificates are out of scope for now. Distributed apps are not
-obfuscated, and unsigned installers will trigger a SmartScreen warning.
+Targets today are Windows x64 (``msi``, ``msix``), Linux x64 (``linux``), and
+macOS arm64/x64 (``macos``). Auto-update and code-signing certificates are out of
+scope for now; optional :doc:`signing` of the Windows artifacts is available.
+Distributed apps are not obfuscated, and unsigned Windows installers will trigger a
+SmartScreen warning.
