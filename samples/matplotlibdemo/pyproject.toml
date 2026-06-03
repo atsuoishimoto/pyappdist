@@ -29,6 +29,12 @@ manufacturer = "Example Inc."
 upgrade_code = "2D4F6A80-1C3E-4B57-9F8A-6E0D2C4B8A13"
 
 [[tool.pyappdist.targets]]
+name = "store"
+platform = "windows-x86_64"
+format = "msix"
+manufacturer = "Example Inc."
+
+[[tool.pyappdist.targets]]
 name = "linux"
 platform = "linux-x86_64"
 format = "linux"
