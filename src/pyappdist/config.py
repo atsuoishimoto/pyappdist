@@ -29,11 +29,12 @@ _WIX_SCOPES = ("machine", "user")
 
 # Output package format per target.
 #   msi/msix - Windows packages (see WixConfig/MsixConfig)
-#   linux    - a portable .tar.gz plus a self-extracting .run installer (see LinuxConfig)
-_FORMATS = ("msi", "msix", "linux")
+#   linux    - a portable tarball plus a self-extracting .run installer (see LinuxConfig)
+#   macos    - the same POSIX tarball + .run, for macOS (see MacosConfig)
+_FORMATS = ("msi", "msix", "linux", "macos")
 
 # Each output format produces a package for exactly one OS; a target's platform must match.
-_FORMAT_OS = {"msi": "windows", "msix": "windows", "linux": "linux"}
+_FORMAT_OS = {"msi": "windows", "msix": "windows", "linux": "linux", "macos": "macos"}
 
 
 @dataclass(frozen=True)
@@ -78,6 +79,20 @@ class LinuxConfig:
 
 
 @dataclass(frozen=True)
+class MacosConfig:
+    """macOS ``format = "macos"`` settings.
+
+    The output mirrors Linux — a portable tarball plus a self-extracting ``.run`` that
+    installs into a per-user prefix and symlinks each launcher into ``<prefix>/bin``.
+    macOS has no freedesktop equivalent, so launcher ``icon``/``gui`` are ignored (no
+    desktop integration). The default compression is ``gzip`` (not ``xz``) because ``xz``
+    is not preinstalled on macOS.
+    """
+
+    compression: str = "gzip"  # payload compression: "gzip" | "bzip2" | "xz"
+
+
+@dataclass(frozen=True)
 class Config:
     """One fully-resolved build target (app-level settings + one target's settings)."""
 
@@ -88,12 +103,13 @@ class Config:
     python: str         # "X.Y" or "X.Y.Z"
     target: Target
     target_name: str    # the [[tool.pyappdist.targets]].name label (defaults to the platform)
-    format: str         # output package format: "msi" | "msix" | "linux"
+    format: str         # output package format: "msi" | "msix" | "linux" | "macos"
     launchers: tuple[LauncherConfig, ...]
     wix: WixConfig
     msix: MsixConfig
     manager: str | None  # manager used for dependency resolution (uv/poetry/pipenv/pdm/requirements.txt). None=auto-detect
     linux: LinuxConfig = LinuxConfig()
+    macos: MacosConfig = MacosConfig()
 
     @property
     def python_minor(self) -> str:
@@ -166,14 +182,15 @@ def load_configs(
             msix=msix,
             manager=manager,
             linux=linux,
+            macos=macos,
         )
-        for (target_name, target, fmt, wix, msix, linux) in specs
+        for (target_name, target, fmt, wix, msix, linux, macos) in specs
     ]
 
 
 def _parse_targets(
     raw: object,
-) -> list[tuple[str, Target, str, WixConfig, MsixConfig, LinuxConfig]]:
+) -> list[tuple[str, Target, str, WixConfig, MsixConfig, LinuxConfig, MacosConfig]]:
     if not raw:
         raise ConfigError(
             "at least one [[tool.pyappdist.targets]] is required"
@@ -181,7 +198,9 @@ def _parse_targets(
     if not isinstance(raw, list):
         raise ConfigError("[[tool.pyappdist.targets]] must be an array of tables")
 
-    specs: list[tuple[str, Target, str, WixConfig, MsixConfig, LinuxConfig]] = []
+    specs: list[
+        tuple[str, Target, str, WixConfig, MsixConfig, LinuxConfig, MacosConfig]
+    ] = []
     for i, item in enumerate(raw):
         if not isinstance(item, dict):
             raise ConfigError(f"targets[{i}] must be a table")
@@ -205,7 +224,8 @@ def _parse_targets(
         specs.append(
             (
                 target_name, target, str(fmt),
-                _parse_wix(item, i), _parse_msix(item, i), _parse_linux(item, i),
+                _parse_wix(item, i), _parse_msix(item, i),
+                _parse_linux(item, i), _parse_macos(item, i),
             )
         )
 
@@ -247,18 +267,29 @@ def _parse_msix(raw: dict, index: int) -> MsixConfig:
     )
 
 
-_LINUX_COMPRESSION = ("gzip", "bzip2", "xz")
+_COMPRESSIONS = ("gzip", "bzip2", "xz")  # shared by the linux/macos .run payload
+
+
+def _compression(raw: dict, index: int, default: str) -> str:
+    compression = str(raw.get("compression", default))
+    if compression not in _COMPRESSIONS:
+        raise ConfigError(
+            f"targets[{index}].compression must be one of "
+            f"{', '.join(_COMPRESSIONS)}: {compression!r}"
+        )
+    return compression
 
 
 def _parse_linux(raw: dict, index: int) -> LinuxConfig:
     categories = raw.get("categories", "Utility;")
-    compression = str(raw.get("compression", "xz"))
-    if compression not in _LINUX_COMPRESSION:
-        raise ConfigError(
-            f"targets[{index}].compression must be one of "
-            f"{', '.join(_LINUX_COMPRESSION)}: {compression!r}"
-        )
-    return LinuxConfig(categories=str(categories), compression=compression)
+    return LinuxConfig(
+        categories=str(categories), compression=_compression(raw, index, "xz")
+    )
+
+
+def _parse_macos(raw: dict, index: int) -> MacosConfig:
+    # xz is not preinstalled on macOS, so the default payload compression is gzip.
+    return MacosConfig(compression=_compression(raw, index, "gzip"))
 
 
 def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:

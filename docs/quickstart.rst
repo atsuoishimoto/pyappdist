@@ -23,11 +23,18 @@ Add a ``[tool.pyappdist]`` section to your app's ``pyproject.toml``:
 
    [[tool.pyappdist.targets]]
    platform = "windows-x86_64"
+   format = "msi"
    manufacturer = "Example Inc."
    # scope = "user"         # "user" (default, no admin) or "machine" (Program Files)
    # upgrade_code = "..."   # stable GUID; auto-generated and written back on first build
 
-See :doc:`configuration` for every option.
+   [[tool.pyappdist.targets]]   # optional: a macOS .tar.gz + .run (build on macOS)
+   name = "macos-arm"
+   platform = "macos-aarch64"   # or "macos-x86_64" for Intel
+   format = "macos"
+
+See :doc:`configuration` for every option. ``format`` is required and must match the
+platform's OS (``"msi"``/``"msix"`` on Windows, ``"linux"`` on Linux, ``"macos"`` on macOS).
 
 Build everything
 ----------------

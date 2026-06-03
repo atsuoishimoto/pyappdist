@@ -33,3 +33,13 @@ platform = "linux-x86_64"
 format = "linux"
 categories = "Graphics;Science;"
 
+[[tool.pyappdist.targets]]
+name = "macos-arm"
+platform = "macos-aarch64"
+format = "macos"
+
+[[tool.pyappdist.targets]]
+name = "macos-intel"
+platform = "macos-x86_64"
+format = "macos"
+

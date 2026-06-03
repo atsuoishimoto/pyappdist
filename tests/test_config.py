@@ -195,7 +195,7 @@ def test_format_invalid(tmp_path: Path):
 
 
 def test_format_platform_mismatch(tmp_path: Path):
-    # msi/msix only on Windows; linux only on Linux.
+    # msi/msix only on Windows; linux only on Linux; macos only on macOS.
     msi_on_linux = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
         '"windows-x86_64"', '"linux-x86_64"'
     )
@@ -205,6 +205,16 @@ def test_format_platform_mismatch(tmp_path: Path):
     linux_on_windows = _BASE.format(fmt="linux", app_extra="", target_extra="")
     with pytest.raises(ConfigError, match="windows"):
         load_configs(_write_text(tmp_path, linux_on_windows))
+
+    macos_on_windows = _BASE.format(fmt="macos", app_extra="", target_extra="")
+    with pytest.raises(ConfigError, match="windows"):
+        load_configs(_write_text(tmp_path, macos_on_windows))
+
+    msi_on_macos = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        '"windows-x86_64"', '"macos-aarch64"'
+    )
+    with pytest.raises(ConfigError, match="macos"):
+        load_configs(_write_text(tmp_path, msi_on_macos))
 
 
 def _linux_pyproject(target_extra: str) -> str:
@@ -226,6 +236,36 @@ def test_linux_compression_valid(tmp_path: Path):
 
 def test_linux_compression_invalid(tmp_path: Path):
     text = _linux_pyproject('compression = "zip"\n')
+    with pytest.raises(ConfigError, match="compression"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def _macos_pyproject(target_extra: str) -> str:
+    return _BASE.format(fmt="macos", app_extra="", target_extra=target_extra).replace(
+        '"windows-x86_64"', '"macos-aarch64"'
+    )
+
+
+def test_macos_load_basic(tmp_path: Path):
+    cfg = load_configs(_write_text(tmp_path, _macos_pyproject("")))[0]
+    assert cfg.format == "macos"
+    assert cfg.target.os == "macos"
+    assert cfg.target.triple == "aarch64-apple-darwin"
+
+
+def test_macos_compression_default_gzip(tmp_path: Path):
+    # xz is not preinstalled on macOS, so the default differs from Linux (xz).
+    cfg = load_configs(_write_text(tmp_path, _macos_pyproject("")))[0]
+    assert cfg.macos.compression == "gzip"
+
+
+def test_macos_compression_valid(tmp_path: Path):
+    cfg = load_configs(_write_text(tmp_path, _macos_pyproject('compression = "xz"\n')))[0]
+    assert cfg.macos.compression == "xz"
+
+
+def test_macos_compression_invalid(tmp_path: Path):
+    text = _macos_pyproject('compression = "zip"\n')
     with pytest.raises(ConfigError, match="compression"):
         load_configs(_write_text(tmp_path, text))
 

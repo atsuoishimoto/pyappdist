@@ -33,6 +33,19 @@ TARGETS: dict[str, Target] = {
         os="linux",
         wix_arch="x64",
     ),
+    # macOS variants ship the same POSIX tarball + .run as Linux (wix_arch is unused).
+    "macos-aarch64": Target(
+        name="macos-aarch64",
+        triple="aarch64-apple-darwin",
+        os="macos",
+        wix_arch="arm64",
+    ),
+    "macos-x86_64": Target(
+        name="macos-x86_64",
+        triple="x86_64-apple-darwin",
+        os="macos",
+        wix_arch="x64",
+    ),
 }
 
 

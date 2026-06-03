@@ -26,6 +26,16 @@ name = "linux"
 platform = "linux-x86_64"
 format = "linux"
 
+[[tool.pyappdist.targets]]
+name = "macos-arm"
+platform = "macos-aarch64"
+format = "macos"
+
+[[tool.pyappdist.targets]]
+name = "macos-intel"
+platform = "macos-x86_64"
+format = "macos"
+
 [build-system]
 requires = ["uv_build>=0.11.6,<0.12.0"]
 build-backend = "uv_build"

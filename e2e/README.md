@@ -26,9 +26,11 @@ uv run python -c "import pyappdist, pathlib; print(pathlib.Path(pyappdist.__file
 ## Projects
 
 - `smoke/` — a minimal, dependency-free console app. Smoke-tests the whole build
-  pipeline. It defines two targets: an **MSI** (`user` scope, with a license dialog) and
-  an **MSIX** (`format = "msix"`, named `msix`). `uv run pyappdist build` builds both;
-  `uv run pyappdist build msix` builds just the MSIX.
+  pipeline. It defines an **MSI** (`user` scope, with a license dialog), an **MSIX**
+  (`format = "msix"`, named `msix`), a **Linux** target (`format = "linux"`, named
+  `linux`), and two **macOS** targets (`format = "macos"`, named `macos-arm` /
+  `macos-intel`). `uv run pyappdist build <name>` builds one; the Windows targets need
+  the Windows toolchain, the Linux/macOS targets build on Linux/macOS respectively.
 
 > Building the MSI target needs the WiX UI extension once
 > (`wix extension add -g WixToolset.UI.wixext/5.0.2`); the MSIX target needs the Windows
