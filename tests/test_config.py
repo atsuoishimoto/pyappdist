@@ -24,6 +24,7 @@ launchers = [
 {app_extra}
 
 [[tool.pyappdist.targets]]
+name = "win"
 platform = "windows-x86_64"
 format = "{fmt}"
 {target_extra}
@@ -76,7 +77,7 @@ def test_load_basic(tmp_path: Path):
     assert cfg.python == "3.12"
     assert cfg.python_minor == "3.12"
     assert cfg.target.os == "windows"
-    assert cfg.target_name == "windows-x86_64"  # defaults to the platform
+    assert cfg.target_name == "win"
     assert cfg.launchers[0].entry == "helloworld:main"
 
 
@@ -105,6 +106,14 @@ def test_duplicate_target_name(tmp_path: Path):
 def test_no_targets_error(tmp_path: Path):
     text = '[project]\nname="x"\nversion="1"\n[tool.pyappdist]\npython="3.12"\n'
     with pytest.raises(ConfigError, match="targets"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_target_name_required(tmp_path: Path):
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'name = "win"\n', ""
+    )
+    with pytest.raises(ConfigError, match="name is required"):
         load_configs(_write_text(tmp_path, text))
 
 
@@ -289,11 +298,11 @@ def test_msix_logo_must_be_png(tmp_path: Path):
 
 def test_ensure_upgrade_code_generates_and_persists(tmp_path: Path):
     proj = _write(tmp_path)  # target has no upgrade_code yet
-    code = ensure_upgrade_code(proj, "windows-x86_64", log=lambda _m: None)
+    code = ensure_upgrade_code(proj, "win", log=lambda _m: None)
 
     assert is_guid(code)
     # persisted: a second call returns the same value
-    assert ensure_upgrade_code(proj, "windows-x86_64", log=lambda _m: None) == code
+    assert ensure_upgrade_code(proj, "win", log=lambda _m: None) == code
     assert code in (tmp_path / "pyproject.toml").read_text(encoding="utf-8")
 
 
@@ -302,6 +311,6 @@ def test_ensure_upgrade_code_keeps_existing(tmp_path: Path):
     proj = _write(tmp_path, target_extra=f'upgrade_code = "{existing}"')
     before = (tmp_path / "pyproject.toml").read_text(encoding="utf-8")
 
-    assert ensure_upgrade_code(proj, "windows-x86_64", log=lambda _m: None) == existing
+    assert ensure_upgrade_code(proj, "win", log=lambda _m: None) == existing
     # unchanged file (no rewrite when a valid code is already present)
     assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == before

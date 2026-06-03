@@ -27,6 +27,7 @@ Configuration
 .. code-block:: toml
 
    [[tool.pyappdist.targets]]
+   name = "linux"
    platform = "linux-x86_64"
    format = "linux"
    # categories = "Utility;Development;"   # for launchers that set an icon

@@ -102,7 +102,7 @@ class Config:
     version: str
     python: str         # "X.Y" or "X.Y.Z"
     target: Target
-    target_name: str    # the [[tool.pyappdist.targets]].name label (defaults to the platform)
+    target_name: str    # the [[tool.pyappdist.targets]].name label (required, unique)
     format: str         # output package format: "msi" | "msix" | "linux" | "macos"
     launchers: tuple[LauncherConfig, ...]
     wix: WixConfig
@@ -210,7 +210,10 @@ def _parse_targets(
                 f"targets[{i}].platform is required (e.g. \"windows-x86_64\")"
             )
         target = get_target(str(platform))
-        target_name = str(item.get("name") or platform)
+        name = item.get("name")
+        if not name:
+            raise ConfigError(f"targets[{i}].name is required")
+        target_name = str(name)
         fmt = item.get("format")
         if fmt is None:
             raise ConfigError(f"targets[{i}].format is required (one of {_FORMATS})")
@@ -342,7 +345,7 @@ def ensure_upgrade_code(project_dir: Path, target_name: str, *, log=print) -> st
     targets = doc.get("tool", {}).get("pyappdist", {}).get("targets")
     entry = None
     for item in targets or []:
-        if str(item.get("name") or item.get("platform")) == target_name:
+        if str(item.get("name")) == target_name:
             entry = item
             break
     if entry is None:

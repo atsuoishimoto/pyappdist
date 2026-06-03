@@ -22,6 +22,7 @@ Add a ``[tool.pyappdist]`` section to your app's ``pyproject.toml``:
    # args = "--profile default"# optional fixed arguments
 
    [[tool.pyappdist.targets]]
+   name = "windows"
    platform = "windows-x86_64"
    format = "msi"
    manufacturer = "Example Inc."

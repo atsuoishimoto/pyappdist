@@ -108,9 +108,9 @@ These keys are common to every format; the format-specific keys live on the
    ``"msi"`` with ``linux-x86_64``) is rejected at load. See
    :ref:`Output formats <config-formats>`.
 
-``name``
+``name`` (required)
    Label used to select this target on the command line and as its output
-   subdirectory (``appdist/<name>/``). Defaults to ``platform``; must be unique.
+   subdirectory (``appdist/<name>/``). Must be unique across targets.
 
 .. _config-platforms:
 
@@ -154,6 +154,7 @@ A single project can declare several targets and produce all of these at once:
 .. code-block:: toml
 
    [[tool.pyappdist.targets]]              # an MSI
+   name = "windows"
    platform = "windows-x86_64"
    format = "msi"
    manufacturer = "Example Inc."
