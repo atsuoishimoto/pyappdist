@@ -1,4 +1,4 @@
-"""Generate .pyc files for the image's site-packages at build time."""
+"""Generate .pyc files for the whole image runtime at build time."""
 
 from __future__ import annotations
 
@@ -10,11 +10,21 @@ from .layout import ImageLayout
 
 
 def compile_site_packages(layout: ImageLayout, *, log=print) -> None:
-    """Run compileall with the runtime's python.
+    """Run compileall over the whole runtime with the runtime's python.
 
     The target OS's python must be run (for a Linux host -> Windows target,
-    python.exe is run via WSL interop). site-packages is passed relative to the
-    image dir, which is set as the cwd, so no path conversion is needed.
+    python.exe is run via WSL interop). The python dir is passed relative to the
+    image dir, which is set as the cwd, so no path conversion is needed -- and
+    because the path is relative, the source filename baked into each .pyc is
+    relative to the image (no developer/build-machine absolute path leaks in).
+
+    The whole runtime (stdlib + site-packages) is compiled, not just
+    site-packages: python-build-standalone's install_only_stripped flavor ships
+    almost no stdlib .pyc, so without this the stdlib would be recompiled lazily
+    on every cold start (and not at all on a read-only/perMachine install). -f
+    forces a rebuild so the few startup .pyc that *are* shipped -- which carry
+    the upstream build path (/build/out/...) -- get rewritten with a clean
+    relative path.
 
     compileall runs with -q, so only its error messages are streamed through
     (the per-file progress listing is suppressed). A non-zero exit status is
@@ -26,8 +36,8 @@ def compile_site_packages(layout: ImageLayout, *, log=print) -> None:
     target = layout.target
     log("image: compileall")
     cmd = [
-        str(layout.python_exe), "-m", "compileall", "-q",
-        target_relpath(target, layout.site_packages, layout.image_dir),
+        str(layout.python_exe), "-m", "compileall", "-q", "-f",
+        target_relpath(target, layout.python_dir, layout.image_dir),
     ]
     try:
         proc = subprocess.run(cmd, cwd=str(layout.image_dir))
