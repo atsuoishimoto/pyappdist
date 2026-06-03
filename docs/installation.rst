@@ -12,36 +12,25 @@ Any PEP 517/621 project works (uv, poetry, hatch, pdm, plain pip). If you do not
 use uv, install pyappdist into the environment you build from in the usual way,
 e.g. ``pip install pyappdist`` or ``poetry add --group dev pyappdist``.
 
-Build-time requirements
------------------------
-
-pyappdist builds the app wheel with ``python -m pip``, so producing the
-*wheelhouse* needs nothing beyond pip. To produce the **native artifacts** (the
-launcher executable and the MSI) you also need:
-
-* **MSVC C++ build tools** (``cl.exe`` / ``rc.exe``) — used to compile
-  ``launcher.exe``. Located via ``vswhere``.
-* **WiX v5** — builds the MSI:
-
-  .. code-block:: bash
-
-     dotnet tool install --global wix --version 5.0.2
-
-  .. note::
-
-     Pin to **v5.0.2**. WiX v6/v7 require accepting the Open Source Maintenance
-     Fee EULA, which blocks an unattended ``wix build``.
-
-  Only if you set ``[[tool.pyappdist.targets]].license`` (to show a license dialog), also
-  add the UI extension (pin it to v5 as well):
-
-  .. code-block:: bash
-
-     wix extension add -g WixToolset.UI.wixext/5.0.2
-
 The Python runtime itself is downloaded from `python-build-standalone
 <https://github.com/astral-sh/python-build-standalone>`_ and cached under
 ``~/.cache/pyappdist/runtime``; you do not install it yourself.
+
+Build-time toolchain
+--------------------
+
+pyappdist builds the app wheel with ``python -m pip``, so producing the
+*wheelhouse* and the runtime image needs nothing beyond pip. Producing the final
+**package** needs a per-format toolchain, documented on each format's page:
+
+* :doc:`MSI <formats/msi>` — MSVC build tools + WiX v5.
+* :doc:`MSIX <formats/msix>` — MSVC build tools + ``makeappx`` (Windows SDK).
+* :doc:`Linux <formats/linux>` / :doc:`macOS <formats/macos>` — none beyond pip and
+  the chosen compressor (the launchers are shell wrappers).
+
+Each format is built on its own OS. When a format's OS doesn't match the build
+host, the package step is skipped and only the image is produced — except that a
+Windows MSI/MSIX can also be **cross-built from WSL** (see below).
 
 Package manager (for dependency pinning)
 ----------------------------------------
@@ -50,8 +39,8 @@ Dependencies are pinned from your project's lockfile, exported via your package
 manager (uv / poetry / pipenv / PDM). The relevant tool must be available at
 build time. See :doc:`dependencies` for details.
 
-Cross-building from WSL
------------------------
+Cross-building Windows packages from WSL
+----------------------------------------
 
 You can build a Windows distribution from WSL. pyappdist invokes the Windows
 toolchain (``python.exe``, MSVC, ``wix``) through the WSL/Windows interop bridge,

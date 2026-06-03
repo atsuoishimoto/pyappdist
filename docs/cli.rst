@@ -45,8 +45,9 @@ Commands
 ``build``
 ~~~~~~~~~
 
-Run the whole pipeline for each selected target: wheels → runtime → image → launcher →
-(sign) → zip → WiX → MSI → (sign).
+Run the whole pipeline for each selected target: wheels → runtime → image →
+launcher → (sign) → package. The package step branches by the target's ``format``
+(see :ref:`Output formats <config-formats>`).
 
 .. code-block:: bash
 
