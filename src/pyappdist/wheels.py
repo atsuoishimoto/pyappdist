@@ -63,9 +63,7 @@ def collect_dependencies(runtime: RuntimeInfo, requirements_file: Path, wheelhou
     fetched, while dependencies with only an sdist are built into a wheel with the
     target python (so packages without wheels are handled too). Markers are
     evaluated with the target python, so only the applicable dependencies are
-    included. requirements_file is assumed to sit directly under the wheelhouse and
-    is passed relatively with cwd=wheelhouse, so no wslpath conversion is needed even
-    for WSL->Windows (interop converts cwd).
+    included.
     """
     log("wheels: collecting dependency wheels (pip wheel -r with the target runtime's python)")
     before = set(wheelhouse.glob("*.whl"))

@@ -17,7 +17,6 @@ import subprocess
 import zlib
 from pathlib import Path
 
-from .._hostexec import is_cross_windows, target_relpath
 from ..config import Config
 from ..errors import BuildError
 from .manifest import generate_manifest

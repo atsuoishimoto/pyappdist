@@ -13,7 +13,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from .._hostexec import is_cross_windows, target_relpath
+from .._hostexec import target_relpath
 from ..config import Config
 from ..errors import BuildError
 from .generate import LICENSE_STAGED_NAME
@@ -75,8 +75,7 @@ def _find_wix(target) -> str:
     override = os.environ.get("PYAPPDIST_WIX")
     if override:
         return override
-    name = "wix.exe" if is_cross_windows(target) else "wix"
-    found = shutil.which(name)
+    found = shutil.which("wix.exe")
     if found:
         return found
     raise BuildError(

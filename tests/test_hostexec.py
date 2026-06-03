@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pyappdist._hostexec import is_cross_windows, target_relpath
+from pyappdist._hostexec import target_relpath
 from pyappdist.targets import get_target
 
 WIN = get_target("windows-x86_64")
@@ -28,11 +28,3 @@ def test_target_relpath_linux_keeps_forward_slashes():
     start = Path("/proj/appdist/image")
     sp = Path("/proj/appdist/image/python/lib/python3.12/site-packages")
     assert target_relpath(LIN, sp, start) == "python/lib/python3.12/site-packages"
-
-
-def test_is_cross_windows(monkeypatch):
-    monkeypatch.setattr("pyappdist._hostexec.sys.platform", "linux")
-    assert is_cross_windows(WIN) is True
-    assert is_cross_windows(LIN) is False
-    monkeypatch.setattr("pyappdist._hostexec.sys.platform", "win32")
-    assert is_cross_windows(WIN) is False

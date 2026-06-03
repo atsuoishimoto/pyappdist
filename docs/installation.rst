@@ -50,12 +50,3 @@ Dependencies are pinned from your project's lockfile, exported via your package
 manager (uv / poetry / pipenv / PDM). The relevant tool must be available at
 build time. See :doc:`dependencies` for details.
 
-Cross-building from WSL
------------------------
-
-You can build a Windows distribution from WSL. pyappdist invokes the Windows
-toolchain (``python.exe``, MSVC, ``wix``) through the WSL/Windows interop bridge,
-running each tool from within the ``appdist`` tree and passing paths relative to
-that working directory (interop converts the cwd to the Windows side, so no
-``wslpath`` conversion is needed). Do not share a single virtual environment
-between the Linux and Windows sides.

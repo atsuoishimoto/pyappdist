@@ -17,11 +17,6 @@ import sys
 from .targets import Target
 
 
-def is_cross_windows(target: Target) -> bool:
-    """Handling a Windows target from a Linux host (requires the .exe bridge)."""
-    return target.os == "windows" and sys.platform != "win32"
-
-
 def target_relpath(target: Target, path: os.PathLike | str, start: os.PathLike | str) -> str:
     """Path (relative to ``start``) to pass to a target tool run with ``cwd=start``.
 
