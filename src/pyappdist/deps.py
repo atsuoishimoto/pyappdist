@@ -12,8 +12,9 @@ Resolution:
   project is used as-is).
 * If unset, lockfiles are searched in the order uv.lock -> poetry.lock ->
   Pipfile.lock -> pdm.lock, and the first tool found is used.
-* If undeterminable, a warning is emitted and it operates in ``requirements.txt``
-  mode (``BuildError`` if absent).
+* If no manager is set and no lockfile is found, a checked-in ``requirements.txt``
+  is used if present (with a warning); if that is absent too, the manager is
+  undeterminable and a ``BuildError`` is raised.
 """
 
 from __future__ import annotations
@@ -55,18 +56,29 @@ def _warn(log, message: str) -> None:
 
 
 def resolve_manager(project_dir: Path, override: str | None, *, log=print) -> str:
-    """Determine the manager to use (or "requirements.txt")."""
+    """Determine the manager to use (or "requirements.txt").
+
+    With no explicit ``[tool.pyappdist].manager`` and no detectable lockfile, fall
+    back to a checked-in ``requirements.txt`` if one exists; otherwise the manager is
+    undeterminable and a ``BuildError`` is raised.
+    """
     if override:
         return override
     detected = _auto_detect(project_dir)
     if detected:
         return detected
-    _warn(
-        log,
-        "no lockfile (uv.lock etc.) and no [tool.pyappdist].manager setting. "
-        "Falling back to requirements.txt",
+    if (project_dir / "requirements.txt").is_file():
+        _warn(
+            log,
+            "no lockfile (uv.lock etc.) and no [tool.pyappdist].manager setting; "
+            "using the existing requirements.txt",
+        )
+        return "requirements.txt"
+    raise BuildError(
+        "cannot determine the dependency manager: set [tool.pyappdist].manager, or "
+        "provide a lockfile (uv.lock / poetry.lock / Pipfile.lock / pdm.lock) or a "
+        "requirements.txt in the project directory"
     )
-    return "requirements.txt"
 
 
 def resolve_requirements(config: Config, wheelhouse: Path, *, log=print) -> Path:

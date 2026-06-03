@@ -46,10 +46,18 @@ def test_resolve_manager_auto(tmp_path: Path):
     assert resolve_manager(tmp_path, None, log=lambda _m: None) == "poetry"
 
 
-def test_resolve_manager_fallback_warns(tmp_path: Path):
+def test_resolve_manager_fallback_to_requirements_txt(tmp_path: Path):
+    # No lockfile, no manager setting, but a checked-in requirements.txt: use it (with a warning).
+    _touch(tmp_path, "requirements.txt")
     msgs: list[str] = []
     assert resolve_manager(tmp_path, None, log=msgs.append) == "requirements.txt"
     assert any("warning" in m for m in msgs)
+
+
+def test_resolve_manager_undeterminable_errors(tmp_path: Path):
+    # No manager setting, no lockfile, and no requirements.txt: fail at determination time.
+    with pytest.raises(BuildError, match="cannot determine the dependency manager"):
+        resolve_manager(tmp_path, None, log=lambda _m: None)
 
 
 def test_resolve_requirements_uses_existing_file(tmp_path: Path, sample_config):
