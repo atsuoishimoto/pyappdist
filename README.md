@@ -27,10 +27,6 @@ One `pyproject.toml` can describe several output packages — each is a
 | `linux` | `linux-x86_64`                  | `.tar.gz` + self-extracting `.run` installer (per-user, no root) |
 | `macos` | `macos-aarch64` / `macos-x86_64` | `.tar.gz` + self-extracting `.run` installer (per-user, no root) |
 
-The Windows packages are **cross-built from a Linux host (WSL)** by driving the Windows
-toolchain (`python.exe`, `uv.exe`, MSVC, WiX) through the WSL interop bridge. The Linux and
-macOS packages are built natively on their respective OS.
-
 ## Quick start
 
 Add a `[tool.pyappdist]` section to your app's `pyproject.toml`:
