@@ -35,6 +35,7 @@ Configuration
 .. code-block:: toml
 
    [[tool.pyappdist.targets]]
+   name = "windows"
    platform = "windows-x86_64"
    format = "msi"
    manufacturer = "Example Inc."

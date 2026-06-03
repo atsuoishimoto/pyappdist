@@ -46,6 +46,7 @@ entry = "myapp:main"        # module:callable
 # args = "--serve"          # fixed leading arguments
 
 [[tool.pyappdist.targets]]
+name = "windows"
 platform = "windows-x86_64"
 format = "msi"
 manufacturer = "Example Inc."
@@ -67,6 +68,7 @@ Declare several targets to ship more than one package from the same config:
 
 ```toml
 [[tool.pyappdist.targets]]
+name = "windows"
 platform = "windows-x86_64"
 format = "msi"
 manufacturer = "Example Inc."

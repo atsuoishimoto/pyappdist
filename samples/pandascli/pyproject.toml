@@ -22,10 +22,17 @@ launchers = [
 ]
 
 [[tool.pyappdist.targets]]
+name = "windows"
 platform = "windows-x86_64"
 format = "msi"
 manufacturer = "Example Inc."
 upgrade_code = "5E2A9C71-4B83-4D6F-9A02-1C3E5B7D9F40"
+
+[[tool.pyappdist.targets]]
+name = "store"
+platform = "windows-x86_64"
+format = "msix"
+manufacturer = "Example Inc."
 
 [[tool.pyappdist.targets]]
 name = "linux"
