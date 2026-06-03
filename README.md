@@ -15,6 +15,8 @@ Because the runtime is a normal Python environment, **most apps run as-is**: no 
 it almost certainly runs after `pyappdist build`. C extensions, `abi3` wheels, Qt plugins,
 and tkinter-based GUIs work unmodified because the install layout is real.
 
+📖 **Documentation:** https://pyappdist.readthedocs.io/
+
 ## What it produces
 
 One `pyproject.toml` can describe several output packages — each is a
@@ -101,19 +103,6 @@ uv run pyappdist build-launchers  # compile launcher(s) into the image (Windows,
 uv run pyappdist gen-wix          # scan the image -> WiX .wxs
 uv run pyappdist build            # all of the above -> the package(s) in <target>/dist
 ```
-
-## Documentation
-
-Full documentation: **https://pyappdist.readthedocs.io/en/latest/**
-
-- [Installation & requirements](https://pyappdist.readthedocs.io/en/latest/installation.html)
-- [Quick start](https://pyappdist.readthedocs.io/en/latest/quickstart.html)
-- [How it works](https://pyappdist.readthedocs.io/en/latest/how-it-works.html)
-- [Configuration reference](https://pyappdist.readthedocs.io/en/latest/configuration.html)
-- [CLI reference](https://pyappdist.readthedocs.io/en/latest/cli.html)
-- [Dependency resolution](https://pyappdist.readthedocs.io/en/latest/dependencies.html)
-- [Code signing](https://pyappdist.readthedocs.io/en/latest/signing.html)
-- [Samples](https://pyappdist.readthedocs.io/en/latest/samples.html)
 
 ## Samples
 
