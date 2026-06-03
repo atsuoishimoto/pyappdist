@@ -30,25 +30,21 @@ Manager detection
 If ``[tool.pyappdist].manager`` is not set, pyappdist detects the manager by
 lockfile, in this order:
 
-.. list-table::
-   :header-rows: 1
-   :widths: 15 20 65
+**uv** — lockfile ``uv.lock``::
 
-   * - Manager
-     - Lockfile
-     - Export command
-   * - uv
-     - ``uv.lock``
-     - ``uv export --frozen --no-dev --no-emit-project --format requirements-txt``
-   * - poetry
-     - ``poetry.lock``
-     - ``poetry export -f requirements.txt --without dev``
-   * - pipenv
-     - ``Pipfile.lock``
-     - ``pipenv requirements --hash``
-   * - PDM
-     - ``pdm.lock``
-     - ``pdm export -f requirements --prod``
+   uv export --frozen --no-dev --no-emit-project --format requirements-txt
+
+**poetry** — lockfile ``poetry.lock``::
+
+   poetry export -f requirements.txt --without dev
+
+**pipenv** — lockfile ``Pipfile.lock``::
+
+   pipenv requirements --hash
+
+**PDM** — lockfile ``pdm.lock``::
+
+   pdm export -f requirements --prod
 
 All exports are **production dependencies only** (development dependencies are
 excluded, so pyappdist itself and other dev tooling are never bundled) and

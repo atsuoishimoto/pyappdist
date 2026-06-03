@@ -13,32 +13,24 @@ Only ``platform = "windows-x86_64"`` may use this format.
 Configuration
 -------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 20 15 65
+``manufacturer``
+   Vendor name; used as the launcher's version-resource company name and as the
+   default publisher (``CN=<manufacturer>``).
 
-   * - Key
-     - Required
-     - Description
-   * - ``manufacturer``
-     - no
-     - Vendor name; used as the launcher's version-resource company name and as the
-       default publisher (``CN=<manufacturer>``).
-   * - ``identity_name``
-     - no
-     - Package Identity Name (for the Store, the reserved ``Publisher.AppName``).
-       Defaults to ``[project].name``.
-   * - ``publisher``
-     - no
-     - Package Identity Publisher DN (e.g. ``"CN=Contoso"``). For the Store or
-       signing it must match. Defaults to ``CN=<manufacturer>``.
-   * - ``display_name``
-     - no
-     - App display name. Defaults to ``[tool.pyappdist].name``.
-   * - ``logo``
-     - no
-     - Path to a source ``.png`` used for the package logos. A placeholder is
-       generated if omitted.
+``identity_name``
+   Package Identity Name (for the Store, the reserved ``Publisher.AppName``).
+   Defaults to ``[project].name``.
+
+``publisher``
+   Package Identity Publisher DN (e.g. ``"CN=Contoso"``). For the Store or
+   signing it must match. Defaults to ``CN=<manufacturer>``.
+
+``display_name``
+   App display name. Defaults to ``[tool.pyappdist].name``.
+
+``logo``
+   Path to a source ``.png`` used for the package logos. A placeholder is
+   generated if omitted.
 
 .. code-block:: toml
 
