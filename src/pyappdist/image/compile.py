@@ -15,21 +15,27 @@ def compile_site_packages(layout: ImageLayout, *, log=print) -> None:
     The target OS's python must be run (for a Linux host -> Windows target,
     python.exe is run via WSL interop). site-packages is passed relative to the
     image dir, which is set as the cwd, so no path conversion is needed.
-    Raises BuildError in environments where it cannot be run.
+
+    compileall's output is streamed through as-is. A non-zero exit status is
+    expected for some packages (e.g. PySide6 ships .py files that fail to
+    compile); the other files are still compiled, so we only warn and continue
+    rather than failing the build. Raises BuildError only when python itself
+    cannot be run.
     """
     target = layout.target
     log("image: compileall")
     cmd = [
-        str(layout.python_exe), "-m", "compileall", "-q",
+        str(layout.python_exe), "-m", "compileall",
         target_relpath(target, layout.site_packages, layout.image_dir),
     ]
     try:
-        proc = subprocess.run(
-            cmd, cwd=str(layout.image_dir), capture_output=True, text=True, errors="replace"
-        )
+        proc = subprocess.run(cmd, cwd=str(layout.image_dir))
     except OSError as e:
         raise BuildError(
             f"cannot run compileall (unable to run {target.name}'s python): {e}"
         ) from e
     if proc.returncode != 0:
-        raise BuildError(f"compileall failed ({proc.returncode}):\n{proc.stderr.strip()}")
+        log(
+            f"image: compileall reported errors (status {proc.returncode}); "
+            "continuing (some files could not be compiled)"
+        )
