@@ -16,7 +16,8 @@ def compile_site_packages(layout: ImageLayout, *, log=print) -> None:
     python.exe is run via WSL interop). site-packages is passed relative to the
     image dir, which is set as the cwd, so no path conversion is needed.
 
-    compileall's output is streamed through as-is. A non-zero exit status is
+    compileall runs with -q, so only its error messages are streamed through
+    (the per-file progress listing is suppressed). A non-zero exit status is
     expected for some packages (e.g. PySide6 ships .py files that fail to
     compile); the other files are still compiled, so we only warn and continue
     rather than failing the build. Raises BuildError only when python itself
@@ -25,7 +26,7 @@ def compile_site_packages(layout: ImageLayout, *, log=print) -> None:
     target = layout.target
     log("image: compileall")
     cmd = [
-        str(layout.python_exe), "-m", "compileall",
+        str(layout.python_exe), "-m", "compileall", "-q",
         target_relpath(target, layout.site_packages, layout.image_dir),
     ]
     try:
