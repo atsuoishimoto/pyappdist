@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import io
+import os
 import shutil
 import subprocess
 import tarfile
@@ -34,8 +35,21 @@ _COMPRESSION = {
     "bzip2": (b"BZh", "r:bz2", ".tar.bz2"),
     "xz": (b"\xfd7zXZ\x00", "r:xz", ".tar.xz"),
 }
-# CLI decompressor each compression needs at install time (for skipping E2E).
+# CLI decompressor each compression needs at install time.
 _DECOMP_TOOL = {"gzip": "gzip", "bzip2": "bzip2", "xz": "xz"}
+
+
+def _installer_env(tmp_path: Path) -> dict[str, str]:
+    """Environment for running the .run in the E2E tests.
+
+    The real PATH is inherited rather than reconstructed: the installer only uses standard
+    utilities (tar, the decompressor, shasum/sha256sum, cp/ln/...) found by PATH, and never
+    resolves python through it (the launcher execs the bundled interpreter by absolute
+    path). So a user's normal PATH — including Homebrew, where macOS's ``xz`` typically
+    lives — is exactly the right environment, and there's nothing to exclude. Only HOME is
+    overridden, to sandbox the per-user install (prefix and any .desktop) into tmp_path.
+    """
+    return {**os.environ, "HOME": str(tmp_path / "home")}
 
 
 def _linux_config(sample_config, project_dir: Path, *, compression="xz", **launcher_kwargs):
@@ -184,7 +198,7 @@ def test_run_detects_corrupt_payload(tmp_path, sample_config):
     run.write_bytes(data)
 
     prefix = tmp_path / "prefix"
-    env = {"HOME": str(tmp_path / "home"), "PATH": "/usr/bin:/bin"}
+    env = _installer_env(tmp_path)
     res = subprocess.run(
         ["/bin/sh", str(run), "--prefix", str(prefix)],
         capture_output=True, text=True, env=env,
@@ -199,14 +213,14 @@ def test_run_detects_corrupt_payload(tmp_path, sample_config):
 def test_run_installs_and_uninstalls(tmp_path, sample_config, compression):
     """End-to-end: execute the .run into a throwaway prefix, then uninstall."""
     if shutil.which(_DECOMP_TOOL[compression]) is None:
-        pytest.skip(f"{_DECOMP_TOOL[compression]} not available")
+        pytest.skip(f"{_DECOMP_TOOL[compression]} not installed")
     layout = _make_image(tmp_path)
     config = _linux_config(sample_config, tmp_path, compression=compression)
     arts = build_linux(config, layout, tmp_path / "dist", log=lambda *a: None)
     run = next(p for p in arts if p.suffix == ".run")
 
     prefix = tmp_path / "prefix"
-    env = {"HOME": str(tmp_path / "home"), "PATH": "/usr/bin:/bin"}
+    env = _installer_env(tmp_path)
     res = subprocess.run(
         ["/bin/sh", str(run), "--prefix", str(prefix)],
         capture_output=True, text=True, env=env,

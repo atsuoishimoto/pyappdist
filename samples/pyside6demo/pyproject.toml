@@ -16,6 +16,7 @@ dev = [
 [tool.pyappdist]
 name = "PySide6 Demo"
 python = "3.12"
+identifier = "com.example.pyside6demo"   # CFBundleIdentifier (required for app/dmg)
 
 launchers = [
   { name = "pyside6demo", entry = "pyside6demo:main", gui = true, icon = "assets/pyside6demo.ico" },
@@ -49,4 +50,9 @@ format = "macos"
 name = "macos-intel"
 platform = "macos-x86_64"
 format = "macos"
+
+[[tool.pyappdist.targets]]
+name = "macos-arm-dmg"
+platform = "macos-aarch64"
+format = "dmg"
 

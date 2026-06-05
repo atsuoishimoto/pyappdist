@@ -279,6 +279,92 @@ def test_macos_compression_invalid(tmp_path: Path):
         load_configs(_write_text(tmp_path, text))
 
 
+def _macos_app_pyproject(fmt: str, *, app_extra: str = "", target_extra: str = "") -> str:
+    return _BASE.format(fmt=fmt, app_extra=app_extra, target_extra=target_extra).replace(
+        '"windows-x86_64"', '"macos-aarch64"'
+    )
+
+
+_IDENT = 'identifier = "com.example.helloworld"'
+
+
+@pytest.mark.parametrize("fmt", ["app", "dmg"])
+def test_format_app_dmg_accepted(tmp_path: Path, fmt: str):
+    cfg = load_configs(
+        _write_text(tmp_path, _macos_app_pyproject(fmt, app_extra=_IDENT))
+    )[0]
+    assert cfg.format == fmt
+    assert cfg.target.os == "macos"
+    assert cfg.identifier == "com.example.helloworld"
+
+
+@pytest.mark.parametrize("fmt", ["app", "dmg"])
+def test_app_dmg_require_identifier(tmp_path: Path, fmt: str):
+    # No app-level identifier -> error (a .app needs a CFBundleIdentifier).
+    with pytest.raises(ConfigError, match="identifier is required"):
+        load_configs(_write_text(tmp_path, _macos_app_pyproject(fmt)))
+
+
+@pytest.mark.parametrize("fmt", ["app", "dmg"])
+def test_app_dmg_only_on_macos(tmp_path: Path, fmt: str):
+    text = _BASE.format(fmt=fmt, app_extra=_IDENT, target_extra="")  # windows platform
+    with pytest.raises(ConfigError, match="windows"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_identifier_must_be_reverse_dns(tmp_path: Path):
+    with pytest.raises(ConfigError, match="reverse-DNS"):
+        load_configs(
+            _write_text(
+                tmp_path, _macos_app_pyproject("dmg", app_extra='identifier = "helloworld"')
+            )
+        )
+
+
+def test_identifier_optional_for_non_app_targets(tmp_path: Path):
+    # A plain msi target needs no identifier.
+    cfg = load_configs(_write(tmp_path))[0]
+    assert cfg.identifier is None
+
+
+def test_macos_app_fields_parsed(tmp_path: Path):
+    extra = (
+        'min_macos = "12.0"\n'
+        'icon = "assets/app.png"\n'
+        'signing_identity = "Developer ID Application: Me (TEAMID)"\n'
+        'team_id = "TEAMID"\n'
+        'notary_profile = "myprofile"\n'
+        'entitlements = "ent.plist"\n'
+        'category = "public.app-category.utilities"\n'
+    )
+    cfg = load_configs(
+        _write_text(tmp_path, _macos_app_pyproject("dmg", app_extra=_IDENT, target_extra=extra))
+    )[0]
+    m = cfg.macos
+    assert m.min_macos == "12.0"
+    assert m.icon == "assets/app.png"
+    assert m.signing_identity == "Developer ID Application: Me (TEAMID)"
+    assert m.team_id == "TEAMID"
+    assert m.notary_profile == "myprofile"
+    assert m.entitlements == "ent.plist"
+    assert m.category == "public.app-category.utilities"
+
+
+def test_macos_min_macos_default(tmp_path: Path):
+    cfg = load_configs(_write_text(tmp_path, _macos_app_pyproject("dmg", app_extra=_IDENT)))[0]
+    assert cfg.macos.min_macos == "11.0"
+
+
+def test_macos_icon_must_be_png(tmp_path: Path):
+    with pytest.raises(ConfigError, match="png"):
+        load_configs(
+            _write_text(
+                tmp_path,
+                _macos_app_pyproject("dmg", app_extra=_IDENT, target_extra='icon = "app.icns"'),
+            )
+        )
+
+
 def test_msix_fields(tmp_path: Path):
     cfg = load_configs(
         _write(

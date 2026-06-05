@@ -16,6 +16,7 @@ dev = [
 [tool.pyappdist]
 name = "Pygame Demo"
 python = "3.12"
+identifier = "com.example.pygamedemo"
 
 launchers = [
   { name = "pygamedemo", entry = "pygamedemo:main", gui = true, icon = "assets/pygamedemo.ico" },
@@ -49,4 +50,9 @@ format = "macos"
 name = "macos-intel"
 platform = "macos-x86_64"
 format = "macos"
+
+[[tool.pyappdist.targets]]
+name = "macos-arm-dmg"
+platform = "macos-aarch64"
+format = "dmg"
 

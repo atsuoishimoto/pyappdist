@@ -21,12 +21,14 @@ pyappdist = { path = "../../", editable = true }
 [tool.pyappdist]
 name = "pyappdist E2E Smoke"
 python = "3.12"
+identifier = "com.example.smoke"
 
 launchers = [
   { name = "smoke", entry = "smoke:main", gui = false },
 ]
 
 [[tool.pyappdist.targets]]
+name = "windows"
 platform = "windows-x86_64"
 format = "msi"
 manufacturer = "pyappdist"
@@ -54,3 +56,8 @@ format = "macos"
 name = "macos-intel"
 platform = "macos-x86_64"
 format = "macos"
+
+[[tool.pyappdist.targets]]
+name = "macos-arm-dmg"
+platform = "macos-aarch64"
+format = "dmg"

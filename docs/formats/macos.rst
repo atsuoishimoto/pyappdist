@@ -47,5 +47,7 @@ each launcher into ``<prefix>/bin``, drops an ``uninstall.sh``, and supports
    $ ./myapp-1.0-macos-aarch64.run --uninstall
 
 macOS has no freedesktop equivalent, so launcher ``icon`` and ``gui`` are ignored —
-the installer creates the ``<prefix>/bin`` symlinks only. No ``.app`` bundle is
-produced; GUI apps are launched from a terminal or by their ``bin`` name.
+the installer creates the ``<prefix>/bin`` symlinks only. This format produces no
+``.app`` bundle; it suits command-line tools launched by their ``bin`` name. For a
+double-click GUI app (a signed/notarized ``.app`` or ``.dmg``), use
+:doc:`format = "app" / "dmg" <app>` instead.

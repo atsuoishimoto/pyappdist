@@ -21,6 +21,7 @@ def sample_config() -> Config:
         dist_name="helloworld",
         version="1.2.3",
         python="3.12",
+        identifier=None,
         target=get_target("windows-x86_64"),
         target_name="windows-x86_64",
         format="msi",

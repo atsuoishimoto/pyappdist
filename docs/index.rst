@@ -35,6 +35,10 @@ One ``pyproject.toml`` can describe several output packages at once — each is 
 :doc:`macos <formats/macos>`
    ``macos-aarch64`` / ``macos-x86_64`` → ``.tar.{gz,bz2,xz}`` + ``.run`` installer.
 
+:doc:`app / dmg <formats/app>`
+   ``macos-aarch64`` / ``macos-x86_64`` → a signed/notarized ``.app`` bundle, optionally
+   inside a ``.dmg``.
+
 Why "just works"
 ----------------
 
@@ -72,6 +76,7 @@ Linux/macOS the launcher is a relocatable shell wrapper. See :doc:`how-it-works`
    formats/msix
    formats/linux
    formats/macos
+   formats/app
 
 .. toctree::
    :maxdepth: 2

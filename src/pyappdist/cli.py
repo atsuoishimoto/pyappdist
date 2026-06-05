@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import platform
+import shutil
 import sys
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
@@ -28,8 +30,13 @@ from .config import ensure_upgrade_code, load_configs
 from .context import BuildContext
 from .errors import BuildError, PyappdistError
 from .launcher import build_launchers
+from .launcher.build import macos_arch
 from .linux import build_linux
 from .macos import build_macos
+from .macos.bundle import build_macos_apps
+from .macos.notarize import notarize_and_staple, notarize_app, resolve_notary_profile
+from .macos.package import build_dmg
+from .macos.sign import deep_sign, resolve_sign_options, sign_file
 from .msix import build_msix
 from .runtime import fetch_runtime
 from .sign import sign_artifact
@@ -143,6 +150,12 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
             print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} ({fmt} skipped on non-{os_name})")
         return
 
+    if ctx.config.format in ("app", "dmg"):
+        # macOS .app bundle (GUI distribution). Native-only, so the host check happens
+        # before clang runs; reuses the image built above.
+        _build_macos_bundle(ctx, layout)
+        return
+
     exes = build_launchers(ctx.config, layout, ctx.out_dir / "_launcher_build")
     for exe in exes:
         sign_artifact(exe)
@@ -169,6 +182,65 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
         print(f"OK [{_tag(ctx)}]: msi -> {msi} ({len(exes)} launcher)")
     else:
         print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} (msi skipped on non-Windows)")
+
+
+def _build_macos_bundle(ctx: BuildContext, layout: image_mod.ImageLayout) -> None:
+    """Assemble, sign, and package the macOS ``.app``/``.dmg`` from an already-built image.
+
+    Native-only (codesign/hdiutil/clang are macOS tools), so on a non-macOS host it skips
+    with a note — the same courtesy msi/msix extend on non-Windows. The launchers are built
+    here (Mach-O via clang) rather than earlier, so the host check precedes the toolchain.
+    """
+    cfg = ctx.config
+    tag = _tag(ctx)
+    if sys.platform != "darwin":
+        print(f"OK [{tag}]: image -> {layout.image_dir} ({cfg.format} skipped on non-macOS)")
+        return
+
+    host = platform.machine()
+    target_arch = macos_arch(cfg.target)
+    if host != target_arch:
+        print(f"warning [{tag}]: building {target_arch} on a {host} host; the .app cannot "
+              "be run or signature-verified locally (notarization still works)")
+
+    # Mach-O launchers (CFBundleExecutable of each bundle) into the image dir.
+    build_launchers(cfg, layout, ctx.out_dir / "_launcher_build")
+
+    build_dir = ctx.out_dir / "_app_build"
+    sign_opts = resolve_sign_options(cfg, build_dir)
+    apps = build_macos_apps(cfg, layout.image_dir, build_dir)
+    for app in apps:
+        deep_sign(app, sign_opts)
+
+    # Notarization needs a real Developer ID signature; ad-hoc cannot be notarized.
+    profile = resolve_notary_profile(cfg)
+    notarize = profile is not None and not sign_opts.adhoc
+    if profile is not None and sign_opts.adhoc:
+        print(f"OK [{tag}]: notarization skipped (ad-hoc signature; set signing_identity "
+              "for Developer ID)")
+
+    ctx.dist_dir.mkdir(parents=True, exist_ok=True)
+    if cfg.format == "app":
+        finals: list[Path] = []
+        for app in apps:
+            dest = ctx.dist_dir / app.name
+            if dest.exists():
+                shutil.rmtree(dest)
+            shutil.copytree(app, dest, symlinks=True)
+            finals.append(dest)
+        if notarize:
+            for dest in finals:
+                notarize_app(dest, profile)  # zip-submit, then staple the bundle
+        print(f"OK [{tag}]: {len(finals)} .app -> {ctx.dist_dir}")
+        return
+
+    dmg = build_dmg(cfg, apps, ctx.dist_dir / f"{cfg.dist_name}-{cfg.version}.dmg")
+    if not sign_opts.adhoc:
+        sign_file(dmg, sign_opts)  # sign the disk image itself with the Developer ID
+    sign_artifact(dmg)  # optional extra signing via PYAPPDIST_SIGN_CMD
+    if notarize:
+        notarize_and_staple(dmg, profile)
+    print(f"OK [{tag}]: dmg -> {dmg} ({len(apps)} app)")
 
 
 def cmd_build(args: argparse.Namespace) -> int:
