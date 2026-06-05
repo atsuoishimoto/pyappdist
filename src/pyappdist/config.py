@@ -31,9 +31,9 @@ _WIX_SCOPES = ("machine", "user")
 #   msi/msix - Windows packages (see WixConfig/MsixConfig)
 #   linux    - a portable tarball plus a self-extracting .run installer (see LinuxConfig)
 #   macos    - the same POSIX tarball + .run, for macOS (see MacosConfig)
-#   app/dmg  - a macOS .app bundle (GUI distribution); dmg additionally wraps it in a
+#   macapp/dmg - a macOS .app bundle (GUI distribution); dmg additionally wraps it in a
 #              disk image. Both Developer-ID-sign + notarize when configured (see MacosConfig).
-_FORMATS = ("msi", "msix", "linux", "macos", "app", "dmg")
+_FORMATS = ("msi", "msix", "linux", "macos", "macapp", "dmg")
 
 # Each output format produces a package for exactly one OS; a target's platform must match.
 _FORMAT_OS = {
@@ -41,11 +41,11 @@ _FORMAT_OS = {
     "msix": "windows",
     "linux": "linux",
     "macos": "macos",
-    "app": "macos",
+    "macapp": "macos",
     "dmg": "macos",
 }
 
-# reverse-DNS CFBundleIdentifier (e.g. "com.example.myapp"); required for app/dmg targets.
+# reverse-DNS CFBundleIdentifier (e.g. "com.example.myapp"); required for macapp/dmg targets.
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
 
 
@@ -111,7 +111,7 @@ class MacosConfig:
     so launcher ``icon``/``gui`` are ignored). The default is ``gzip`` (not ``xz``) because
     ``xz`` is not preinstalled on macOS.
 
-    The remaining fields apply to ``format = "app"``/``"dmg"`` — assembling a ``.app``
+    The remaining fields apply to ``format = "macapp"``/``"dmg"`` — assembling a ``.app``
     bundle (and, for ``dmg``, wrapping it in a disk image). When ``signing_identity`` (or
     ``PYAPPDIST_SIGNING_IDENTITY``) names a Developer ID identity the bundle is signed with
     a hardened runtime; with a ``notary_profile`` it is then notarized and stapled. With no
@@ -119,7 +119,7 @@ class MacosConfig:
     """
 
     compression: str = "gzip"        # (.run) payload compression: "gzip" | "bzip2" | "xz"
-    # --- app/dmg ---
+    # --- macapp/dmg ---
     min_macos: str = "11.0"          # LSMinimumSystemVersion / clang -mmacosx-version-min
     icon: str | None = None          # path (relative to project_dir) to a source PNG
     signing_identity: str | None = None  # "Developer ID Application: Name (TEAMID)"; None=ad-hoc
@@ -138,10 +138,10 @@ class Config:
     dist_name: str      # distribution package name ([project].name)
     version: str
     python: str         # "X.Y" or "X.Y.Z"
-    identifier: str | None  # CFBundleIdentifier (reverse-DNS); required for app/dmg targets
+    identifier: str | None  # CFBundleIdentifier (reverse-DNS); required for macapp/dmg targets
     target: Target
     target_name: str    # the [[tool.pyappdist.targets]].name label (required, unique)
-    format: str         # output package format: "msi" | "msix" | "linux" | "macos" | "app" | "dmg"
+    format: str         # output package: "msi" | "msix" | "linux" | "macos" | "macapp" | "dmg"
     launchers: tuple[LauncherConfig, ...]
     wix: WixConfig
     msix: MsixConfig
@@ -206,9 +206,9 @@ def load_configs(
                 "[tool.pyappdist].identifier must be reverse-DNS "
                 f'(e.g. "com.example.myapp"): {identifier!r}'
             )
-    if any(fmt in ("app", "dmg") for (_, _, fmt, *_rest) in specs) and not identifier:
+    if any(fmt in ("macapp", "dmg") for (_, _, fmt, *_rest) in specs) and not identifier:
         raise ConfigError(
-            '[tool.pyappdist].identifier is required for app/dmg targets '
+            '[tool.pyappdist].identifier is required for macapp/dmg targets '
             '(reverse-DNS, e.g. "com.example.myapp")'
         )
 

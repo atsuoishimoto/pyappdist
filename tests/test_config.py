@@ -288,7 +288,7 @@ def _macos_app_pyproject(fmt: str, *, app_extra: str = "", target_extra: str = "
 _IDENT = 'identifier = "com.example.helloworld"'
 
 
-@pytest.mark.parametrize("fmt", ["app", "dmg"])
+@pytest.mark.parametrize("fmt", ["macapp", "dmg"])
 def test_format_app_dmg_accepted(tmp_path: Path, fmt: str):
     cfg = load_configs(
         _write_text(tmp_path, _macos_app_pyproject(fmt, app_extra=_IDENT))
@@ -298,14 +298,14 @@ def test_format_app_dmg_accepted(tmp_path: Path, fmt: str):
     assert cfg.identifier == "com.example.helloworld"
 
 
-@pytest.mark.parametrize("fmt", ["app", "dmg"])
+@pytest.mark.parametrize("fmt", ["macapp", "dmg"])
 def test_app_dmg_require_identifier(tmp_path: Path, fmt: str):
     # No app-level identifier -> error (a .app needs a CFBundleIdentifier).
     with pytest.raises(ConfigError, match="identifier is required"):
         load_configs(_write_text(tmp_path, _macos_app_pyproject(fmt)))
 
 
-@pytest.mark.parametrize("fmt", ["app", "dmg"])
+@pytest.mark.parametrize("fmt", ["macapp", "dmg"])
 def test_app_dmg_only_on_macos(tmp_path: Path, fmt: str):
     text = _BASE.format(fmt=fmt, app_extra=_IDENT, target_extra="")  # windows platform
     with pytest.raises(ConfigError, match="windows"):

@@ -22,10 +22,10 @@ signed after it is compiled, and the MSI is signed after it is built.
    Obtaining and managing code-signing certificates is out of scope for
    pyappdist. Unsigned installers will trigger a Windows SmartScreen warning.
 
-macOS (app / dmg)
------------------
+macOS (macapp / dmg)
+--------------------
 
-The :doc:`app / dmg <formats/app>` formats are always code-signed. Without a
+The :doc:`macapp / dmg <formats/macapp>` formats are always code-signed. Without a
 configured identity the bundle is **ad-hoc** signed (``codesign -s -``): it runs on
 the build machine but Gatekeeper rejects it elsewhere. To distribute, sign with a
 **Developer ID Application** certificate and **notarize**.

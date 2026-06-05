@@ -50,4 +50,4 @@ macOS has no freedesktop equivalent, so launcher ``icon`` and ``gui`` are ignore
 the installer creates the ``<prefix>/bin`` symlinks only. This format produces no
 ``.app`` bundle; it suits command-line tools launched by their ``bin`` name. For a
 double-click GUI app (a signed/notarized ``.app`` or ``.dmg``), use
-:doc:`format = "app" / "dmg" <app>` instead.
+:doc:`format = "macapp" / "dmg" <macapp>` instead.

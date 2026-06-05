@@ -36,7 +36,7 @@ It has three parts:
 
 ``identifier``
    CFBundleIdentifier in reverse-DNS form (e.g. ``"com.example.myapp"``).
-   **Required** when any target uses ``format = "app"`` or ``"dmg"``; unused by the
+   **Required** when any target uses ``format = "macapp"`` or ``"dmg"``; unused by the
    other formats. With multiple launchers each bundle derives
    ``<identifier>.<launcher>``.
 
@@ -45,7 +45,7 @@ It has three parts:
    [tool.pyappdist]
    name = "My App"
    python = "3.12"
-   # identifier = "com.example.myapp"   # required for app/dmg targets
+   # identifier = "com.example.myapp"   # required for macapp/dmg targets
 
 .. _config-launchers:
 
@@ -112,7 +112,7 @@ These keys are common to every format; the format-specific keys live on the
 ``format`` (required)
    Output package. Must match the platform's OS: ``"msi"`` or ``"msix"`` on
    Windows, ``"linux"`` on Linux, and on macOS either ``"macos"`` (a portable
-   ``.run`` installer, like Linux) or ``"app"`` / ``"dmg"`` (a ``.app`` bundle,
+   ``.run`` installer, like Linux) or ``"macapp"`` / ``"dmg"`` (a ``.app`` bundle,
    optionally inside a ``.dmg``, for GUI distribution). A mismatch (e.g. ``"msi"``
    with ``linux-x86_64``) is rejected at load. See
    :ref:`Output formats <config-formats>`.
@@ -133,10 +133,10 @@ Platform values
    Triple ``x86_64-unknown-linux-gnu`` · OS linux · format ``linux``.
 
 ``macos-aarch64``
-   Triple ``aarch64-apple-darwin`` · OS macos · format ``macos`` / ``app`` / ``dmg``.
+   Triple ``aarch64-apple-darwin`` · OS macos · format ``macos`` / ``macapp`` / ``dmg``.
 
 ``macos-x86_64``
-   Triple ``x86_64-apple-darwin`` · OS macos · format ``macos`` / ``app`` / ``dmg``.
+   Triple ``x86_64-apple-darwin`` · OS macos · format ``macos`` / ``macapp`` / ``dmg``.
 
 .. _config-formats:
 
@@ -158,8 +158,8 @@ behavior:
 :doc:`macos <formats/macos>`
    ``.tar.{gz,bz2,xz}`` + self-extracting ``.run``.
 
-:doc:`app / dmg <formats/app>`
-   A macOS ``.app`` bundle (``app``), optionally wrapped in a ``.dmg`` (``dmg``);
+:doc:`macapp / dmg <formats/macapp>`
+   A macOS ``.app`` bundle (``macapp``), optionally wrapped in a ``.dmg`` (``dmg``);
    Developer-ID-signed and notarized when configured.
 
 A single project can declare several targets and produce all of these at once:

@@ -1,12 +1,12 @@
 macOS app bundle (.app / .dmg)
 ==============================
 
-``format = "app"`` and ``format = "dmg"`` build a native macOS ``.app`` bundle — the
+``format = "macapp"`` and ``format = "dmg"`` build a native macOS ``.app`` bundle — the
 double-click-to-launch, Dock-able form a GUI app is distributed in — rather than the
 ``.run`` installer that :doc:`macos` produces. Use these for graphical apps; use
 ``macos`` for command-line tools.
 
-* ``app`` assembles one ``<name>.app`` per launcher into ``appdist/<name>/dist/``.
+* ``macapp`` assembles one ``<name>.app`` per launcher into ``appdist/<name>/dist/``.
 * ``dmg`` does the same, then wraps the bundle(s) in a compressed ``<name>-<version>.dmg``
   disk image with the classic drag-to-``/Applications`` layout.
 
@@ -67,12 +67,12 @@ All keys live on the macOS target table.
 .. code-block:: toml
 
    [tool.pyappdist]
-   identifier = "com.example.myapp"       # required for app/dmg
+   identifier = "com.example.myapp"       # required for macapp/dmg
 
    [[tool.pyappdist.targets]]
    name = "macos-arm-dmg"
    platform = "macos-aarch64"             # or "macos-x86_64" for Intel
-   format = "dmg"                         # or "app" for the bare bundle
+   format = "dmg"                         # or "macapp" for the bare bundle
    # icon = "assets/app.png"
    # min_macos = "12.0"
    # signing_identity = "Developer ID Application: Your Name (TEAMID)"
@@ -82,7 +82,7 @@ Install behavior
 ----------------
 
 A ``.dmg`` is mounted; the user drags ``<name>.app`` into ``/Applications``. A bare
-``.app`` (``format = "app"``) can be ``open``\ ed directly or shipped through your own
+``.app`` (``format = "macapp"``) can be ``open``\ ed directly or shipped through your own
 channel (a zip, a ``.dmg`` you decorate, or an auto-updater such as Sparkle).
 
 A Developer-ID-signed, notarized, stapled bundle is accepted by Gatekeeper offline. An

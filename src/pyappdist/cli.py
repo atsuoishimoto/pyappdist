@@ -150,7 +150,7 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
             print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} ({fmt} skipped on non-{os_name})")
         return
 
-    if ctx.config.format in ("app", "dmg"):
+    if ctx.config.format in ("macapp", "dmg"):
         # macOS .app bundle (GUI distribution). Native-only, so the host check happens
         # before clang runs; reuses the image built above.
         _build_macos_bundle(ctx, layout)
@@ -220,7 +220,7 @@ def _build_macos_bundle(ctx: BuildContext, layout: image_mod.ImageLayout) -> Non
               "for Developer ID)")
 
     ctx.dist_dir.mkdir(parents=True, exist_ok=True)
-    if cfg.format == "app":
+    if cfg.format == "macapp":
         finals: list[Path] = []
         for app in apps:
             dest = ctx.dist_dir / app.name

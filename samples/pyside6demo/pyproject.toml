@@ -16,7 +16,7 @@ dev = [
 [tool.pyappdist]
 name = "PySide6 Demo"
 python = "3.12"
-identifier = "com.example.pyside6demo"   # CFBundleIdentifier (required for app/dmg)
+identifier = "com.example.pyside6demo"   # CFBundleIdentifier (required for macapp/dmg)
 
 launchers = [
   { name = "pyside6demo", entry = "pyside6demo:main", gui = true, icon = "assets/pyside6demo.ico" },

@@ -13,7 +13,7 @@ dev = [
 [tool.pyappdist]
 name = "Hello World"
 python = "3.12"
-identifier = "com.example.helloworld"   # CFBundleIdentifier, required for app/dmg targets
+identifier = "com.example.helloworld"   # CFBundleIdentifier, required for macapp/dmg targets
 
 launchers = [
   { name = "helloworld", entry = "helloworld:main", gui = false },

@@ -39,7 +39,7 @@ def _vswhere_path() -> Path:
 def build_launchers(config: Config, layout: ImageLayout, workdir: Path, *, log=print) -> list[Path]:
     """Compile one launcher per spec into the image dir.
 
-    The launcher kind is chosen by the *format*, not just the OS: ``app``/``dmg`` need a
+    The launcher kind is chosen by the *format*, not just the OS: ``macapp``/``dmg`` need a
     Mach-O stub for the ``.app`` bundle (built here with clang), while ``macos``/``linux``
     use POSIX shell wrappers written by ``posix/build.py`` (so this returns ``[]`` for
     them). Windows is the MSVC ``launcher.exe`` path.
@@ -47,7 +47,7 @@ def build_launchers(config: Config, layout: ImageLayout, workdir: Path, *, log=p
     if not config.launchers:
         log("launcher: none defined")
         return []
-    if config.format in ("app", "dmg"):
+    if config.format in ("macapp", "dmg"):
         return build_macos_launchers(config, layout, workdir, log=log)
     if config.target.os != "windows":
         log("launcher: skipping (shell-wrapper launchers are written by the posix builder)")
