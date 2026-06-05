@@ -13,6 +13,7 @@ dev = [
 [tool.pyappdist]
 name = "Hello World"
 python = "3.12"
+identifier = "com.example.helloworld"   # CFBundleIdentifier, required for macapp/dmg targets
 
 launchers = [
   { name = "helloworld", entry = "helloworld:main", gui = false },
@@ -45,3 +46,11 @@ format = "macos"
 name = "macos-intel"
 platform = "macos-x86_64"
 format = "macos"
+
+[[tool.pyappdist.targets]]
+name = "macos-arm-dmg"
+platform = "macos-aarch64"
+format = "dmg"                        # a signed/notarizable .app inside a .dmg
+# icon = "assets/app.png"            # source PNG for the .app icon
+# signing_identity = "Developer ID Application: Your Name (TEAMID)"
+# notary_profile = "pyappdist-notary"  # see docs/signing

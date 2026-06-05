@@ -31,10 +31,22 @@ _WIX_SCOPES = ("machine", "user")
 #   msi/msix - Windows packages (see WixConfig/MsixConfig)
 #   linux    - a portable tarball plus a self-extracting .run installer (see LinuxConfig)
 #   macos    - the same POSIX tarball + .run, for macOS (see MacosConfig)
-_FORMATS = ("msi", "msix", "linux", "macos")
+#   macapp/dmg - a macOS .app bundle (GUI distribution); dmg additionally wraps it in a
+#              disk image. Both Developer-ID-sign + notarize when configured (see MacosConfig).
+_FORMATS = ("msi", "msix", "linux", "macos", "macapp", "dmg")
 
 # Each output format produces a package for exactly one OS; a target's platform must match.
-_FORMAT_OS = {"msi": "windows", "msix": "windows", "linux": "linux", "macos": "macos"}
+_FORMAT_OS = {
+    "msi": "windows",
+    "msix": "windows",
+    "linux": "linux",
+    "macos": "macos",
+    "macapp": "macos",
+    "dmg": "macos",
+}
+
+# reverse-DNS CFBundleIdentifier (e.g. "com.example.myapp"); required for macapp/dmg targets.
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
 
 
 @dataclass(frozen=True)
@@ -44,6 +56,17 @@ class LauncherConfig:
     gui: bool = False
     icon: str | None = None
     args: str = ""      # fixed arguments (single string)
+
+    @property
+    def bootstrap(self) -> str:
+        """The ``-c`` program: import the entry point and exit with its return code.
+
+        Shared by every launcher kind (Windows console, the POSIX shell wrapper, and the
+        macOS Mach-O stub). The Windows ``gui`` launcher wraps this with a MessageBox in
+        ``launcher/build.py``; everything else uses it verbatim.
+        """
+        module, _, func = self.entry.partition(":")
+        return f"import sys; from {module} import {func}; sys.exit({func}())"
 
 
 @dataclass(frozen=True)
@@ -80,16 +103,30 @@ class LinuxConfig:
 
 @dataclass(frozen=True)
 class MacosConfig:
-    """macOS ``format = "macos"`` settings.
+    """macOS target settings, shared by ``macos`` (.run) and ``app``/``dmg`` (.app bundle).
 
-    The output mirrors Linux — a portable tarball plus a self-extracting ``.run`` that
-    installs into a per-user prefix and symlinks each launcher into ``<prefix>/bin``.
-    macOS has no freedesktop equivalent, so launcher ``icon``/``gui`` are ignored (no
-    desktop integration). The default compression is ``gzip`` (not ``xz``) because ``xz``
-    is not preinstalled on macOS.
+    ``compression`` applies only to ``format = "macos"``: the output mirrors Linux — a
+    portable tarball plus a self-extracting ``.run`` that installs into a per-user prefix
+    and symlinks each launcher into ``<prefix>/bin`` (macOS has no freedesktop equivalent,
+    so launcher ``icon``/``gui`` are ignored). The default is ``gzip`` (not ``xz``) because
+    ``xz`` is not preinstalled on macOS.
+
+    The remaining fields apply to ``format = "macapp"``/``"dmg"`` — assembling a ``.app``
+    bundle (and, for ``dmg``, wrapping it in a disk image). When ``signing_identity`` (or
+    ``PYAPPDIST_SIGNING_IDENTITY``) names a Developer ID identity the bundle is signed with
+    a hardened runtime; with a ``notary_profile`` it is then notarized and stapled. With no
+    identity the bundle is ad-hoc signed (runs locally, rejected by Gatekeeper elsewhere).
     """
 
-    compression: str = "gzip"  # payload compression: "gzip" | "bzip2" | "xz"
+    compression: str = "gzip"        # (.run) payload compression: "gzip" | "bzip2" | "xz"
+    # --- macapp/dmg ---
+    min_macos: str = "11.0"          # LSMinimumSystemVersion / clang -mmacosx-version-min
+    icon: str | None = None          # path (relative to project_dir) to a source PNG
+    signing_identity: str | None = None  # "Developer ID Application: Name (TEAMID)"; None=ad-hoc
+    team_id: str | None = None       # Apple Developer Team ID (informational)
+    notary_profile: str | None = None    # notarytool keychain profile name
+    entitlements: str | None = None      # path (relative to project_dir) to an entitlements plist
+    category: str | None = None          # LSApplicationCategoryType
 
 
 @dataclass(frozen=True)
@@ -101,9 +138,10 @@ class Config:
     dist_name: str      # distribution package name ([project].name)
     version: str
     python: str         # "X.Y" or "X.Y.Z"
+    identifier: str | None  # CFBundleIdentifier (reverse-DNS); required for macapp/dmg targets
     target: Target
     target_name: str    # the [[tool.pyappdist.targets]].name label (required, unique)
-    format: str         # output package format: "msi" | "msix" | "linux" | "macos"
+    format: str         # output package: "msi" | "msix" | "linux" | "macos" | "macapp" | "dmg"
     launchers: tuple[LauncherConfig, ...]
     wix: WixConfig
     msix: MsixConfig
@@ -158,6 +196,22 @@ def load_configs(
         )
 
     specs = _parse_targets(tool.get("targets"))
+
+    # CFBundleIdentifier (reverse-DNS). Required when any target builds a .app bundle.
+    identifier = tool.get("identifier")
+    if identifier is not None:
+        identifier = str(identifier)
+        if not _IDENTIFIER_RE.match(identifier):
+            raise ConfigError(
+                "[tool.pyappdist].identifier must be reverse-DNS "
+                f'(e.g. "com.example.myapp"): {identifier!r}'
+            )
+    if any(fmt in ("macapp", "dmg") for (_, _, fmt, *_rest) in specs) and not identifier:
+        raise ConfigError(
+            '[tool.pyappdist].identifier is required for macapp/dmg targets '
+            '(reverse-DNS, e.g. "com.example.myapp")'
+        )
+
     available = [s[0] for s in specs]
     if select:
         unknown = [s for s in select if s not in available]
@@ -174,6 +228,7 @@ def load_configs(
             dist_name=str(dist_name),
             version=str(version),
             python=str(python),
+            identifier=identifier,
             target=target,
             target_name=target_name,
             format=fmt,
@@ -292,7 +347,24 @@ def _parse_linux(raw: dict, index: int) -> LinuxConfig:
 
 def _parse_macos(raw: dict, index: int) -> MacosConfig:
     # xz is not preinstalled on macOS, so the default payload compression is gzip.
-    return MacosConfig(compression=_compression(raw, index, "gzip"))
+    icon = raw.get("icon")
+    if icon is not None and not str(icon).lower().endswith(".png"):
+        raise ConfigError(f"targets[{index}].icon must be a .png file: {icon!r}")
+    return MacosConfig(
+        compression=_compression(raw, index, "gzip"),
+        min_macos=str(raw.get("min_macos", "11.0")),
+        icon=str(icon) if icon is not None else None,
+        signing_identity=_opt_str(raw, "signing_identity"),
+        team_id=_opt_str(raw, "team_id"),
+        notary_profile=_opt_str(raw, "notary_profile"),
+        entitlements=_opt_str(raw, "entitlements"),
+        category=_opt_str(raw, "category"),
+    )
+
+
+def _opt_str(raw: dict, key: str) -> str | None:
+    value = raw.get(key)
+    return str(value) if value is not None else None
 
 
 def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:

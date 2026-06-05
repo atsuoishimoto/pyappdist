@@ -17,8 +17,14 @@ from .._hostexec import target_relpath
 from ..config import Config, LauncherConfig
 from ..errors import BuildError
 from ..image.layout import ImageLayout
+from ..targets import Target
 
-_LAUNCHER_C = Path(__file__).resolve().parent.parent / "resources" / "launcher.c"
+_RESOURCES = Path(__file__).resolve().parent.parent / "resources"
+_LAUNCHER_C = _RESOURCES / "launcher.c"
+_LAUNCHER_MAC_C = _RESOURCES / "launcher_mac.c"
+
+# Path to the bundled interpreter relative to a .app's Contents/MacOS/<name>.
+_MACOS_PYREL = "../Resources/python/bin/python3"
 
 
 def _vswhere_path() -> Path:
@@ -31,11 +37,20 @@ def _vswhere_path() -> Path:
 
 
 def build_launchers(config: Config, layout: ImageLayout, workdir: Path, *, log=print) -> list[Path]:
-    if config.target.os != "windows":
-        log("launcher: skipping (non-Windows target)")
-        return []
+    """Compile one launcher per spec into the image dir.
+
+    The launcher kind is chosen by the *format*, not just the OS: ``macapp``/``dmg`` need a
+    Mach-O stub for the ``.app`` bundle (built here with clang), while ``macos``/``linux``
+    use POSIX shell wrappers written by ``posix/build.py`` (so this returns ``[]`` for
+    them). Windows is the MSVC ``launcher.exe`` path.
+    """
     if not config.launchers:
         log("launcher: none defined")
+        return []
+    if config.format in ("macapp", "dmg"):
+        return build_macos_launchers(config, layout, workdir, log=log)
+    if config.target.os != "windows":
+        log("launcher: skipping (shell-wrapper launchers are written by the posix builder)")
         return []
     vcvars = _find_vcvars()
     workdir.mkdir(parents=True, exist_ok=True)
@@ -43,6 +58,72 @@ def build_launchers(config: Config, layout: ImageLayout, workdir: Path, *, log=p
     for spec in config.launchers:
         out.append(_build_one(config, spec, layout, vcvars, workdir, log))
     return out
+
+
+def build_macos_launchers(
+    config: Config, layout: ImageLayout, workdir: Path, *, log=print
+) -> list[Path]:
+    """Compile one Mach-O launcher per spec into the image dir (clang, native to the target).
+
+    Each binary resolves the bundled python relative to its own location, so it is
+    layout-independent at build time; the bundler relocates it into the ``.app``.
+    """
+    workdir.mkdir(parents=True, exist_ok=True)
+    return [_build_one_macos(config, spec, layout, workdir, log) for spec in config.launchers]
+
+
+def _build_one_macos(
+    config: Config, spec: LauncherConfig, layout: ImageLayout, workdir: Path, log
+) -> Path:
+    arch = macos_arch(config.target)
+    log(f"launcher: build {spec.name} (macos {arch})")
+    gen = workdir / spec.name
+    gen.mkdir(parents=True, exist_ok=True)
+
+    # macOS has no console/gui subsystem split, so the plain bootstrap is used for both
+    # (a native error dialog for gui launchers is a later refinement).
+    header = (
+        f'#define PYAPPDIST_PYREL "{_c_str(_MACOS_PYREL)}"\n'
+        f'#define PYAPPDIST_BOOTSTRAP "{_c_str(spec.bootstrap)}"\n'
+        f"#define PYAPPDIST_FIXED_ARGS {_fixed_args_initializer(spec.args)}\n"
+    )
+    (gen / "pyappdist_launcher_config.h").write_text(header, encoding="utf-8")
+    # Stage launcher_mac.c next to the generated header so clang runs with cwd=gen.
+    shutil.copy2(_LAUNCHER_MAC_C, gen / "launcher_mac.c")
+
+    exe = layout.image_dir / spec.name
+    cmd = [
+        "clang",
+        "-arch", arch,
+        f"-mmacosx-version-min={config.macos.min_macos}",
+        "-O2", "-Wall", "-Wextra",
+        "-I.",
+        "-o", str(exe),
+        "launcher_mac.c",
+    ]
+    proc = subprocess.run(
+        cmd, cwd=str(gen), capture_output=True, text=True, errors="replace"
+    )
+    if proc.returncode != 0 or not exe.exists():
+        raise BuildError(
+            f"launcher build failed ({spec.name}):\n{proc.stdout}\n{proc.stderr}"
+        )
+    exe.chmod(0o755)
+    return exe
+
+
+def macos_arch(target: Target) -> str:
+    """clang -arch value from the target triple (aarch64-apple-darwin -> arm64)."""
+    machine = target.triple.split("-", 1)[0]
+    return "arm64" if machine == "aarch64" else machine
+
+
+def _fixed_args_initializer(args: str) -> str:
+    """POSIX-split fixed args into a NULL-terminated C array initializer."""
+    import shlex
+
+    items = "".join(f'"{_c_str(p)}", ' for p in shlex.split(args))
+    return "{ " + items + "NULL }"
 
 
 def _build_one(
@@ -178,7 +259,7 @@ def _bootstrap(spec: LauncherConfig, config: Config) -> str:
     """
     module, _, func = spec.entry.partition(":")
     if not spec.gui:
-        return f"import sys; from {module} import {func}; sys.exit({func}())"
+        return spec.bootstrap
 
     title = f'"{config.name}"'  # embed Unicode as-is (the header is UTF-8)
     return "\n".join(

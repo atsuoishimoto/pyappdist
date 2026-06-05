@@ -10,6 +10,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import io
+import os
 import subprocess
 import tarfile
 from pathlib import Path
@@ -129,7 +130,9 @@ def test_run_installs_and_uninstalls_without_desktop(tmp_path, sample_config):
 
     prefix = tmp_path / "prefix"
     home = tmp_path / "home"
-    env = {"HOME": str(home), "PATH": "/usr/bin:/bin"}
+    # Inherit the real PATH (gzip lives in /usr/bin, but tools generally may be in Homebrew
+    # etc.); only HOME is overridden, to sandbox the install. See test_linux._installer_env.
+    env = {**os.environ, "HOME": str(home)}
     res = subprocess.run(
         ["/bin/sh", str(run), "--prefix", str(prefix)],
         capture_output=True, text=True, env=env,
