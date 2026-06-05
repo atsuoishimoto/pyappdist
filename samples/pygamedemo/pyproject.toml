@@ -27,7 +27,6 @@ name = "windows"
 platform = "windows-x86_64"
 format = "msi"
 manufacturer = "Example Inc."
-upgrade_code = "C4E9D2F1-3A6B-4D8E-9F12-7B0A5C3E1D88"
 code_sign = false
 
 [[tool.pyappdist.targets]]
