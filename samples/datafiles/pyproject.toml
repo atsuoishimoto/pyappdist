@@ -13,7 +13,7 @@ name = "Data files"
 python = "3.12"
 identifier = "com.example.datafiles"
 launchers = [
-  { name = "datafiles", entry = "datafiles.main:main", gui = false },
+  { name = "datafiles", entry = "datafiles.main:main", gui = false, icon = { macos = "assets/datafiles.png" } },
 ]
 
 [[tool.pyappdist.targets]]

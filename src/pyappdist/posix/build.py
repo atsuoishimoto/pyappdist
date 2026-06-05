@@ -123,8 +123,9 @@ def _write_launchers(
         wrapper.chmod(0o755)
 
         icon_name = ""
-        if desktop and spec.icon:
-            src = (config.project_dir / spec.icon).resolve()
+        icon_rel = spec.icon_for("linux")
+        if desktop and icon_rel:
+            src = (config.project_dir / icon_rel).resolve()
             if not src.is_file():
                 raise BuildError(f"launcher icon not found ({spec.name}): {src}")
             icon_name = f"{spec.name}{src.suffix}"

@@ -54,8 +54,18 @@ class LauncherConfig:
     name: str           # output exe name (without extension)
     entry: str          # "module:callable"
     gui: bool = False
-    icon: str | None = None
+    # Per-OS icon paths (relative to project_dir), as (os, path) pairs — os is one of
+    # "windows"/"macos"/"linux" (matching Target.os). Stored as a tuple, not a dict, so the
+    # frozen dataclass stays hashable. Use icon_for() to look one up.
+    icons: tuple[tuple[str, str], ...] = ()
     args: str = ""      # fixed arguments (single string)
+
+    def icon_for(self, os: str) -> str | None:
+        """The icon path configured for ``os`` (``Target.os``), or None."""
+        for key, path in self.icons:
+            if key == os:
+                return path
+        return None
 
     @property
     def bootstrap(self) -> str:
@@ -119,9 +129,8 @@ class MacosConfig:
     """
 
     compression: str = "gzip"        # (.run) payload compression: "gzip" | "bzip2" | "xz"
-    # --- macapp/dmg ---
+    # --- macapp/dmg ---  (the .app icon comes from each launcher's icon["macos"], not here)
     min_macos: str = "11.0"          # LSMinimumSystemVersion / clang -mmacosx-version-min
-    icon: str | None = None          # path (relative to project_dir) to a source PNG
     signing_identity: str | None = None  # "Developer ID Application: Name (TEAMID)"; None=ad-hoc
     team_id: str | None = None       # Apple Developer Team ID (informational)
     notary_profile: str | None = None    # notarytool keychain profile name
@@ -347,13 +356,9 @@ def _parse_linux(raw: dict, index: int) -> LinuxConfig:
 
 def _parse_macos(raw: dict, index: int) -> MacosConfig:
     # xz is not preinstalled on macOS, so the default payload compression is gzip.
-    icon = raw.get("icon")
-    if icon is not None and not str(icon).lower().endswith(".png"):
-        raise ConfigError(f"targets[{index}].icon must be a .png file: {icon!r}")
     return MacosConfig(
         compression=_compression(raw, index, "gzip"),
         min_macos=str(raw.get("min_macos", "11.0")),
-        icon=str(icon) if icon is not None else None,
         signing_identity=_opt_str(raw, "signing_identity"),
         team_id=_opt_str(raw, "team_id"),
         notary_profile=_opt_str(raw, "notary_profile"),
@@ -389,11 +394,46 @@ def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:
                 name=str(name),
                 entry=str(entry),
                 gui=bool(item.get("gui", False)),
-                icon=item.get("icon"),
+                icons=_parse_icon(item.get("icon"), i),
                 args=str(item.get("args", "")),
             )
         )
     return tuple(out)
+
+
+# Per-OS icon: keys are Target.os values; each value's format is what that OS needs.
+_ICON_OSES = ("windows", "macos", "linux")
+_ICON_SUFFIX = {"windows": ".ico", "macos": ".png"}  # linux: any image, not constrained
+
+
+def _parse_icon(raw: object, index: int) -> tuple[tuple[str, str], ...]:
+    """Normalize a launcher ``icon`` into ``((os, path), ...)``.
+
+    ``icon`` must be a table mapping ``windows``/``macos``/``linux`` to a file path; the
+    old single-string form is rejected. Each OS's value must use that OS's icon format
+    (``.ico`` for windows, ``.png`` for macos).
+    """
+    if raw is None:
+        return ()
+    if not isinstance(raw, dict):
+        raise ConfigError(
+            f"launchers[{index}].icon must be a table of per-OS paths, e.g. "
+            '{ windows = "app.ico", macos = "app.png", linux = "app.png" }'
+        )
+    pairs: list[tuple[str, str]] = []
+    for os_key, path in raw.items():
+        if os_key not in _ICON_OSES:
+            raise ConfigError(
+                f"launchers[{index}].icon: unknown key {os_key!r} "
+                f"(allowed: {', '.join(_ICON_OSES)})"
+            )
+        suffix = _ICON_SUFFIX.get(os_key)
+        if suffix and not str(path).lower().endswith(suffix):
+            raise ConfigError(
+                f"launchers[{index}].icon.{os_key} must be a {suffix} file: {path!r}"
+            )
+        pairs.append((os_key, str(path)))
+    return tuple(pairs)
 
 
 def ensure_upgrade_code(project_dir: Path, target_name: str, *, log=print) -> str:

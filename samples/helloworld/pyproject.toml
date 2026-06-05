@@ -16,7 +16,7 @@ python = "3.12"
 identifier = "com.example.helloworld"   # CFBundleIdentifier, required for macapp/dmg targets
 
 launchers = [
-  { name = "helloworld", entry = "helloworld:main", gui = false },
+  { name = "helloworld", entry = "helloworld:main", gui = false, icon = { macos = "assets/helloworld.png" } },
 ]
 
 [[tool.pyappdist.targets]]

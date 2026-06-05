@@ -19,7 +19,7 @@ python = "3.12"
 identifier = "com.example.matplotlibdemo"
 
 launchers = [
-  { name = "matplotlibdemo", entry = "matplotlibdemo:main", gui = true, icon = "assets/matplotlibdemo.ico" },
+  { name = "matplotlibdemo", entry = "matplotlibdemo:main", gui = true, icon = { windows = "assets/matplotlibdemo.ico", macos = "assets/matplotlibdemo.png", linux = "assets/matplotlibdemo.png" } },
 ]
 
 [[tool.pyappdist.targets]]

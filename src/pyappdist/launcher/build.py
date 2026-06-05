@@ -190,8 +190,9 @@ def _render_rc(config: Config, spec: LauncherConfig, gen: Path) -> str:
     name, so the source tree's location never needs path conversion.
     """
     parts: list[str] = []
-    if spec.icon:
-        icon = (config.project_dir / spec.icon).resolve()
+    icon_rel = spec.icon_for("windows")
+    if icon_rel:
+        icon = (config.project_dir / icon_rel).resolve()
         if not icon.is_file():
             raise BuildError(f"launcher icon not found ({spec.name}): {icon}")
         shutil.copy2(icon, gen / icon.name)

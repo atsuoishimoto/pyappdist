@@ -32,11 +32,10 @@ with the Xcode command-line tools.
 Configuration
 -------------
 
-All keys live on the macOS target table.
-
-``icon``
-   Path (relative to the project) to a source ``.png`` (ideally ≥1024×1024). Resized into
-   an ``.icns`` via ``sips`` + ``iconutil``. A placeholder is generated if omitted.
+All keys live on the macOS target table, **except the icon**: each ``.app``'s icon comes
+from its launcher's ``icon`` table — the ``macos`` key (a ``.png``), resized into an
+``.icns`` via ``sips`` + ``iconutil`` (a placeholder is generated when absent). See
+:ref:`launcher icon <config-launchers>`. So multiple launchers can have distinct icons.
 
 ``min_macos``
    Minimum macOS version. Sets both the bundle's ``LSMinimumSystemVersion`` and clang's
@@ -69,11 +68,15 @@ All keys live on the macOS target table.
    [tool.pyappdist]
    identifier = "com.example.myapp"       # required for macapp/dmg
 
+   [[tool.pyappdist.launchers]]
+   name = "myapp"
+   entry = "myapp:main"
+   icon = { macos = "assets/myapp.png" }  # the .app icon (per launcher)
+
    [[tool.pyappdist.targets]]
    name = "macos-arm-dmg"
    platform = "macos-aarch64"             # or "macos-x86_64" for Intel
    format = "dmg"                         # or "macapp" for the bare bundle
-   # icon = "assets/app.png"
    # min_macos = "12.0"
    # signing_identity = "Developer ID Application: Your Name (TEAMID)"
    # notary_profile = "pyappdist-notary"

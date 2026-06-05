@@ -71,9 +71,15 @@ shell wrapper on Linux/macOS).
    Linux/macOS.
 
 ``icon``
-   Path to an ``.ico`` file, relative to the project directory. Embedded in the
-   Windows executable; on Linux it selects launchers that get a ``.desktop``
-   entry; ignored on macOS.
+   A **per-OS table** of icon paths (relative to the project directory); each key is
+   optional:
+
+   * ``windows`` — an ``.ico``, embedded in the ``.exe``.
+   * ``macos`` — a ``.png`` (ideally ≥1024×1024), converted to the ``.app``'s ``.icns``.
+   * ``linux`` — an image (``.png`` recommended) used for the ``.desktop`` entry.
+
+   A plain string is **not** accepted — give the format each platform needs. An omitted
+   key means that platform gets no icon (macOS falls back to a generated placeholder).
 
 ``args``
    Fixed arguments as a single string, prepended to the program's argv.
@@ -84,14 +90,13 @@ shell wrapper on Linux/macOS).
    name = "myapp"
    entry = "myapp:main"
    gui = false
-   # icon = "assets/app.ico"
    # args = "--profile default"
 
    [[tool.pyappdist.launchers]]
    name = "myapp-gui"
    entry = "myapp.gui:main"
    gui = true
-   icon = "assets/app.ico"
+   icon = { windows = "assets/app.ico", macos = "assets/app.png", linux = "assets/app.png" }
 
 .. _config-targets:
 

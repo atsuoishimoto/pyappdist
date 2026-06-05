@@ -330,7 +330,6 @@ def test_identifier_optional_for_non_app_targets(tmp_path: Path):
 def test_macos_app_fields_parsed(tmp_path: Path):
     extra = (
         'min_macos = "12.0"\n'
-        'icon = "assets/app.png"\n'
         'signing_identity = "Developer ID Application: Me (TEAMID)"\n'
         'team_id = "TEAMID"\n'
         'notary_profile = "myprofile"\n'
@@ -342,7 +341,6 @@ def test_macos_app_fields_parsed(tmp_path: Path):
     )[0]
     m = cfg.macos
     assert m.min_macos == "12.0"
-    assert m.icon == "assets/app.png"
     assert m.signing_identity == "Developer ID Application: Me (TEAMID)"
     assert m.team_id == "TEAMID"
     assert m.notary_profile == "myprofile"
@@ -355,14 +353,63 @@ def test_macos_min_macos_default(tmp_path: Path):
     assert cfg.macos.min_macos == "11.0"
 
 
-def test_macos_icon_must_be_png(tmp_path: Path):
-    with pytest.raises(ConfigError, match="png"):
-        load_configs(
-            _write_text(
-                tmp_path,
-                _macos_app_pyproject("dmg", app_extra=_IDENT, target_extra='icon = "app.icns"'),
-            )
+def _icon_pyproject(icon_toml: str) -> str:
+    # A windows/msi project whose single launcher carries the given `icon` value.
+    return f"""
+[project]
+name = "helloworld"
+version = "0.1.0"
+
+[tool.pyappdist]
+name = "Hello World"
+python = "3.12"
+launchers = [
+  {{ name = "helloworld", entry = "helloworld:main", icon = {icon_toml} }},
+]
+
+[[tool.pyappdist.targets]]
+name = "win"
+platform = "windows-x86_64"
+format = "msi"
+"""
+
+
+def test_launcher_icon_table_parsed(tmp_path: Path):
+    cfg = load_configs(
+        _write_text(
+            tmp_path,
+            _icon_pyproject('{ windows = "a.ico", macos = "a.png", linux = "a.png" }'),
         )
+    )[0]
+    spec = cfg.launchers[0]
+    assert spec.icon_for("windows") == "a.ico"
+    assert spec.icon_for("macos") == "a.png"
+    assert spec.icon_for("linux") == "a.png"
+
+
+def test_launcher_icon_partial_table(tmp_path: Path):
+    cfg = load_configs(_write_text(tmp_path, _icon_pyproject('{ macos = "a.png" }')))[0]
+    spec = cfg.launchers[0]
+    assert spec.icon_for("macos") == "a.png"
+    assert spec.icon_for("windows") is None
+
+
+def test_launcher_icon_string_rejected(tmp_path: Path):
+    # The old single-string form is no longer accepted.
+    with pytest.raises(ConfigError, match="must be a table"):
+        load_configs(_write_text(tmp_path, _icon_pyproject('"app.ico"')))
+
+
+def test_launcher_icon_unknown_os_rejected(tmp_path: Path):
+    with pytest.raises(ConfigError, match="unknown key"):
+        load_configs(_write_text(tmp_path, _icon_pyproject('{ mac = "a.png" }')))
+
+
+def test_launcher_icon_wrong_suffix_rejected(tmp_path: Path):
+    with pytest.raises(ConfigError, match="must be a .ico"):
+        load_configs(_write_text(tmp_path, _icon_pyproject('{ windows = "a.png" }')))
+    with pytest.raises(ConfigError, match="must be a .png"):
+        load_configs(_write_text(tmp_path, _icon_pyproject('{ macos = "a.ico" }')))
 
 
 def test_msix_fields(tmp_path: Path):

@@ -19,7 +19,7 @@ python = "3.12"
 identifier = "com.example.pandascli"
 
 launchers = [
-  { name = "pandascli", entry = "pandascli:main", gui = false },
+  { name = "pandascli", entry = "pandascli:main", gui = false, icon = { macos = "assets/pandascli.png" } },
 ]
 
 [[tool.pyappdist.targets]]

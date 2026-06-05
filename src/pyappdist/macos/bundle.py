@@ -37,20 +37,23 @@ def build_macos_apps(config: Config, image_dir: Path, out_dir: Path, *, log=prin
     # Remove them up front (Apple's recommended fix); harmless for ad-hoc builds too.
     _prune_unsignable(python_src, log=log)
 
-    # Generate the icon once and reuse it across bundles.
-    icon_src = (config.project_dir / config.macos.icon).resolve() if config.macos.icon else None
+    # Each launcher gets its own icon (from its icon["macos"] PNG, else a placeholder),
+    # so multiple launchers can have distinct .app icons.
     with tempfile.TemporaryDirectory() as tmp:
-        shared_icns = make_icns(icon_src, Path(tmp) / f"{_ICON_BASENAME}.icns", log=log)
+        tmp_path = Path(tmp)
         single = len(config.launchers) == 1
         apps: list[Path] = []
         for spec in config.launchers:
             launcher_bin = image_dir / spec.name
             if not launcher_bin.is_file():
                 raise BuildError(f"launcher binary missing: {launcher_bin} (run build-launchers first)")
+            icon_rel = spec.icon_for("macos")
+            icon_src = (config.project_dir / icon_rel).resolve() if icon_rel else None
+            icns = make_icns(icon_src, tmp_path / f"{spec.name}.icns", log=log)
             label = config.name if single else spec.name
             identifier = config.identifier if single else f"{config.identifier}.{spec.name}"
             app = _assemble_one(
-                config, spec.name, label, identifier, python_src, launcher_bin, shared_icns, out_dir, log
+                config, spec.name, label, identifier, python_src, launcher_bin, icns, out_dir, log
             )
             apps.append(app)
     return apps

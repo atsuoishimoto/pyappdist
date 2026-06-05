@@ -89,7 +89,7 @@ def test_icon_is_ignored_on_macos(tmp_path, sample_config):
     """A launcher icon produces no .desktop record and is not staged into the image."""
     (tmp_path / "app.png").write_bytes(b"\x89PNG\r\n\x1a\n")
     layout = _make_image(tmp_path)
-    config = _macos_config(sample_config, tmp_path, gui=True, icon="app.png")
+    config = _macos_config(sample_config, tmp_path, gui=True, icons=(("linux", "app.png"),))
     arts = build_macos(config, layout, tmp_path / "dist", log=lambda *a: None)
     run = next(p for p in arts if p.suffix == ".run")
 

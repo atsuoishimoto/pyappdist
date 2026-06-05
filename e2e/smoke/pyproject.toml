@@ -24,7 +24,7 @@ python = "3.12"
 identifier = "com.example.smoke"
 
 launchers = [
-  { name = "smoke", entry = "smoke:main", gui = false },
+  { name = "smoke", entry = "smoke:main", gui = false, icon = { macos = "assets/smoke.png" } },
 ]
 
 [[tool.pyappdist.targets]]
