@@ -184,6 +184,28 @@ def test_license_must_be_rtf(tmp_path: Path):
         load_configs(_write(tmp_path, target_extra='license = "EULA.txt"'))
 
 
+def test_code_sign_default_off(tmp_path: Path):
+    cfg = load_configs(_write(tmp_path))[0]
+    assert cfg.wix.code_sign is False
+    assert cfg.wix.code_sign_command is None
+
+
+def test_code_sign_parsed(tmp_path: Path):
+    cfg = load_configs(
+        _write(
+            tmp_path,
+            target_extra='code_sign = true\ncode_sign_command = "mysign \\"{file}\\""',
+        )
+    )[0]
+    assert cfg.wix.code_sign is True
+    assert cfg.wix.code_sign_command == 'mysign "{file}"'
+
+
+def test_code_sign_must_be_bool(tmp_path: Path):
+    with pytest.raises(ConfigError, match="code_sign"):
+        load_configs(_write(tmp_path, target_extra='code_sign = "yes"'))
+
+
 def test_format_required(tmp_path: Path):
     # A target table with no `format` is rejected (no default).
     text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(

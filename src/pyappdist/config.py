@@ -85,6 +85,11 @@ class WixConfig:
     upgrade_code: str | None = None
     scope: str = "user"  # one of _WIX_SCOPES
     license: str | None = None  # optional path (relative to project_dir) to an RTF EULA
+    # Code-sign the launcher .exe and the .msi (off by default). When on, the command is
+    # resolved by sign.resolve_msi_sign_command: PYAPPDIST_SIGN_CMD > code_sign_command >
+    # a built-in signtool default.
+    code_sign: bool = False
+    code_sign_command: str | None = None
 
 
 @dataclass(frozen=True)
@@ -314,11 +319,16 @@ def _parse_wix(raw: dict, index: int) -> WixConfig:
     license_ = raw.get("license")
     if license_ is not None and not str(license_).lower().endswith(".rtf"):
         raise ConfigError(f"{where}.license must be an .rtf file: {license_!r}")
+    code_sign = raw.get("code_sign", False)
+    if not isinstance(code_sign, bool):
+        raise ConfigError(f"{where}.code_sign must be a boolean: {code_sign!r}")
     return WixConfig(
         manufacturer=raw.get("manufacturer"),
         upgrade_code=raw.get("upgrade_code"),
         scope=str(scope),
         license=str(license_) if license_ is not None else None,
+        code_sign=code_sign,
+        code_sign_command=_opt_str(raw, "code_sign_command"),
     )
 
 

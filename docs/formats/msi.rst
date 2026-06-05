@@ -32,6 +32,15 @@ Configuration
    Path (relative to the project) to an **RTF** end-user license agreement. When
    set, the installer shows a one-page license dialog (WixUI_Minimal).
 
+``code_sign``
+   Code-sign the launcher ``.exe`` and the ``.msi`` (default ``false``). See
+   :doc:`/signing`.
+
+``code_sign_command``
+   Signing command used when ``code_sign`` is true, unless overridden by the
+   ``PYAPPDIST_SIGN_CMD`` environment variable. Defaults to a ``signtool`` invocation.
+   See :doc:`/signing`.
+
 .. code-block:: toml
 
    [[tool.pyappdist.targets]]
@@ -41,6 +50,7 @@ Configuration
    manufacturer = "Example Inc."
    scope = "user"            # "user" (default) or "machine"
    # license = "EULA.rtf"    # optional EULA shown at install time
+   # code_sign = true        # sign the .exe and .msi (see /signing)
 
 Build requirements
 ------------------

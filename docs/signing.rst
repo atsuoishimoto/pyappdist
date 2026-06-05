@@ -1,26 +1,49 @@
 Code signing
 ============
 
-Windows
--------
+Windows (MSI)
+-------------
 
-Artifacts are unsigned by default. To sign each ``.exe`` and the ``.msi``, set
-the ``PYAPPDIST_SIGN_CMD`` environment variable. The token ``{file}`` is replaced
-with the path of the artifact being signed, and the command is run for each one.
+MSI targets are unsigned by default. Enable signing with ``code_sign = true`` on the
+target; ``pyappdist build`` then signs each launcher ``.exe`` after it is compiled and
+the ``.msi`` after it is built.
 
-.. code-block:: bash
+.. code-block:: toml
 
-   export PYAPPDIST_SIGN_CMD='signtool.exe sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /a "{file}"'
+   [[tool.pyappdist.targets]]
+   name = "win"
+   platform = "windows-x86_64"
+   format = "msi"
+   code_sign = true
+   # code_sign_command = 'signtool.exe sign ... "{file}"'   # optional; default used if omitted
 
-When the variable is unset, signing is skipped silently.
+With ``code_sign = true`` the signing command is resolved in this order:
 
-Signing happens as part of ``pyappdist build``: each launcher executable is
-signed after it is compiled, and the MSI is signed after it is built.
+1. the ``PYAPPDIST_SIGN_CMD`` environment variable (highest priority);
+2. the target's ``code_sign_command``;
+3. a built-in default:
+   ``signtool.exe sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /a "{file}"``.
+
+The default uses ``/a`` to auto-select the best certificate from the Windows certificate
+store, so a non-secret command line can live in ``pyproject.toml``; use
+``PYAPPDIST_SIGN_CMD`` to override per machine (for example a ``.pfx`` whose password
+must not be committed). The token ``{file}`` is replaced with the path of the artifact
+being signed (appended to the command if absent).
+
+When ``code_sign`` is unset (or ``false``), signing is skipped regardless of
+``PYAPPDIST_SIGN_CMD``.
 
 .. note::
 
    Obtaining and managing code-signing certificates is out of scope for
    pyappdist. Unsigned installers will trigger a Windows SmartScreen warning.
+
+.. note::
+
+   MSIX is not covered by ``code_sign``. Packages submitted to the Microsoft Store are
+   re-signed on ingestion; for sideloading the package must be signed with a certificate
+   whose subject matches the manifest ``Publisher``. MSIX is signed only when
+   ``PYAPPDIST_SIGN_CMD`` is set.
 
 macOS (macapp / dmg)
 --------------------

@@ -39,7 +39,7 @@ from .macos.package import build_dmg
 from .macos.sign import deep_sign, resolve_sign_options, sign_file
 from .msix import build_msix
 from .runtime import fetch_runtime
-from .sign import sign_artifact
+from .sign import env_sign_command, resolve_msi_sign_command, sign_artifact
 from .wheels import build_wheelhouse
 from .wix import build_msi, generate_wxs, scan_image
 
@@ -156,16 +156,23 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
         _build_macos_bundle(ctx, layout)
         return
 
+    # MSI signs the launcher .exe + .msi when code_sign is set (env > config > default);
+    # MSIX keeps the legacy env-only behaviour.
+    sign_cmd = (
+        resolve_msi_sign_command(ctx.config.wix)
+        if ctx.config.format == "msi"
+        else env_sign_command()
+    )
     exes = build_launchers(ctx.config, layout, ctx.out_dir / "_launcher_build")
     for exe in exes:
-        sign_artifact(exe)
+        sign_artifact(exe, sign_cmd)
 
     if ctx.config.format == "msix":
         # MSIX packs the image directly; no portable zip (the .msix is the deliverable).
         msix_name = f"{ctx.config.dist_name}-{ctx.config.version}.msix"
         pkg = build_msix(ctx.config, ctx.image_dir, ctx.dist_dir / msix_name)
         if pkg is not None:
-            sign_artifact(pkg)
+            sign_artifact(pkg, sign_cmd)
             print(f"OK [{_tag(ctx)}]: msix -> {pkg} ({len(exes)} launcher)")
         else:
             print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} (msix skipped on non-Windows)")
@@ -178,7 +185,7 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
     msi_name = f"{ctx.config.dist_name}-{ctx.config.version}.msi"
     msi = build_msi(ctx.config, ctx.image_dir, wxs, ctx.dist_dir / msi_name)
     if msi is not None:
-        sign_artifact(msi)
+        sign_artifact(msi, sign_cmd)
         print(f"OK [{_tag(ctx)}]: msi -> {msi} ({len(exes)} launcher)")
     else:
         print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} (msi skipped on non-Windows)")
@@ -237,7 +244,7 @@ def _build_macos_bundle(ctx: BuildContext, layout: image_mod.ImageLayout) -> Non
     dmg = build_dmg(cfg, apps, ctx.dist_dir / f"{cfg.dist_name}-{cfg.version}.dmg")
     if not sign_opts.adhoc:
         sign_file(dmg, sign_opts)  # sign the disk image itself with the Developer ID
-    sign_artifact(dmg)  # optional extra signing via PYAPPDIST_SIGN_CMD
+    sign_artifact(dmg, env_sign_command())  # optional extra signing via PYAPPDIST_SIGN_CMD
     if notarize:
         notarize_and_staple(dmg, profile)
     print(f"OK [{tag}]: dmg -> {dmg} ({len(apps)} app)")

@@ -22,6 +22,7 @@ platform = "windows-x86_64"
 format = "msi"
 manufacturer = "Example Inc."
 upgrade_code = "CDE63634-F3D5-4D40-9521-241A0A763540"
+code_sign = false
 
 [[tool.pyappdist.targets]]
 name = "store"
