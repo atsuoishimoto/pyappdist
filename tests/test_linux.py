@@ -132,7 +132,7 @@ def test_tarball_has_top_level_dir(tmp_path, sample_config):
 def test_icon_triggers_desktop_record(tmp_path, sample_config):
     (tmp_path / "app.png").write_bytes(b"\x89PNG\r\n\x1a\n")
     layout = _make_image(tmp_path)
-    config = _linux_config(sample_config, tmp_path, gui=True, icon="app.png")
+    config = _linux_config(sample_config, tmp_path, gui=True, icons=(("linux", "app.png"),))
     arts = build_linux(config, layout, tmp_path / "dist", log=lambda *a: None)
     run = next(p for p in arts if p.suffix == ".run")
 

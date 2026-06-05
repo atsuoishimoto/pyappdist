@@ -37,7 +37,7 @@ def make_icns(source_png: Path | None, dest_icns: Path, *, log=print) -> Path:
         tmp_path = Path(tmp)
         if source_png is not None:
             if not source_png.is_file():
-                raise BuildError(f"icon not found ([[tool.pyappdist.targets]].icon): {source_png}")
+                raise BuildError(f"icon not found (launcher icon[\"macos\"]): {source_png}")
             src = source_png
         else:
             src = tmp_path / "placeholder.png"

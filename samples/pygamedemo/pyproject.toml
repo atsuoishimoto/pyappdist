@@ -19,7 +19,7 @@ python = "3.12"
 identifier = "com.example.pygamedemo"
 
 launchers = [
-  { name = "pygamedemo", entry = "pygamedemo:main", gui = true, icon = "assets/pygamedemo.ico" },
+  { name = "pygamedemo", entry = "pygamedemo:main", gui = true, icon = { windows = "assets/pygamedemo.ico", macos = "assets/pygamedemo.png", linux = "assets/pygamedemo.png" } },
 ]
 
 [[tool.pyappdist.targets]]
