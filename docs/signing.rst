@@ -44,7 +44,7 @@ Prerequisites (one-time):
    password authorizes the *tool*, not one app — one profile notarizes every build.
    pyappdist never sees the password; it lives only in the keychain::
 
-      xcrun notarytool store-credentials pyappdist-notary \
+      xcrun notarytool store-credentials your-notary-profile \
           --apple-id you@example.com --team-id TEAMID
 
 Then configure the target (or use the ``PYAPPDIST_SIGNING_IDENTITY`` /
@@ -57,7 +57,7 @@ Then configure the target (or use the ``PYAPPDIST_SIGNING_IDENTITY`` /
    platform = "macos-aarch64"
    format = "dmg"
    signing_identity = "Developer ID Application: Your Name (TEAMID)"
-   notary_profile = "pyappdist-notary"
+   notary_profile = "your-notary-profile"
 
 ``pyappdist build`` then deep-signs every Mach-O in the bundle with a hardened
 runtime, signs the ``.dmg``, submits it to Apple's notary service, waits, and staples

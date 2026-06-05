@@ -53,4 +53,4 @@ platform = "macos-aarch64"
 format = "dmg"                        # a signed/notarizable .app inside a .dmg
 # icon = "assets/app.png"            # source PNG for the .app icon
 # signing_identity = "Developer ID Application: Your Name (TEAMID)"
-# notary_profile = "pyappdist-notary"  # see docs/signing
+# notary_profile = "your-notary-profile"  # see docs/signing

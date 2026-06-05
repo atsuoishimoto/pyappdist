@@ -79,7 +79,7 @@ from its launcher's ``icon`` table — the ``macos`` key (a ``.png``), resized i
    format = "dmg"                         # or "macapp" for the bare bundle
    # min_macos = "12.0"
    # signing_identity = "Developer ID Application: Your Name (TEAMID)"
-   # notary_profile = "pyappdist-notary"
+   # notary_profile = "your-notary-profile"
 
 Install behavior
 ----------------
