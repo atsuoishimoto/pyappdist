@@ -136,14 +136,40 @@ def test_invalid_python(tmp_path: Path):
         load_configs(_write_text(tmp_path, text))
 
 
-def test_launcher_entry_must_be_module_callable(tmp_path: Path):
+@pytest.mark.parametrize("bad", ['":main"', '"helloworld:"', '"bad name"', '"a..b"'])
+def test_launcher_entry_invalid(tmp_path: Path, bad: str):
     proj = _write(tmp_path)
-    text = (proj / "pyproject.toml").read_text().replace(
-        '"helloworld:main"', '"helloworld_no_colon"'
-    )
+    text = (proj / "pyproject.toml").read_text().replace('"helloworld:main"', bad)
     (proj / "pyproject.toml").write_text(text, encoding="utf-8")
     with pytest.raises(ConfigError, match="module:callable"):
         load_configs(proj)
+
+
+def _bootstrap_for(tmp_path: Path, entry: str) -> str:
+    proj = _write(tmp_path)
+    text = (proj / "pyproject.toml").read_text().replace('"helloworld:main"', f'"{entry}"')
+    (proj / "pyproject.toml").write_text(text, encoding="utf-8")
+    return load_configs(proj)[0].launchers[0].bootstrap
+
+
+def test_launcher_entry_callable_form(tmp_path: Path):
+    assert _bootstrap_for(tmp_path, "helloworld:main") == (
+        "import sys; from helloworld import main; sys.exit(main())"
+    )
+
+
+def test_launcher_entry_module_form_dotted(tmp_path: Path):
+    assert _bootstrap_for(tmp_path, "niceguidemo.main") == (
+        "import runpy; runpy.run_module('niceguidemo.main', "
+        "run_name='__main__', alter_sys=True)"
+    )
+
+
+def test_launcher_entry_module_form_bare(tmp_path: Path):
+    assert _bootstrap_for(tmp_path, "niceguidemo") == (
+        "import runpy; runpy.run_module('niceguidemo', "
+        "run_name='__main__', alter_sys=True)"
+    )
 
 
 def test_manager_default_none(tmp_path: Path):

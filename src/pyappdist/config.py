@@ -48,11 +48,17 @@ _FORMAT_OS = {
 # reverse-DNS CFBundleIdentifier (e.g. "com.example.myapp"); required for macapp/dmg targets.
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
 
+# Launcher entry point. Two forms:
+#   "module:callable" - import callable from module and call it (sys.exit on its return)
+#   "module.path"     - run the module as `python -m module.path` (no callable)
+_ENTRY_MODULE_RE = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*)*$")
+_ENTRY_CALLABLE_RE = re.compile(r"^[A-Za-z_]\w*$")
+
 
 @dataclass(frozen=True)
 class LauncherConfig:
     name: str           # output exe name (without extension)
-    entry: str          # "module:callable"
+    entry: str          # "module:callable" or a dotted "module.path" run as `python -m`
     gui: bool = False
     # Per-OS icon paths (relative to project_dir), as (os, path) pairs — os is one of
     # "windows"/"macos"/"linux" (matching Target.os). Stored as a tuple, not a dict, so the
@@ -69,14 +75,24 @@ class LauncherConfig:
 
     @property
     def bootstrap(self) -> str:
-        """The ``-c`` program: import the entry point and exit with its return code.
+        """The ``-c`` program that starts the app.
+
+        For a ``"module:callable"`` entry: import the callable and exit with its return
+        code. For a dotted ``"module.path"`` entry (no colon): run it as ``python -m
+        module.path`` via ``runpy`` (``__name__ == "__main__"``), so modules guarded by
+        ``if __name__ == "__main__":`` (e.g. NiceGUI apps) work.
 
         Shared by every launcher kind (Windows console, the POSIX shell wrapper, and the
-        macOS Mach-O stub). The Windows ``gui`` launcher wraps this with a MessageBox in
-        ``launcher/build.py``; everything else uses it verbatim.
+        macOS Mach-O stub). The Windows ``gui`` launcher wraps the ``"module:callable"``
+        form with a MessageBox in ``launcher/build.py``; everything else uses it verbatim.
         """
-        module, _, func = self.entry.partition(":")
-        return f"import sys; from {module} import {func}; sys.exit({func}())"
+        if ":" in self.entry:
+            module, _, func = self.entry.partition(":")
+            return f"import sys; from {module} import {func}; sys.exit({func}())"
+        return (
+            f"import runpy; runpy.run_module({self.entry!r}, "
+            "run_name='__main__', alter_sys=True)"
+        )
 
 
 @dataclass(frozen=True)
@@ -405,6 +421,20 @@ def _opt_str(raw: dict, key: str) -> str | None:
     return str(value) if value is not None else None
 
 
+def _validate_entry(entry: str, i: int) -> None:
+    """Validate a launcher ``entry`` (``"module:callable"`` or dotted ``"module.path"``)."""
+    if ":" in entry:
+        module, _, func = entry.partition(":")
+        ok = bool(_ENTRY_MODULE_RE.match(module) and _ENTRY_CALLABLE_RE.match(func))
+    else:
+        ok = bool(_ENTRY_MODULE_RE.match(entry))
+    if not ok:
+        raise ConfigError(
+            f"launchers[{i}].entry must be \"module:callable\" or a dotted "
+            f"\"module.path\" (run as python -m): {entry!r}"
+        )
+
+
 def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:
     if raw is None:
         return ()
@@ -418,10 +448,9 @@ def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:
         entry = item.get("entry")
         if not name:
             raise ConfigError(f"launchers[{i}].name is required")
-        if not entry or ":" not in str(entry):
-            raise ConfigError(
-                f"launchers[{i}].entry must be in \"module:callable\" format: {entry!r}"
-            )
+        if not entry:
+            raise ConfigError(f"launchers[{i}].entry is required")
+        _validate_entry(str(entry), i)
         out.append(
             LauncherConfig(
                 name=str(name),

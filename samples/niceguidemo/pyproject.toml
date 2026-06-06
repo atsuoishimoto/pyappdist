@@ -1,0 +1,90 @@
+[build-system]
+requires = ["uv_build>=0.11.6,<0.12.0"]
+build-backend = "uv_build"
+
+[project]
+name = "niceguidemo"
+version = "0.1.0"
+description = "Sample app for pyappdist"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "nicegui>=3.12.1",
+    "pywebview[gtk]>=6.2.1",
+    "requests>=2.34.2",
+]
+
+[dependency-groups]
+dev = [
+    "pyappdist",
+]
+
+[project.optional-dependencies]
+gtk = [
+    "pywebview[gtk]>=6.1",
+]
+qt = [
+    "pywebview[qt]>=6.1",
+]
+gui = [
+    "pywebview>=6.1",
+]
+
+
+[tool.pyappdist]
+name = "Weather Panel"
+python = "3.13"
+identifier = "com.example.weatherpanel"   # CFBundleIdentifier, required for macapp/dmg targets
+
+launchers = [
+  { name = "weatherpanel", entry = "niceguidemo.main", gui = true}
+]
+
+
+[[tool.pyappdist.targets]]
+name = "windows"
+platform = "windows-x86_64"
+format = "msi"
+manufacturer = "Example Inc."
+code-sign = false
+extras = ["gui"]
+
+[[tool.pyappdist.targets]]
+name = "store"
+platform = "windows-x86_64"
+format = "msix"
+manufacturer = "Example Inc."
+extras = ["gui"]
+
+[[tool.pyappdist.targets]]
+name = "linux-gtk"
+platform = "linux-x86_64"
+format = "linux"
+extras = ["gtk"]
+
+[[tool.pyappdist.targets]]
+name = "linux-qt"
+platform = "linux-x86_64"
+format = "linux"
+extras = ["qt"]
+
+[[tool.pyappdist.targets]]
+name = "macos-arm"
+platform = "macos-aarch64"
+format = "macos"
+extras = ["gui"]
+
+[[tool.pyappdist.targets]]
+name = "macos-intel"
+platform = "macos-x86_64"
+format = "macos"
+extras = ["gui"]
+
+[[tool.pyappdist.targets]]
+name = "macos-arm-dmg"
+platform = "macos-aarch64"
+format = "dmg"                        # a signed/notarizable .app inside a .dmg
+# icon = "assets/app.png"            # source PNG for the .app icon
+# signing-identity = "Developer ID Application: Your Name (TEAMID)"
+# notary-profile = "your-notary-profile"  # see docs/signing
+extras = ["gui"]
