@@ -357,7 +357,7 @@ args = []
 
 [tool.pyappdist.wix]
 manufacturer = "Example Inc."
-upgrade_code = "PUT-GUID-HERE"
+upgrade-code = "PUT-GUID-HERE"
 ```
 
 ---

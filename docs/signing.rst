@@ -4,7 +4,7 @@ Code signing
 Windows (MSI)
 -------------
 
-MSI targets are unsigned by default. Enable signing with ``code_sign = true`` on the
+MSI targets are unsigned by default. Enable signing with ``code-sign = true`` on the
 target; ``pyappdist build`` then signs each launcher ``.exe`` after it is compiled and
 the ``.msi`` after it is built.
 
@@ -14,13 +14,13 @@ the ``.msi`` after it is built.
    name = "win"
    platform = "windows-x86_64"
    format = "msi"
-   code_sign = true
-   # code_sign_command = 'signtool.exe sign ... "{file}"'   # optional; default used if omitted
+   code-sign = true
+   # code-sign-command = 'signtool.exe sign ... "{file}"'   # optional; default used if omitted
 
-With ``code_sign = true`` the signing command is resolved in this order:
+With ``code-sign = true`` the signing command is resolved in this order:
 
 1. the ``PYAPPDIST_SIGN_CMD`` environment variable (highest priority);
-2. the target's ``code_sign_command``;
+2. the target's ``code-sign-command``;
 3. a built-in default:
    ``signtool.exe sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /a "{file}"``.
 
@@ -30,7 +30,7 @@ store, so a non-secret command line can live in ``pyproject.toml``; use
 must not be committed). The token ``{file}`` is replaced with the path of the artifact
 being signed (appended to the command if absent).
 
-When ``code_sign`` is unset (or ``false``), signing is skipped regardless of
+When ``code-sign`` is unset (or ``false``), signing is skipped regardless of
 ``PYAPPDIST_SIGN_CMD``.
 
 .. note::
@@ -40,7 +40,7 @@ When ``code_sign`` is unset (or ``false``), signing is skipped regardless of
 
 .. note::
 
-   MSIX is not covered by ``code_sign``. Packages submitted to the Microsoft Store are
+   MSIX is not covered by ``code-sign``. Packages submitted to the Microsoft Store are
    re-signed on ingestion; for sideloading the package must be signed with a certificate
    whose subject matches the manifest ``Publisher``. MSIX is signed only when
    ``PYAPPDIST_SIGN_CMD`` is set.
@@ -79,8 +79,8 @@ Then configure the target (or use the ``PYAPPDIST_SIGNING_IDENTITY`` /
    name = "macos-arm-dmg"
    platform = "macos-aarch64"
    format = "dmg"
-   signing_identity = "Developer ID Application: Your Name (TEAMID)"
-   notary_profile = "your-notary-profile"
+   signing-identity = "Developer ID Application: Your Name (TEAMID)"
+   notary-profile = "your-notary-profile"
 
 ``pyappdist build`` then deep-signs every Mach-O in the bundle with a hardened
 runtime, signs the ``.dmg``, submits it to Apple's notary service, waits, and staples

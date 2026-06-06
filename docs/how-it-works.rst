@@ -74,11 +74,11 @@ running are your app's responsibility.
 MSI upgrades
 ------------
 
-The MSI uses WiX ``MajorUpgrade`` keyed on ``upgrade_code``. Component GUIDs are
-derived deterministically as ``uuid5(upgrade_code, install-relative-path)``, so the
-same layout and the same ``upgrade_code`` always produce the same component
+The MSI uses WiX ``MajorUpgrade`` keyed on ``upgrade-code``. Component GUIDs are
+derived deterministically as ``uuid5(upgrade-code, install-relative-path)``, so the
+same layout and the same ``upgrade-code`` always produce the same component
 identity — installing a newer version cleanly replaces the old one. Keep
-``upgrade_code`` stable for the life of the product (pyappdist generates and
+``upgrade-code`` stable for the life of the product (pyappdist generates and
 persists one for you if you omit it). The ``.run`` installers replace any existing
 install in place; application-level updates are otherwise the app's own
 responsibility.

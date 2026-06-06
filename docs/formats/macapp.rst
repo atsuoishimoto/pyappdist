@@ -37,24 +37,24 @@ from its launcher's ``icon`` table — the ``macos`` key (a ``.png``), resized i
 ``.icns`` via ``sips`` + ``iconutil`` (a placeholder is generated when absent). See
 :ref:`launcher icon <config-launchers>`. So multiple launchers can have distinct icons.
 
-``min_macos``
+``min-macos``
    Minimum macOS version. Sets both the bundle's ``LSMinimumSystemVersion`` and clang's
    ``-mmacosx-version-min``. Default ``"11.0"``.
 
 ``category``
    ``LSApplicationCategoryType`` (e.g. ``"public.app-category.utilities"``). Optional.
 
-``signing_identity``
+``signing-identity``
    Developer ID identity for distribution signing, e.g.
    ``"Developer ID Application: Your Name (TEAMID)"`` (or the
    ``PYAPPDIST_SIGNING_IDENTITY`` environment variable). When unset the bundle is **ad-hoc
    signed** — it runs locally but Gatekeeper rejects it on other machines. See
    :doc:`../signing`.
 
-``team_id``
+``team-id``
    Apple Developer Team ID (informational).
 
-``notary_profile``
+``notary-profile``
    ``notarytool`` keychain profile name (or ``PYAPPDIST_NOTARY_PROFILE``). When set
    **and** a Developer ID identity is configured, the artifact is notarized and stapled.
 
@@ -77,9 +77,9 @@ from its launcher's ``icon`` table — the ``macos`` key (a ``.png``), resized i
    name = "macos-arm-dmg"
    platform = "macos-aarch64"             # or "macos-x86_64" for Intel
    format = "dmg"                         # or "macapp" for the bare bundle
-   # min_macos = "12.0"
-   # signing_identity = "Developer ID Application: Your Name (TEAMID)"
-   # notary_profile = "your-notary-profile"
+   # min-macos = "12.0"
+   # signing-identity = "Developer ID Application: Your Name (TEAMID)"
+   # notary-profile = "your-notary-profile"
 
 Install behavior
 ----------------
