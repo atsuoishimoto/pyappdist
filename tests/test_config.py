@@ -160,6 +160,22 @@ def test_manager_invalid(tmp_path: Path):
         load_configs(_write(tmp_path, app_extra='manager = "conda"'))
 
 
+def test_extras_default_empty(tmp_path: Path):
+    assert load_configs(_write(tmp_path))[0].extras == ()
+
+
+def test_extras_parsed(tmp_path: Path):
+    cfg = load_configs(_write(tmp_path, target_extra='extras = ["gui", "extra"]'))[0]
+    assert cfg.extras == ("gui", "extra")
+
+
+def test_extras_must_be_list_of_strings(tmp_path: Path):
+    with pytest.raises(ConfigError, match="extras"):
+        load_configs(_write(tmp_path, target_extra='extras = "gui"'))
+    with pytest.raises(ConfigError, match="extras"):
+        load_configs(_write(tmp_path, target_extra="extras = [1, 2]"))
+
+
 def test_scope_default_user(tmp_path: Path):
     assert load_configs(_write(tmp_path))[0].wix.scope == "user"
 
