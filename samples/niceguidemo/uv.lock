@@ -972,7 +972,6 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "nicegui" },
-    { name = "pywebview", extra = ["gtk"] },
     { name = "requests" },
 ]
 
@@ -996,7 +995,6 @@ dev = [
 requires-dist = [
     { name = "nicegui", specifier = ">=3.12.1" },
     { name = "pywebview", marker = "extra == 'gui'", specifier = ">=6.1" },
-    { name = "pywebview", extras = ["gtk"], specifier = ">=6.2.1" },
     { name = "pywebview", extras = ["gtk"], marker = "extra == 'gtk'", specifier = ">=6.1" },
     { name = "pywebview", extras = ["qt"], marker = "extra == 'qt'", specifier = ">=6.1" },
     { name = "requests", specifier = ">=2.34.2" },
@@ -1004,7 +1002,7 @@ requires-dist = [
 provides-extras = ["gtk", "qt", "gui"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pyappdist" }]
+dev = [{ name = "pyappdist", editable = "../../" }]
 
 [[package]]
 name = "orjson"
@@ -1212,17 +1210,24 @@ sdist = { url = "https://files.pythonhosted.org/packages/f2/cf/77d3e19b7fabd0389
 [[package]]
 name = "pyappdist"
 version = "0.2.0"
-source = { registry = "https://pypi.org/simple" }
+source = { editable = "../../" }
 dependencies = [
     { name = "packaging" },
     { name = "pip" },
     { name = "tomlkit" },
     { name = "wheel" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4a/c9/26dc88199dd285cd4ddf5f220de69d87dc8d51021b98bd1d7278d1cce0ac/pyappdist-0.2.0.tar.gz", hash = "sha256:f1ab94100825dffb05561220c982fb3d69c57304af587e9895f0f3948d3a94b6", size = 37217, upload-time = "2026-06-04T02:26:42.203Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/4c/ac/d64ee98ae8a4fde3bcf1d6e27cb9535b5ca2caea005e41abd5c4c82e9aa9/pyappdist-0.2.0-py3-none-any.whl", hash = "sha256:30305c3740adcfb85c42a7523fb87c2952a27e5af0c3263b1e3cb979fa841f5a", size = 51577, upload-time = "2026-06-04T02:26:40.765Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "packaging", specifier = ">=23" },
+    { name = "pip", specifier = ">=26.1.1" },
+    { name = "tomlkit", specifier = ">=0.15.0" },
+    { name = "wheel", specifier = ">=0.47.0" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8" }]
 
 [[package]]
 name = "pycairo"

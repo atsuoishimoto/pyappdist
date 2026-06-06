@@ -10,7 +10,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "nicegui>=3.12.1",
-    "pywebview[gtk]>=6.2.1",
     "requests>=2.34.2",
 ]
 
