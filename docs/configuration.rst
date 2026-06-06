@@ -62,8 +62,13 @@ shell wrapper on Linux/macOS).
    Windows).
 
 ``entry`` (required)
-   Entry point as ``"module:callable"``. The callable is invoked with no
-   arguments and its return value becomes the process exit code.
+   Entry point, in one of two forms:
+
+   - ``"module:callable"`` — import ``callable`` from ``module`` and invoke it with
+     no arguments; its return value becomes the process exit code.
+   - ``"module.path"`` (no colon) — run the module as ``python -m module.path``
+     (executed with ``__name__ == "__main__"``). Use this for apps whose startup
+     lives under an ``if __name__ == "__main__":`` guard (e.g. NiceGUI).
 
 ``gui``
    ``true`` builds a windowed launcher using ``pythonw.exe`` (no console) on

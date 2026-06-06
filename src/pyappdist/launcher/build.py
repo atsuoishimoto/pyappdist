@@ -256,11 +256,13 @@ def _bootstrap(spec: LauncherConfig, config: Config) -> str:
     console: simply import and call (exceptions surface on the console).
     gui: only the retrieval (import) of the entry function is wrapped in
     try/except; on failure a MessageBox shows a concise cause. Exceptions after
-    ``func()`` runs are the app's responsibility.
+    ``func()`` runs are the app's responsibility. The MessageBox wrapper applies
+    only to the ``"module:callable"`` form; a dotted ``"module.path"`` (python -m)
+    entry uses the shared bootstrap verbatim.
     """
-    module, _, func = spec.entry.partition(":")
-    if not spec.gui:
+    if not spec.gui or ":" not in spec.entry:
         return spec.bootstrap
+    module, _, func = spec.entry.partition(":")
 
     title = f'"{config.name}"'  # embed Unicode as-is (the header is UTF-8)
     return "\n".join(
