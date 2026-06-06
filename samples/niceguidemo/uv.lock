@@ -1002,7 +1002,7 @@ requires-dist = [
 provides-extras = ["gtk", "qt", "gui"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pyappdist", editable = "../../" }]
+dev = [{ name = "pyappdist", specifier = ">=0.3.0" }]
 
 [[package]]
 name = "orjson"
@@ -1209,25 +1209,18 @@ sdist = { url = "https://files.pythonhosted.org/packages/f2/cf/77d3e19b7fabd0389
 
 [[package]]
 name = "pyappdist"
-version = "0.2.0"
-source = { editable = "../../" }
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "packaging" },
     { name = "pip" },
     { name = "tomlkit" },
     { name = "wheel" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "packaging", specifier = ">=23" },
-    { name = "pip", specifier = ">=26.1.1" },
-    { name = "tomlkit", specifier = ">=0.15.0" },
-    { name = "wheel", specifier = ">=0.47.0" },
+sdist = { url = "https://files.pythonhosted.org/packages/f6/af/51d7d7d5af9cd3009c4f80620dd572c6dc27bb9bef35ab8110f991bf15d6/pyappdist-0.3.0.tar.gz", hash = "sha256:a47ed131f20a53c79e2b9818b79c2d4a5ead463b3b9fc8da673032fba34a1e29", size = 50205, upload-time = "2026-06-06T11:12:02.462Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/43/47/150212bced4a25d8432d04e72e88a3014169fe2a81f0e62f883eff2bcbe7/pyappdist-0.3.0-py3-none-any.whl", hash = "sha256:560068d0bcb5cdb313bf8a293f16d88b8c8d710b0ae7e4d231d05f5e8aa1239a", size = 68252, upload-time = "2026-06-06T11:12:01.166Z" },
 ]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8" }]
 
 [[package]]
 name = "pycairo"
