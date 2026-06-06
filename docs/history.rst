@@ -1,6 +1,52 @@
 Release history
 ===============
 
+0.3.0
+-----
+
+**macOS ``.app`` / ``.dmg`` packages.** Two new GUI formats build native macOS
+bundles: ``format = "macapp"`` produces a ``.app`` bundle and ``format = "dmg"``
+wraps it in a disk image. A Mach-O launcher stub is compiled with ``clang``, the
+``.app`` is assembled with an ``Info.plist`` and an ``icns`` icon, then
+deep-codesigned (ad-hoc by default; Developer ID + hardened runtime when
+``signing-identity`` is set) and, with a ``notary-profile``, notarized via
+``notarytool`` and stapled. These formats require the app-level ``identifier``
+(reverse-DNS CFBundleIdentifier) and build only on a macOS host.
+
+**Per-OS launcher icons.** ``[[launchers]].icon`` is now a per-OS table —
+``icon = { windows = "*.ico", macos = "*.png", linux = "*.png" }`` (each key
+optional; a plain string is rejected). This replaces the old single ``.ico`` and
+the target-level macOS icon, so each launcher can carry its own icon per OS.
+
+**Opt-in MSI code signing.** Set ``code-sign = true`` on an MSI target to sign
+the launcher ``.exe`` and the ``.msi``. The signing command is resolved with the
+precedence ``PYAPPDIST_SIGN_CMD`` (env) > ``code-sign-command`` (config) > a
+built-in ``signtool`` default. MSIX and the macOS ``.dmg`` keep their previous
+environment-variable-only behavior.
+
+**Per-target extras.** Each target may set an ``extras`` list selecting
+``[project.optional-dependencies]`` extras to bundle. The names are passed
+through to the lockfile export using the manager's own flag (uv ``--extra``,
+poetry ``--extras``, pdm ``--group``, pipenv ``--categories``). The default is
+empty (production dependencies only); extras are ignored with a warning in
+``requirements.txt`` mode.
+
+**``python -m`` launcher entry.** A launcher ``entry`` may now be a colon-less
+dotted ``"module.path"``, run as ``python -m module.path``
+(``runpy.run_module`` with ``__name__ == "__main__"``), alongside the existing
+``"module:callable"`` form. This packages apps whose startup lives under an
+``if __name__ == "__main__":`` guard (e.g. NiceGUI) without modification.
+
+**Config keys are now kebab-case** *(breaking)*. All underscore-separated
+``[tool.pyappdist]`` keys were renamed to hyphenated form: ``upgrade-code``,
+``code-sign``, ``code-sign-command``, ``identity-name``, ``display-name``,
+``min-macos``, ``signing-identity``, ``team-id``, ``notary-profile``. Update
+existing ``pyproject.toml`` files accordingly.
+
+**Installer reports installed commands.** The POSIX self-extracting ``.run``
+installer now lists the command names it symlinked into ``<prefix>/bin`` when it
+finishes.
+
 0.2.0
 -----
 
