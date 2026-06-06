@@ -34,13 +34,31 @@ _LOCKFILES: tuple[tuple[str, str], ...] = (
 )
 
 # tool name -> export command (run with cwd=project_dir, stdout becomes requirements.txt).
-# All emit production dependencies only (dev excluded), with hashes.
+# All emit production dependencies only (dev excluded), with hashes — the "nodev" default.
 _EXPORT_CMDS: dict[str, list[str]] = {
     "uv": ["uv", "export", "--frozen", "--no-dev", "--no-emit-project", "--format", "requirements-txt"],
     "poetry": ["poetry", "export", "-f", "requirements.txt", "--without", "dev"],
     "pipenv": ["pipenv", "requirements", "--hash"],
     "pdm": ["pdm", "export", "-f", "requirements", "--prod"],
 }
+
+# tool name -> the flag that selects one optional-dependency extra (repeated per extra).
+# Each manager spells its own ``[project.optional-dependencies]`` selector differently.
+_EXTRA_FLAGS: dict[str, str] = {
+    "uv": "--extra",
+    "poetry": "--extras",
+    "pipenv": "--categories",
+    "pdm": "--group",
+}
+
+
+def _export_cmd(manager: str, extras: tuple[str, ...]) -> list[str]:
+    """The export command for ``manager`` with each ``extra`` appended as a selector flag."""
+    cmd = list(_EXPORT_CMDS[manager])
+    flag = _EXTRA_FLAGS[manager]
+    for extra in extras:
+        cmd += [flag, extra]
+    return cmd
 
 
 def _auto_detect(project_dir: Path) -> str | None:
@@ -93,12 +111,19 @@ def resolve_requirements(config: Config, wheelhouse: Path, *, log=print) -> Path
                 f"requirements.txt is missing: {src}"
                 " (provide a manager lockfile or place a requirements.txt)"
             )
+        if config.extras:
+            _warn(
+                log,
+                "ignoring targets.extras because the dependency source is a checked-in "
+                "requirements.txt (extras only apply to lockfile exports)",
+            )
         log(f"deps: using requirements.txt ({src})")
         out.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
         return out
 
-    cmd = _EXPORT_CMDS[manager]
-    log(f"deps: exporting requirements.txt from {manager} lock")
+    cmd = _export_cmd(manager, config.extras)
+    extras_note = f" with extras {list(config.extras)}" if config.extras else ""
+    log(f"deps: exporting requirements.txt from {manager} lock{extras_note}")
     proc = subprocess.run(
         cmd,
         cwd=str(config.project_dir),

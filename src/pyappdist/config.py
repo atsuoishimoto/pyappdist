@@ -160,6 +160,9 @@ class Config:
     wix: WixConfig
     msix: MsixConfig
     manager: str | None  # manager used for dependency resolution (uv/poetry/pipenv/pdm/requirements.txt). None=auto-detect
+    # Optional-dependency extras to include when exporting requirements.txt from the lockfile
+    # (e.g. uv's --extra). Empty = production deps only (dev excluded), matching the default.
+    extras: tuple[str, ...] = ()
     linux: LinuxConfig = LinuxConfig()
     macos: MacosConfig = MacosConfig()
 
@@ -250,16 +253,19 @@ def load_configs(
             wix=wix,
             msix=msix,
             manager=manager,
+            extras=extras,
             linux=linux,
             macos=macos,
         )
-        for (target_name, target, fmt, wix, msix, linux, macos) in specs
+        for (target_name, target, fmt, wix, msix, extras, linux, macos) in specs
     ]
 
 
 def _parse_targets(
     raw: object,
-) -> list[tuple[str, Target, str, WixConfig, MsixConfig, LinuxConfig, MacosConfig]]:
+) -> list[
+    tuple[str, Target, str, WixConfig, MsixConfig, tuple[str, ...], LinuxConfig, MacosConfig]
+]:
     if not raw:
         raise ConfigError(
             "at least one [[tool.pyappdist.targets]] is required"
@@ -268,7 +274,7 @@ def _parse_targets(
         raise ConfigError("[[tool.pyappdist.targets]] must be an array of tables")
 
     specs: list[
-        tuple[str, Target, str, WixConfig, MsixConfig, LinuxConfig, MacosConfig]
+        tuple[str, Target, str, WixConfig, MsixConfig, tuple[str, ...], LinuxConfig, MacosConfig]
     ] = []
     for i, item in enumerate(raw):
         if not isinstance(item, dict):
@@ -296,7 +302,7 @@ def _parse_targets(
         specs.append(
             (
                 target_name, target, str(fmt),
-                _parse_wix(item, i), _parse_msix(item, i),
+                _parse_wix(item, i), _parse_msix(item, i), _parse_extras(item, i),
                 _parse_linux(item, i), _parse_macos(item, i),
             )
         )
@@ -375,6 +381,23 @@ def _parse_macos(raw: dict, index: int) -> MacosConfig:
         entitlements=_opt_str(raw, "entitlements"),
         category=_opt_str(raw, "category"),
     )
+
+
+def _parse_extras(raw: dict, index: int) -> tuple[str, ...]:
+    """Normalize a target's ``extras`` into a tuple of optional-dependency names.
+
+    These are passed through to the lockfile export (e.g. uv's ``--extra``) so the
+    matching ``[project.optional-dependencies]`` groups are bundled. Omitted/empty means
+    production dependencies only (dev excluded) — the default.
+    """
+    extras = raw.get("extras")
+    if extras is None:
+        return ()
+    if not isinstance(extras, list) or not all(isinstance(e, str) for e in extras):
+        raise ConfigError(
+            f"targets[{index}].extras must be an array of strings: {extras!r}"
+        )
+    return tuple(extras)
 
 
 def _opt_str(raw: dict, key: str) -> str | None:

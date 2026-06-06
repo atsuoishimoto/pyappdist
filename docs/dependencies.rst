@@ -50,6 +50,26 @@ All exports are **production dependencies only** (development dependencies are
 excluded, so pyappdist itself and other dev tooling are never bundled) and
 **include hashes**.
 
+Including optional-dependency extras
+------------------------------------
+
+By default only the production (non-dev) dependencies are exported. To also bundle
+one or more ``[project.optional-dependencies]`` extras, list them per target with
+``extras``:
+
+.. code-block:: toml
+
+   [[tool.pyappdist.targets]]
+   name = "win"
+   platform = "windows-x86_64"
+   format = "msi"
+   extras = ["gui", "pdf"]
+
+Each name is passed through to the manager's own extra selector, repeated once per
+extra — ``--extra`` for uv, ``--extras`` for poetry, ``--group`` for PDM, and
+``--categories`` for pipenv. ``extras`` is ignored (with a warning) in
+``requirements.txt`` mode, since that file is used verbatim.
+
 Overriding the manager
 ----------------------
 
