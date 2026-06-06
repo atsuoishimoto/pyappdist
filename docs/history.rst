@@ -1,6 +1,23 @@
 Release history
 ===============
 
+0.3.1
+------
+
+2026/06/07
+
+**Windows launcher build no longer breaks when the current directory is excluded
+from the executable search path.** The launcher build step now invokes the
+generated batch file as ``.\build.bat`` instead of a bare ``build.bat``. On
+systems where ``NoDefaultCurrentDirectoryInExePath`` is set, ``cmd.exe`` does not
+search the current directory for the script, so the previous form failed to find
+it and the MSI build aborted during launcher compilation.
+
+**Quieter launcher compile.** The Windows launcher C source now uses
+``_snwprintf_s`` (with ``_TRUNCATE``) instead of the deprecated ``_snwprintf``,
+removing the MSVC ``C4996`` warning while guaranteeing null-termination on
+truncation.
+
 0.3.0
 ------
 
