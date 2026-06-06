@@ -48,6 +48,7 @@ pyappdist = "pyappdist.cli:main"
 [dependency-groups]
 dev = [
     "pytest>=8",
+    "sphinx>=9.0.4",
 ]
 
 [tool.pytest.ini_options]
