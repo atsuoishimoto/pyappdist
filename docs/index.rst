@@ -86,7 +86,6 @@ Linux/macOS the launcher is a relocatable shell wrapper. See :doc:`how-it-works`
    how-it-works
    dependencies
    signing
-   samples
    history
    GitHub <https://github.com/atsuoishimoto/pyappdist>
 

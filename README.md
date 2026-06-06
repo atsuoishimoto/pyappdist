@@ -111,13 +111,6 @@ uv run pyappdist build            # all of the above -> the package(s) in <targe
 Runnable example apps live under [`samples/`](samples/), each with its own
 `[tool.pyappdist]` config:
 
-- **helloworld** — minimal console app (msi + linux + macos targets)
-- **datafiles** — bundled package data / resources
-- **pandascli** — a CLI built on a C-extension dependency
-- **matplotlibdemo** — matplotlib's TkAgg backend via the runtime's tkinter
-- **pygamedemo** — a pygame GUI
-- **pyside6demo** — a PySide6 (Qt) GUI, plugins and all
-
 ## Status
 
 **Alpha** — the pipeline works end-to-end, but expect breaking changes to the config
