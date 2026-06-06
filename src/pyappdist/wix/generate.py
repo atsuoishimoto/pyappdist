@@ -36,7 +36,7 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
         raise ConfigError("MSI generation requires [tool.pyappdist.wix].manufacturer")
     if not upgrade_code or not is_guid(upgrade_code):
         raise ConfigError(
-            "MSI generation requires a valid GUID in [tool.pyappdist.wix].upgrade_code"
+            "MSI generation requires a valid GUID in [tool.pyappdist.wix].upgrade-code"
         )
 
     # scope is a build-time choice (no install-time dialog):

@@ -17,7 +17,7 @@ Configuration
    Vendor name; used as the launcher's version-resource company name and as the
    default publisher (``CN=<manufacturer>``).
 
-``identity_name``
+``identity-name``
    Package Identity Name (for the Store, the reserved ``Publisher.AppName``).
    Defaults to ``[project].name``.
 
@@ -25,7 +25,7 @@ Configuration
    Package Identity Publisher DN (e.g. ``"CN=Contoso"``). For the Store or
    signing it must match. Defaults to ``CN=<manufacturer>``.
 
-``display_name``
+``display-name``
    App display name. Defaults to ``[tool.pyappdist].name``.
 
 ``logo``
@@ -39,9 +39,9 @@ Configuration
    platform = "windows-x86_64"
    format = "msix"
    manufacturer = "Example Inc."
-   # identity_name = "Contoso.MyApp"   # from Partner Center for the Store
+   # identity-name = "Contoso.MyApp"   # from Partner Center for the Store
    # publisher = "CN=Contoso"
-   # display_name = "My App"
+   # display-name = "My App"
    # logo = "assets/logo.png"
 
 Build requirements

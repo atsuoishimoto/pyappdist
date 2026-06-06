@@ -80,7 +80,7 @@ launcher(s), and create the portable zip. Options: ``--no-compile``,
 ~~~~~~~~~~~
 
 Scan an existing image and generate the WiX ``.wxs`` file. Requires a prior
-``build-image``. This also generates and persists the target's ``upgrade_code`` if it
+``build-image``. This also generates and persists the target's ``upgrade-code`` if it
 is unset.
 
 Examples

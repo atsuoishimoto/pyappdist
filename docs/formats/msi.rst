@@ -23,7 +23,7 @@ Configuration
    in ``HKCU``). ``"machine"`` installs into ``Program Files`` and requires admin
    (registry in ``HKLM``).
 
-``upgrade_code``
+``upgrade-code``
    Stable upgrade GUID. **If omitted, pyappdist generates a UUID and writes it
    back into this target's table** on the first build. Must stay stable for the
    life of the product, and is per target.
@@ -32,12 +32,12 @@ Configuration
    Path (relative to the project) to an **RTF** end-user license agreement. When
    set, the installer shows a one-page license dialog (WixUI_Minimal).
 
-``code_sign``
+``code-sign``
    Code-sign the launcher ``.exe`` and the ``.msi`` (default ``false``). See
    :doc:`/signing`.
 
-``code_sign_command``
-   Signing command used when ``code_sign`` is true, unless overridden by the
+``code-sign-command``
+   Signing command used when ``code-sign`` is true, unless overridden by the
    ``PYAPPDIST_SIGN_CMD`` environment variable. Defaults to a ``signtool`` invocation.
    See :doc:`/signing`.
 
@@ -50,7 +50,7 @@ Configuration
    manufacturer = "Example Inc."
    scope = "user"            # "user" (default) or "machine"
    # license = "EULA.rtf"    # optional EULA shown at install time
-   # code_sign = true        # sign the .exe and .msi (see /signing)
+   # code-sign = true        # sign the .exe and .msi (see /signing)
 
 Build requirements
 ------------------
@@ -84,11 +84,11 @@ only); the license is then not shown and no acceptance step is required:
 Upgrades
 --------
 
-The MSI uses WiX ``MajorUpgrade`` keyed on ``upgrade_code``. Component GUIDs are
-derived deterministically as ``uuid5(upgrade_code, install-relative-path)``, so the
-same layout and the same ``upgrade_code`` always produce the same component
+The MSI uses WiX ``MajorUpgrade`` keyed on ``upgrade-code``. Component GUIDs are
+derived deterministically as ``uuid5(upgrade-code, install-relative-path)``, so the
+same layout and the same ``upgrade-code`` always produce the same component
 identity — installing a newer version cleanly replaces the old one. Keep
-``upgrade_code`` stable for the life of the product. The generated value is written
+``upgrade-code`` stable for the life of the product. The generated value is written
 back with ``tomlkit``, which preserves your file's existing formatting and comments.
 
 Launchers are compiled native ``.exe`` stubs: ``gui = true`` uses ``pythonw.exe``

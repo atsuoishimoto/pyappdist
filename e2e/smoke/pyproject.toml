@@ -32,10 +32,10 @@ name = "windows"
 platform = "windows-x86_64"
 format = "msi"
 manufacturer = "pyappdist"
-upgrade_code = "472A7365-2828-49C1-8B71-5B4FFB33D8F9"
+upgrade-code = "472A7365-2828-49C1-8B71-5B4FFB33D8F9"
 scope = "user"
 license = "EULA.rtf"
-code_sign = false
+code-sign = false
 
 [[tool.pyappdist.targets]]
 name = "msix"
