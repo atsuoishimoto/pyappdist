@@ -53,5 +53,5 @@ def test_requires_valid_upgrade_code(sample_config, sample_tree):
         sample_config,
         wix=WixConfig(manufacturer="X", upgrade_code="PUT-GUID-HERE"),
     )
-    with pytest.raises(ConfigError, match="upgrade_code"):
+    with pytest.raises(ConfigError, match="upgrade-code"):
         generate_wxs(cfg, sample_tree)

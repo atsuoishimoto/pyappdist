@@ -34,7 +34,7 @@ format = "msi"
 manufacturer = "pyappdist"
 scope = "user"
 license = "EULA.rtf"
-code_sign = false
+code-sign = false
 
 [[tool.pyappdist.targets]]
 name = "msix"

@@ -223,7 +223,7 @@ def _build_macos_bundle(ctx: BuildContext, layout: image_mod.ImageLayout) -> Non
     profile = resolve_notary_profile(cfg)
     notarize = profile is not None and not sign_opts.adhoc
     if profile is not None and sign_opts.adhoc:
-        print(f"OK [{tag}]: notarization skipped (ad-hoc signature; set signing_identity "
+        print(f"OK [{tag}]: notarization skipped (ad-hoc signature; set signing-identity "
               "for Developer ID)")
 
     ctx.dist_dir.mkdir(parents=True, exist_ok=True)

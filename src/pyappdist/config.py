@@ -86,7 +86,7 @@ class WixConfig:
     scope: str = "user"  # one of _WIX_SCOPES
     license: str | None = None  # optional path (relative to project_dir) to an RTF EULA
     # Code-sign the launcher .exe and the .msi (off by default). When on, the command is
-    # resolved by sign.resolve_msi_sign_command: PYAPPDIST_SIGN_CMD > code_sign_command >
+    # resolved by sign.resolve_msi_sign_command: PYAPPDIST_SIGN_CMD > code-sign-command >
     # a built-in signtool default.
     code_sign: bool = False
     code_sign_command: str | None = None
@@ -127,9 +127,9 @@ class MacosConfig:
     ``xz`` is not preinstalled on macOS.
 
     The remaining fields apply to ``format = "macapp"``/``"dmg"`` — assembling a ``.app``
-    bundle (and, for ``dmg``, wrapping it in a disk image). When ``signing_identity`` (or
+    bundle (and, for ``dmg``, wrapping it in a disk image). When ``signing-identity`` (or
     ``PYAPPDIST_SIGNING_IDENTITY``) names a Developer ID identity the bundle is signed with
-    a hardened runtime; with a ``notary_profile`` it is then notarized and stapled. With no
+    a hardened runtime; with a ``notary-profile`` it is then notarized and stapled. With no
     identity the bundle is ad-hoc signed (runs locally, rejected by Gatekeeper elsewhere).
     """
 
@@ -160,6 +160,9 @@ class Config:
     wix: WixConfig
     msix: MsixConfig
     manager: str | None  # manager used for dependency resolution (uv/poetry/pipenv/pdm/requirements.txt). None=auto-detect
+    # Optional-dependency extras to include when exporting requirements.txt from the lockfile
+    # (e.g. uv's --extra). Empty = production deps only (dev excluded), matching the default.
+    extras: tuple[str, ...] = ()
     linux: LinuxConfig = LinuxConfig()
     macos: MacosConfig = MacosConfig()
 
@@ -250,16 +253,19 @@ def load_configs(
             wix=wix,
             msix=msix,
             manager=manager,
+            extras=extras,
             linux=linux,
             macos=macos,
         )
-        for (target_name, target, fmt, wix, msix, linux, macos) in specs
+        for (target_name, target, fmt, wix, msix, extras, linux, macos) in specs
     ]
 
 
 def _parse_targets(
     raw: object,
-) -> list[tuple[str, Target, str, WixConfig, MsixConfig, LinuxConfig, MacosConfig]]:
+) -> list[
+    tuple[str, Target, str, WixConfig, MsixConfig, tuple[str, ...], LinuxConfig, MacosConfig]
+]:
     if not raw:
         raise ConfigError(
             "at least one [[tool.pyappdist.targets]] is required"
@@ -268,7 +274,7 @@ def _parse_targets(
         raise ConfigError("[[tool.pyappdist.targets]] must be an array of tables")
 
     specs: list[
-        tuple[str, Target, str, WixConfig, MsixConfig, LinuxConfig, MacosConfig]
+        tuple[str, Target, str, WixConfig, MsixConfig, tuple[str, ...], LinuxConfig, MacosConfig]
     ] = []
     for i, item in enumerate(raw):
         if not isinstance(item, dict):
@@ -296,7 +302,7 @@ def _parse_targets(
         specs.append(
             (
                 target_name, target, str(fmt),
-                _parse_wix(item, i), _parse_msix(item, i),
+                _parse_wix(item, i), _parse_msix(item, i), _parse_extras(item, i),
                 _parse_linux(item, i), _parse_macos(item, i),
             )
         )
@@ -319,16 +325,16 @@ def _parse_wix(raw: dict, index: int) -> WixConfig:
     license_ = raw.get("license")
     if license_ is not None and not str(license_).lower().endswith(".rtf"):
         raise ConfigError(f"{where}.license must be an .rtf file: {license_!r}")
-    code_sign = raw.get("code_sign", False)
+    code_sign = raw.get("code-sign", False)
     if not isinstance(code_sign, bool):
-        raise ConfigError(f"{where}.code_sign must be a boolean: {code_sign!r}")
+        raise ConfigError(f"{where}.code-sign must be a boolean: {code_sign!r}")
     return WixConfig(
         manufacturer=raw.get("manufacturer"),
-        upgrade_code=raw.get("upgrade_code"),
+        upgrade_code=raw.get("upgrade-code"),
         scope=str(scope),
         license=str(license_) if license_ is not None else None,
         code_sign=code_sign,
-        code_sign_command=_opt_str(raw, "code_sign_command"),
+        code_sign_command=_opt_str(raw, "code-sign-command"),
     )
 
 
@@ -337,9 +343,9 @@ def _parse_msix(raw: dict, index: int) -> MsixConfig:
     if logo is not None and not str(logo).lower().endswith(".png"):
         raise ConfigError(f"targets[{index}].logo must be a .png file: {logo!r}")
     return MsixConfig(
-        identity_name=raw.get("identity_name"),
+        identity_name=raw.get("identity-name"),
         publisher=raw.get("publisher"),
-        display_name=raw.get("display_name"),
+        display_name=raw.get("display-name"),
         logo=str(logo) if logo is not None else None,
     )
 
@@ -368,13 +374,30 @@ def _parse_macos(raw: dict, index: int) -> MacosConfig:
     # xz is not preinstalled on macOS, so the default payload compression is gzip.
     return MacosConfig(
         compression=_compression(raw, index, "gzip"),
-        min_macos=str(raw.get("min_macos", "11.0")),
-        signing_identity=_opt_str(raw, "signing_identity"),
-        team_id=_opt_str(raw, "team_id"),
-        notary_profile=_opt_str(raw, "notary_profile"),
+        min_macos=str(raw.get("min-macos", "11.0")),
+        signing_identity=_opt_str(raw, "signing-identity"),
+        team_id=_opt_str(raw, "team-id"),
+        notary_profile=_opt_str(raw, "notary-profile"),
         entitlements=_opt_str(raw, "entitlements"),
         category=_opt_str(raw, "category"),
     )
+
+
+def _parse_extras(raw: dict, index: int) -> tuple[str, ...]:
+    """Normalize a target's ``extras`` into a tuple of optional-dependency names.
+
+    These are passed through to the lockfile export (e.g. uv's ``--extra``) so the
+    matching ``[project.optional-dependencies]`` groups are bundled. Omitted/empty means
+    production dependencies only (dev excluded) — the default.
+    """
+    extras = raw.get("extras")
+    if extras is None:
+        return ()
+    if not isinstance(extras, list) or not all(isinstance(e, str) for e in extras):
+        raise ConfigError(
+            f"targets[{index}].extras must be an array of strings: {extras!r}"
+        )
+    return tuple(extras)
 
 
 def _opt_str(raw: dict, key: str) -> str | None:
@@ -475,12 +498,12 @@ def ensure_upgrade_code(project_dir: Path, target_name: str, *, log=print) -> st
             f"target {target_name!r} not found in [[tool.pyappdist.targets]]"
         )
 
-    existing = entry.get("upgrade_code")
+    existing = entry.get("upgrade-code")
     if existing and is_guid(str(existing)):
         return str(existing)
 
     code = str(uuid.uuid4()).upper()
-    entry["upgrade_code"] = code
+    entry["upgrade-code"] = code
     pyproject.write_text(tomlkit.dumps(doc), encoding="utf-8")
     log(f"wix: generated upgrade_code {code} for target {target_name!r} -> {pyproject}")
     return code

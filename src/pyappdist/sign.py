@@ -7,7 +7,7 @@ provided to the command out of band (the Windows certificate store, a token, or 
 secrets); pyappdist does not handle certificates.
 
 For MSI the command is resolved by :func:`resolve_msi_sign_command` from the target's
-``code_sign`` / ``code_sign_command`` config, with the environment variable
+``code-sign`` / ``code-sign-command`` config, with the environment variable
 ``PYAPPDIST_SIGN_CMD`` taking precedence and a built-in ``signtool`` default as the
 fallback. MSIX and the macOS ``.dmg`` keep the legacy behaviour: signed only when
 ``PYAPPDIST_SIGN_CMD`` is set (:func:`env_sign_command`).
@@ -31,7 +31,7 @@ from .errors import BuildError
 
 _ENV = "PYAPPDIST_SIGN_CMD"
 
-# Used when an MSI target sets ``code_sign = true`` but provides no command (and no env
+# Used when an MSI target sets ``code-sign = true`` but provides no command (and no env
 # override): sign with signtool, auto-selecting the best certificate from the store.
 DEFAULT_MSI_SIGN_CMD = (
     'signtool.exe sign /fd SHA256 /tr http://timestamp.digicert.com '
@@ -51,8 +51,8 @@ def env_sign_command() -> str | None:
 def resolve_msi_sign_command(wix: WixConfig) -> str | None:
     """Resolve the MSI signing command, or None when signing is off.
 
-    Returns None unless ``code_sign`` is set. When on, precedence is
-    ``PYAPPDIST_SIGN_CMD`` (env) > ``code_sign_command`` (config) > the signtool default.
+    Returns None unless ``code-sign`` is set. When on, precedence is
+    ``PYAPPDIST_SIGN_CMD`` (env) > ``code-sign-command`` (config) > the signtool default.
     """
     if not wix.code_sign:
         return None

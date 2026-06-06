@@ -24,7 +24,7 @@ name = "windows"
 platform = "windows-x86_64"
 format = "msi"
 manufacturer = "Example Inc."
-code_sign = false
+code-sign = false
 
 [[tool.pyappdist.targets]]
 name = "store"
@@ -52,5 +52,5 @@ name = "macos-arm-dmg"
 platform = "macos-aarch64"
 format = "dmg"                        # a signed/notarizable .app inside a .dmg
 # icon = "assets/app.png"            # source PNG for the .app icon
-# signing_identity = "Developer ID Application: Your Name (TEAMID)"
-# notary_profile = "your-notary-profile"  # see docs/signing
+# signing-identity = "Developer ID Application: Your Name (TEAMID)"
+# notary-profile = "your-notary-profile"  # see docs/signing

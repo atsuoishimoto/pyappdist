@@ -160,6 +160,22 @@ def test_manager_invalid(tmp_path: Path):
         load_configs(_write(tmp_path, app_extra='manager = "conda"'))
 
 
+def test_extras_default_empty(tmp_path: Path):
+    assert load_configs(_write(tmp_path))[0].extras == ()
+
+
+def test_extras_parsed(tmp_path: Path):
+    cfg = load_configs(_write(tmp_path, target_extra='extras = ["gui", "extra"]'))[0]
+    assert cfg.extras == ("gui", "extra")
+
+
+def test_extras_must_be_list_of_strings(tmp_path: Path):
+    with pytest.raises(ConfigError, match="extras"):
+        load_configs(_write(tmp_path, target_extra='extras = "gui"'))
+    with pytest.raises(ConfigError, match="extras"):
+        load_configs(_write(tmp_path, target_extra="extras = [1, 2]"))
+
+
 def test_scope_default_user(tmp_path: Path):
     assert load_configs(_write(tmp_path))[0].wix.scope == "user"
 
@@ -194,7 +210,7 @@ def test_code_sign_parsed(tmp_path: Path):
     cfg = load_configs(
         _write(
             tmp_path,
-            target_extra='code_sign = true\ncode_sign_command = "mysign \\"{file}\\""',
+            target_extra='code-sign = true\ncode-sign-command = "mysign \\"{file}\\""',
         )
     )[0]
     assert cfg.wix.code_sign is True
@@ -202,8 +218,8 @@ def test_code_sign_parsed(tmp_path: Path):
 
 
 def test_code_sign_must_be_bool(tmp_path: Path):
-    with pytest.raises(ConfigError, match="code_sign"):
-        load_configs(_write(tmp_path, target_extra='code_sign = "yes"'))
+    with pytest.raises(ConfigError, match="code-sign"):
+        load_configs(_write(tmp_path, target_extra='code-sign = "yes"'))
 
 
 def test_format_required(tmp_path: Path):
@@ -351,10 +367,10 @@ def test_identifier_optional_for_non_app_targets(tmp_path: Path):
 
 def test_macos_app_fields_parsed(tmp_path: Path):
     extra = (
-        'min_macos = "12.0"\n'
-        'signing_identity = "Developer ID Application: Me (TEAMID)"\n'
-        'team_id = "TEAMID"\n'
-        'notary_profile = "myprofile"\n'
+        'min-macos = "12.0"\n'
+        'signing-identity = "Developer ID Application: Me (TEAMID)"\n'
+        'team-id = "TEAMID"\n'
+        'notary-profile = "myprofile"\n'
         'entitlements = "ent.plist"\n'
         'category = "public.app-category.utilities"\n'
     )
@@ -439,7 +455,7 @@ def test_msix_fields(tmp_path: Path):
         _write(
             tmp_path,
             fmt="msix",
-            target_extra='identity_name = "Contoso.App"\npublisher = "CN=Contoso"',
+            target_extra='identity-name = "Contoso.App"\npublisher = "CN=Contoso"',
         )
     )[0]
     assert cfg.msix.identity_name == "Contoso.App"
@@ -463,7 +479,7 @@ def test_ensure_upgrade_code_generates_and_persists(tmp_path: Path):
 
 def test_ensure_upgrade_code_keeps_existing(tmp_path: Path):
     existing = "7E3F9A2C-5B1D-4E8A-9C6F-1A2B3C4D5E6F"
-    proj = _write(tmp_path, target_extra=f'upgrade_code = "{existing}"')
+    proj = _write(tmp_path, target_extra=f'upgrade-code = "{existing}"')
     before = (tmp_path / "pyproject.toml").read_text(encoding="utf-8")
 
     assert ensure_upgrade_code(proj, "win", log=lambda _m: None) == existing

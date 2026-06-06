@@ -21,7 +21,7 @@ name = "windows"
 platform = "windows-x86_64"
 format = "msi"
 manufacturer = "Example Inc."
-code_sign = false
+code-sign = false
 
 [[tool.pyappdist.targets]]
 name = "store"

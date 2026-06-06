@@ -126,6 +126,12 @@ These keys are common to every format; the format-specific keys live on the
    Label used to select this target on the command line and as its output
    subdirectory (``appdist/<name>/``). Must be unique across targets.
 
+``extras`` (optional)
+   A list of ``[project.optional-dependencies]`` extras to bundle for this target,
+   passed through to the lockfile export (e.g. uv's ``--extra``). Defaults to an
+   empty list, i.e. production dependencies only (dev excluded). See
+   :doc:`dependencies`.
+
 .. _config-platforms:
 
 Platform values
