@@ -37,7 +37,7 @@ python = "3.13"
 identifier = "com.example.weatherpanel"   # CFBundleIdentifier, required for macapp/dmg targets
 
 launchers = [
-  { name = "weatherpanel", entry = "niceguidemo.app2", gui = true}
+  { name = "weatherpanel", entry = "niceguidemo.main", gui = true}
 ]
 
 
