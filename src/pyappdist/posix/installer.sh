@@ -116,12 +116,14 @@ if ! tail -n +"$_payload_line" "$SELF" | $DECOMPRESS | tar xf - -C "$LIBDIR"; th
 fi
 
 # Symlink each launcher onto PATH and (on Linux, when it has an icon) register a .desktop.
+_installed_cmds=""
 for _entry in $LAUNCHERS; do
     _name=${_entry%%:*}
     _rest=${_entry#*:}
     _gui=${_rest%%:*}
     _icon=${_rest#*:}
     ln -sf "$LIBDIR/$_name" "$BINDIR/$_name"
+    _installed_cmds="$_installed_cmds $_name"
     if [ "$DESKTOP" = "1" ] && [ -n "$_icon" ]; then
         mkdir -p "$APPDIR"
         if [ "$_gui" = "1" ]; then _term=false; else _term=true; fi
@@ -161,6 +163,12 @@ done
     echo "echo \"Uninstalled $APP_NAME\""
 } > "$LIBDIR/uninstall.sh"
 chmod +x "$LIBDIR/uninstall.sh"
+
+# Report the command(s) now available in BINDIR.
+echo "Installed command(s) in $BINDIR:"
+for _name in $_installed_cmds; do
+    echo "  $_name"
+done
 
 case ":$PATH:" in
     *":$BINDIR:"*) ;;
