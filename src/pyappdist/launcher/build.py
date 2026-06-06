@@ -171,8 +171,11 @@ def _build_one(
     ]
     bat.write_text("\r\n".join(lines) + "\r\n", encoding="ascii")
 
+    # Use an explicit ".\" path: when Windows has NoDefaultCurrentDirectoryInExePath
+    # set, cmd.exe will not search the current directory for "build.bat" and the
+    # launch fails. ".\build.bat" forces resolution relative to cwd=gen.
     proc = subprocess.run(
-        ["cmd.exe", "/c", "build.bat"],
+        ["cmd.exe", "/c", r".\build.bat"],
         cwd=str(gen),
         capture_output=True, text=True, errors="replace",
     )
