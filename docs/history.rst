@@ -2,9 +2,11 @@ Release history
 ===============
 
 0.3.0
------
+------
 
-**macOS ``.app`` / ``.dmg`` packages.** Two new GUI formats build native macOS
+2026/06/06
+
+**macOS .app / .dmg packages.** Two new GUI formats build native macOS
 bundles: ``format = "macapp"`` produces a ``.app`` bundle and ``format = "dmg"``
 wraps it in a disk image. A Mach-O launcher stub is compiled with ``clang``, the
 ``.app`` is assembled with an ``Info.plist`` and an ``icns`` icon, then
@@ -31,7 +33,7 @@ poetry ``--extras``, pdm ``--group``, pipenv ``--categories``). The default is
 empty (production dependencies only); extras are ignored with a warning in
 ``requirements.txt`` mode.
 
-**``python -m`` launcher entry.** A launcher ``entry`` may now be a colon-less
+**python -m launcher entry.** A launcher ``entry`` may now be a colon-less
 dotted ``"module.path"``, run as ``python -m module.path``
 (``runpy.run_module`` with ``__name__ == "__main__"``), alongside the existing
 ``"module:callable"`` form. This packages apps whose startup lives under an
@@ -49,6 +51,9 @@ finishes.
 
 0.2.0
 -----
+
+2026/06/03
+
 
 **Multiple output formats and targets.** A project can now produce several
 packages from one configuration. The single ``[tool.pyappdist.wix]`` table plus

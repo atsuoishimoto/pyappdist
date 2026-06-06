@@ -49,6 +49,7 @@ pyappdist = "pyappdist.cli:main"
 dev = [
     "pytest>=8",
     "sphinx>=9.0.4",
+    "sphinx-rtd-theme>=3.1.0",
 ]
 
 [tool.pytest.ini_options]
