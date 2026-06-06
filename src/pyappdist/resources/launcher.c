@@ -102,7 +102,9 @@ static int run(void) {
     }
 
     static WCHAR pyexe[MAX_PATH * 2];
-    _snwprintf(pyexe, MAX_PATH * 2, L"%s\\%s", self, PYAPPDIST_PYEXE);
+    /* _snwprintf_s with _TRUNCATE guarantees null-termination on truncation
+       (plain _snwprintf does not, hence the C4996 deprecation warning). */
+    _snwprintf_s(pyexe, MAX_PATH * 2, _TRUNCATE, L"%s\\%s", self, PYAPPDIST_PYEXE);
 
     static WCHAR cmd[CMD_MAX];
     size_t pos = 0;
