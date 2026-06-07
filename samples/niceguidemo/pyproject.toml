@@ -44,11 +44,11 @@ launchers = [
 name = "windows"
 platform = "windows-x86_64"
 format = "msi"
+# upgrade-code = "..."    # auto-generated and written back if omitted
 manufacturer = "Example Inc."
 code-sign = false
 allow-same-version-upgrades = false
 extras = ["gui"]
-upgrade-code = "985116BA-A334-49DB-85E2-78E2FFC36FBB"
 
 [[tool.pyappdist.targets]]
 name = "store"

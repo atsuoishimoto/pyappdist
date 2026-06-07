@@ -55,6 +55,7 @@ Configuration
    format = "msi"
    manufacturer = "Example Inc."
    scope = "user"            # "user" (default) or "machine"
+   # upgrade-code = "..."    # auto-generated and written back if omitted
    # license = "EULA.rtf"    # optional EULA shown at install time
    # code-sign = true        # sign the .exe and .msi (see /signing)
    # allow-same-version-upgrades = false  # reinstall same version upgrades in place
