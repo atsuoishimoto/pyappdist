@@ -14,6 +14,58 @@ It has three parts:
   Format-specific keys are documented on each format's page (see
   :ref:`Output formats <config-formats>`).
 
+.. _config-prereqs:
+
+What your project must satisfy
+------------------------------
+
+pyappdist installs your app the same way ``pip`` would — it builds wheels and
+installs them into the bundled runtime, it never freezes source files directly.
+Two things about the project therefore have to be true before it can be packaged.
+
+1. The project must build a wheel with pip
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Your app must be a proper installable package, not a loose collection of
+scripts. Concretely, running
+
+.. code-block:: bash
+
+   pip wheel --no-deps .
+
+in the project directory must succeed and produce a ``.whl`` file. Any modern
+build backend works (setuptools, hatchling, flit, poetry-core, …) as long as
+``pyproject.toml`` declares a ``[build-system]`` and ``pip wheel`` can build it.
+If ``pip wheel`` fails — or there is no packaging metadata at all — pyappdist
+cannot distribute the app.
+
+2. Each launcher must run from the installed wheel
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A launcher never executes a source file by path. It runs against the
+**installed** package, in exactly one of these two forms — which one is chosen by
+the launcher's :ref:`entry <config-launchers>`:
+
+* ``python -m <module>`` — used when ``entry`` has **no** colon (``"myapp.cli"``).
+  ``python -m <module>`` must work once the wheel is installed.
+* ``python -c "from <module> import <callable>; <callable>()"`` — used when
+  ``entry`` is ``"module:callable"`` (``"myapp:main"``). The callable must be
+  importable from the installed package and callable with no arguments.
+
+The easiest way to confirm both conditions is to reproduce what pyappdist does, in
+a throwaway virtualenv:
+
+.. code-block:: bash
+
+   python -m venv /tmp/check && /tmp/check/bin/python -m pip install .
+   /tmp/check/bin/python -m myapp.cli                          # entry = "myapp.cli"
+   /tmp/check/bin/python -c "from myapp import main; main()"   # entry = "myapp:main"
+
+If those run from the *installed* package, the corresponding launcher will work.
+If they only work in your source checkout (because they read files that the wheel
+doesn't include, or import a top-level script that isn't part of the package),
+fix the packaging first — the launcher would fail the same way.
+
 .. _config-app:
 
 ``[tool.pyappdist]``

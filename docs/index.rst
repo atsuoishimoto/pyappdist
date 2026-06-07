@@ -66,6 +66,7 @@ Linux/macOS the launcher is a relocatable shell wrapper. See :doc:`how-it-works`
 
    installation
    quickstart
+   tutorial
    configuration
    samples
 
