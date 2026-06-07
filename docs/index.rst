@@ -67,6 +67,7 @@ Linux/macOS the launcher is a relocatable shell wrapper. See :doc:`how-it-works`
    installation
    quickstart
    configuration
+   samples
 
 .. toctree::
    :maxdepth: 2
