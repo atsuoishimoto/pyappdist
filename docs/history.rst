@@ -1,6 +1,26 @@
 Release history
 ===============
 
+0.4.0
+------
+
+2026/06/07
+
+**Build intermediates and final artifacts now live in separate trees**
+*(breaking)*. Intermediates (runtime, wheelhouse, image, launcher build, ``.wxs``)
+go to ``.appdist-build/<target>/`` while the shippable packages go to
+``appdist/<target>/dist/``. The two base directories are chosen with the new
+``--build-dir`` and ``--appdist-dir`` options; the old ``--out-dir`` is removed. A
+full ``build`` wipes the per-target intermediates directory first for a clean build
+(the downloaded runtime cache lives elsewhere, so this does not re-download).
+
+**Same-version MSI upgrades.** A new MSI target key
+``allow-same-version-upgrades`` (default ``false``) emits
+``AllowSameVersionUpgrades="yes"`` on the WiX ``MajorUpgrade``, so reinstalling the
+**same** version upgrades in place instead of erroring or installing side-by-side —
+handy while iterating without bumping the version. MSI-only; setting it on an
+``msix`` target prints a warning and has no effect.
+
 0.3.1
 ------
 
