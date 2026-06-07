@@ -18,9 +18,16 @@ Available on every command:
    The application's project directory (the one containing ``pyproject.toml``).
    Defaults to the current directory.
 
-``--out-dir DIR``
-   Output base directory. Defaults to ``<project>/appdist``. Each target builds into
-   ``<out-dir>/<target>/``.
+``--appdist-dir DIR``
+   Base directory for the final artifacts. Defaults to ``<project>/appdist``. Each
+   target's shippable packages land in ``<appdist-dir>/<target>/dist/``.
+
+``--build-dir DIR``
+   Base directory for build intermediates (runtime, wheelhouse, image, launcher build,
+   ``.wxs``). Defaults to ``<project>/.appdist-build``. Each target uses
+   ``<build-dir>/<target>/``. A full ``build`` removes this per-target directory first
+   for a clean build (the downloaded runtime cache is kept separately, so this does not
+   re-download).
 
 Commands that fetch the runtime (``build``, ``build-wheels``,
 ``fetch-runtime``, ``build-image``) also accept:

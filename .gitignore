@@ -15,6 +15,7 @@ wheels/
 
 # pyappdist build output
 appdist/
+.appdist-build/
 *.whl
 
 # Sphinx docs build output

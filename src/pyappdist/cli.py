@@ -4,7 +4,9 @@ Each subcommand operates on one or more targets (``[[tool.pyappdist.targets]]``)
 Positional arguments select targets by name. With none given, the pipeline stages
 default to all targets, while ``build`` builds the sole target if only one is defined
 and otherwise requires an explicit selection (so it doesn't build every target at once).
-Output goes to ``<out-dir>/<target-name>/`` (default ``<project>/appdist/<target-name>``).
+Build intermediates go to ``<build-dir>/<target-name>/`` (default
+``<project>/.appdist-build/<target-name>``); final artifacts go to
+``<appdist-dir>/<target-name>/dist/`` (default ``<project>/appdist/<target-name>/dist``).
 
 Subcommands:
   build-wheels    app + dependency wheels into <target>/wheelhouse
@@ -48,8 +50,16 @@ def _contexts(args: argparse.Namespace) -> list[BuildContext]:
     """Resolve the selected targets into one BuildContext each (own output subdir)."""
     project_dir = Path(args.project).resolve()
     configs = load_configs(project_dir, select=args.targets or None)
-    base = Path(args.out_dir).resolve() if args.out_dir else project_dir / "appdist"
-    return [BuildContext(config=c, out_dir=base / c.target_name) for c in configs]
+    appdist_base = Path(args.appdist_dir).resolve() if args.appdist_dir else project_dir / "appdist"
+    build_base = Path(args.build_dir).resolve() if args.build_dir else project_dir / ".appdist-build"
+    return [
+        BuildContext(
+            config=c,
+            out_dir=appdist_base / c.target_name,
+            build_dir=build_base / c.target_name,
+        )
+        for c in configs
+    ]
 
 
 def _do_fetch_runtime(ctx: BuildContext, args: argparse.Namespace):
@@ -86,7 +96,7 @@ def cmd_build_image(args: argparse.Namespace) -> int:
         info = _do_fetch_runtime(ctx, args)
         build_wheelhouse(ctx.config, info, ctx.wheelhouse)
         layout = image_mod.build_image(ctx, info, compile_pyc=not args.no_compile)
-        exes = build_launchers(ctx.config, layout, ctx.out_dir / "_launcher_build")
+        exes = build_launchers(ctx.config, layout, ctx.launcher_build_dir)
         # The zip includes launcher.exe, so do it after the launcher build.
         if not args.no_zip:
             image_mod.make_portable_zip(ctx)
@@ -103,7 +113,7 @@ def cmd_build_launchers(args: argparse.Namespace) -> int:
             target=ctx.config.target,
             minor=ctx.config.python_minor,
         )
-        exes = build_launchers(ctx.config, layout, ctx.out_dir / "_launcher_build")
+        exes = build_launchers(ctx.config, layout, ctx.launcher_build_dir)
         print(f"OK [{_tag(ctx)}]: {len(exes)} launcher -> {layout.image_dir}")
     return 0
 
@@ -118,7 +128,8 @@ def _write_wxs(ctx: BuildContext) -> Path:
         )
     tree = scan_image(ctx.image_dir)
     xml = generate_wxs(config, tree)
-    wxs = ctx.out_dir / f"{ctx.config.dist_name}.wxs"
+    wxs = ctx.wxs_path
+    wxs.parent.mkdir(parents=True, exist_ok=True)
     wxs.write_text(xml, encoding="utf-8")
     return wxs
 
@@ -133,6 +144,11 @@ def cmd_gen_wix(args: argparse.Namespace) -> int:
 
 
 def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
+    # A full build starts from a clean intermediates tree (unlike the individual stages,
+    # which stay incremental). The downloaded runtime cache lives elsewhere, so this does
+    # not trigger a re-download.
+    if ctx.build_dir.exists():
+        shutil.rmtree(ctx.build_dir)
     info = _do_fetch_runtime(ctx, args)
     build_wheelhouse(ctx.config, info, ctx.wheelhouse)
     layout = image_mod.build_image(ctx, info, compile_pyc=not args.no_compile)
@@ -163,7 +179,7 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
         if ctx.config.format == "msi"
         else env_sign_command()
     )
-    exes = build_launchers(ctx.config, layout, ctx.out_dir / "_launcher_build")
+    exes = build_launchers(ctx.config, layout, ctx.launcher_build_dir)
     for exe in exes:
         sign_artifact(exe, sign_cmd)
 
@@ -211,9 +227,9 @@ def _build_macos_bundle(ctx: BuildContext, layout: image_mod.ImageLayout) -> Non
               "be run or signature-verified locally (notarization still works)")
 
     # Mach-O launchers (CFBundleExecutable of each bundle) into the image dir.
-    build_launchers(cfg, layout, ctx.out_dir / "_launcher_build")
+    build_launchers(cfg, layout, ctx.launcher_build_dir)
 
-    build_dir = ctx.out_dir / "_app_build"
+    build_dir = ctx.app_build_dir
     sign_opts = resolve_sign_options(cfg, build_dir)
     apps = build_macos_apps(cfg, layout.image_dir, build_dir)
     for app in apps:
@@ -275,7 +291,14 @@ def _add_common(p: argparse.ArgumentParser) -> None:
              "(build: the sole target, else a selection is required)",
     )
     p.add_argument("-C", "--project", default=".", help="the app's project directory")
-    p.add_argument("--out-dir", help="output base directory (default: <project>/appdist)")
+    p.add_argument(
+        "--appdist-dir",
+        help="artifacts base directory (default: <project>/appdist)",
+    )
+    p.add_argument(
+        "--build-dir",
+        help="build intermediates base directory (default: <project>/.appdist-build)",
+    )
 
 
 def _add_runtime_opts(p: argparse.ArgumentParser) -> None:

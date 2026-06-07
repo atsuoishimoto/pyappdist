@@ -61,7 +61,10 @@ See :doc:`cli` for the full command reference.
 Outputs
 -------
 
-Each target's output lands under ``appdist/<target>/``:
+Build intermediates and final artifacts go to separate trees.
+
+Intermediates land under ``.appdist-build/<target>/`` (a full ``build`` wipes this
+per-target directory first):
 
 ``wheelhouse/``
    The app wheel + dependency wheels (and ``requirements.txt``).
@@ -72,9 +75,12 @@ Each target's output lands under ``appdist/<target>/``:
 ``image/``
    The installed, ready-to-run app (a portable directory).
 
+The shippable packages land under ``appdist/<target>/dist/``:
+
 ``dist/``
    The shippable package(s) for the target's format.
 
 The image directory itself is a portable app. The shippable artifacts in ``dist/``
 depend on the format — see the per-format pages under
-:ref:`Output formats <config-formats>`.
+:ref:`Output formats <config-formats>`. Override the two base directories with
+``--appdist-dir`` and ``--build-dir`` (see :doc:`cli`).
