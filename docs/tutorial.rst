@@ -157,6 +157,7 @@ a GUI), and one Windows MSI target:
    platform = "windows-x86_64"
    format = "msi"
    manufacturer = "Example Inc."
+   # upgrade-code = "..."    # auto-generated and written back if omitted
 
 The ``entry`` is the very command you tested in step 4, and ``gui = true`` is
 what makes the console window disappear. See :doc:`configuration` for every key
@@ -191,6 +192,34 @@ its own private Python runtime, independent of any Python on the machine.
    package step is skipped and only the image under ``appdist/windows/image/`` is
    produced, unless you cross-build from WSL. See :doc:`formats/msi` for the
    toolchain setup and :doc:`installation` for the WSL path.
+
+Step 7 — Confirm the ``upgrade-code``
+-------------------------------------
+
+The ``upgrade-code`` is the **stable identity of your product across versions**. An
+MSI uses it (via WiX ``MajorUpgrade``) to recognize an installed copy and replace it
+in place when the user installs a newer version, instead of leaving two copies
+side by side. It must therefore stay the same for the entire life of the product —
+only the version number changes between releases.
+
+You left it out of the config in step 5, so on this first build pyappdist generated
+a UUID and **wrote it back** into your ``pyproject.toml``. Open the file and you will
+now find a concrete value where the comment used to be:
+
+.. code-block:: toml
+
+   [[tool.pyappdist.targets]]
+   name = "windows"
+   platform = "windows-x86_64"
+   format = "msi"
+   manufacturer = "Example Inc."
+   upgrade-code = "6f6c2d6e-1b2a-5c3d-8e4f-9a0b1c2d3e4f"   # generated on the first build
+
+Commit this value and keep it: build the same project again and the line stays
+unchanged, so every release shares one ``upgrade-code`` and upgrades cleanly. (If
+you prefer to pick the GUID yourself, set ``upgrade-code`` before the first build
+and pyappdist will leave it alone.) See :doc:`formats/msi` for the full upgrade
+behavior.
 
 Where to go next
 ----------------

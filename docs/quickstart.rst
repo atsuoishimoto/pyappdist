@@ -26,6 +26,7 @@ Add a ``[tool.pyappdist]`` section to your app's ``pyproject.toml``:
    platform = "windows-x86_64"
    format = "msi"
    manufacturer = "Example Inc."
+   # upgrade-code = "..."    # auto-generated and written back if omitted
 
 Each ``[[tool.pyappdist.targets]]`` entry is one output package. ``format`` is
 required and must match the platform's OS — pick the one(s) you need from
