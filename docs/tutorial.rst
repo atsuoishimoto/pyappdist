@@ -166,6 +166,31 @@ and :doc:`formats/msi` for the MSI-specific options.
 Step 6 — Build the installer
 ----------------------------
 
+.. note::
+
+   This step needs the Windows toolchain: **MSVC C++ build tools** (to compile
+   the launcher ``.exe``) and **WiX v5** (to build the MSI). If you don't have
+   them yet, install both with ``winget`` from an **elevated** PowerShell — the
+   build-only Build Tools (no full Visual Studio IDE) are enough:
+
+   .. code-block:: powershell
+
+      # MSVC C++ build tools (the "Desktop development with C++" workload)
+      winget install --id Microsoft.VisualStudio.2022.BuildTools -e `
+        --override "--quiet --wait --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended"
+
+      # WiX v5 — a .NET tool, so install the .NET SDK first
+      winget install --id Microsoft.DotNet.SDK.10 -e
+      dotnet tool install --global wix --version 5.0.2
+
+   pyappdist locates MSVC automatically via ``vswhere``; no need to put
+   ``cl.exe`` on ``PATH``. Pin WiX to **5.0.2** — v6/v7 require accepting a EULA
+   that blocks an unattended ``wix build``. (The full Visual Studio Community
+   edition, ``Microsoft.VisualStudio.2022.Community``, works too if you prefer
+   the IDE — use the same ``--override`` workload arguments.) See
+   :doc:`formats/msi` for the toolchain details and :doc:`installation` for the
+   WSL cross-build path.
+
 Build the Windows target:
 
 .. code-block:: bash
