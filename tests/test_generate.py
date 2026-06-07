@@ -40,6 +40,16 @@ def test_license_adds_minimal_ui(sample_config, sample_tree):
     assert 'Id="WixUILicenseRtf"' in xml
 
 
+def test_allow_same_version_upgrades(sample_config, sample_tree):
+    # Off by default: the MajorUpgrade element carries no AllowSameVersionUpgrades.
+    assert "AllowSameVersionUpgrades" not in generate_wxs(sample_config, sample_tree)
+    cfg = dataclasses.replace(
+        sample_config,
+        wix=dataclasses.replace(sample_config.wix, allow_same_version_upgrades=True),
+    )
+    assert 'AllowSameVersionUpgrades="yes"' in generate_wxs(cfg, sample_tree)
+
+
 def test_requires_manufacturer(sample_config, sample_tree):
     cfg = dataclasses.replace(
         sample_config, wix=WixConfig(manufacturer=None, upgrade_code="x")

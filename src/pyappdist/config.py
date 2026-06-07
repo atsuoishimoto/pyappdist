@@ -10,6 +10,7 @@ so the rest of the build pipeline stays single-target.
 from __future__ import annotations
 
 import re
+import sys
 import tomllib
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -106,6 +107,9 @@ class WixConfig:
     # a built-in signtool default.
     code_sign: bool = False
     code_sign_command: str | None = None
+    # Emit MajorUpgrade@AllowSameVersionUpgrades="yes" so reinstalling the same version
+    # upgrades in place instead of erroring/coexisting (handy while iterating). Off by default.
+    allow_same_version_upgrades: bool = False
 
 
 @dataclass(frozen=True)
@@ -315,6 +319,14 @@ def _parse_targets(
                 f"targets[{i}]: format={fmt!r} is for {_FORMAT_OS[fmt]}, but platform "
                 f"{target.name!r} is {target.os}"
             )
+        # allow-same-version-upgrades maps to WiX MajorUpgrade@AllowSameVersionUpgrades,
+        # which is MSI-only; MSIX has no manifest equivalent, so it has no effect there.
+        if fmt == "msix" and "allow-same-version-upgrades" in item:
+            print(
+                f"warning: targets[{i}].allow-same-version-upgrades has no effect on "
+                "msix (it is MSI-only)",
+                file=sys.stderr,
+            )
         specs.append(
             (
                 target_name, target, str(fmt),
@@ -344,6 +356,11 @@ def _parse_wix(raw: dict, index: int) -> WixConfig:
     code_sign = raw.get("code-sign", False)
     if not isinstance(code_sign, bool):
         raise ConfigError(f"{where}.code-sign must be a boolean: {code_sign!r}")
+    allow_same = raw.get("allow-same-version-upgrades", False)
+    if not isinstance(allow_same, bool):
+        raise ConfigError(
+            f"{where}.allow-same-version-upgrades must be a boolean: {allow_same!r}"
+        )
     return WixConfig(
         manufacturer=raw.get("manufacturer"),
         upgrade_code=raw.get("upgrade-code"),
@@ -351,6 +368,7 @@ def _parse_wix(raw: dict, index: int) -> WixConfig:
         license=str(license_) if license_ is not None else None,
         code_sign=code_sign,
         code_sign_command=_opt_str(raw, "code-sign-command"),
+        allow_same_version_upgrades=allow_same,
     )
 
 

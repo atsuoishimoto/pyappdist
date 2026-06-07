@@ -60,7 +60,10 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
         Codepage="65001",
         Scope=pkg_scope,
     )
-    _sub(pkg, "MajorUpgrade", DowngradeErrorMessage="A newer version is already installed.")
+    major_upgrade_attrs = {"DowngradeErrorMessage": "A newer version is already installed."}
+    if config.wix.allow_same_version_upgrades:
+        major_upgrade_attrs["AllowSameVersionUpgrades"] = "yes"
+    _sub(pkg, "MajorUpgrade", **major_upgrade_attrs)
     _sub(pkg, "MediaTemplate", EmbedCab="yes")
 
     # An optional license shows a one-page EULA via the stock WixUI_Minimal set; the RTF

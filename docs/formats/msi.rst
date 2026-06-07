@@ -41,6 +41,12 @@ Configuration
    ``PYAPPDIST_SIGN_CMD`` environment variable. Defaults to a ``signtool`` invocation.
    See :doc:`/signing`.
 
+``allow-same-version-upgrades``
+   Sets ``AllowSameVersionUpgrades="yes"`` on the WiX ``MajorUpgrade`` (default
+   ``false``). With it on, reinstalling the **same** version upgrades in place instead
+   of erroring or installing side-by-side — convenient while iterating on a build
+   without bumping the version. MSI-only; it has no effect on ``msix`` targets.
+
 .. code-block:: toml
 
    [[tool.pyappdist.targets]]
@@ -51,6 +57,7 @@ Configuration
    scope = "user"            # "user" (default) or "machine"
    # license = "EULA.rtf"    # optional EULA shown at install time
    # code-sign = true        # sign the .exe and .msi (see /signing)
+   # allow-same-version-upgrades = false  # reinstall same version upgrades in place
 
 Build requirements
 ------------------

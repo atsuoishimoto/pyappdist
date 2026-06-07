@@ -35,6 +35,7 @@ manufacturer = "pyappdist"
 scope = "user"
 license = "EULA.rtf"
 code-sign = false
+allow-same-version-upgrades = false
 
 [[tool.pyappdist.targets]]
 name = "msix"

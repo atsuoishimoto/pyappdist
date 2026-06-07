@@ -248,6 +248,23 @@ def test_code_sign_must_be_bool(tmp_path: Path):
         load_configs(_write(tmp_path, target_extra='code-sign = "yes"'))
 
 
+def test_allow_same_version_upgrades_default_false(tmp_path: Path):
+    cfg = load_configs(_write(tmp_path))[0]
+    assert cfg.wix.allow_same_version_upgrades is False
+
+
+def test_allow_same_version_upgrades_parsed(tmp_path: Path):
+    cfg = load_configs(
+        _write(tmp_path, target_extra="allow-same-version-upgrades = true")
+    )[0]
+    assert cfg.wix.allow_same_version_upgrades is True
+
+
+def test_allow_same_version_upgrades_must_be_bool(tmp_path: Path):
+    with pytest.raises(ConfigError, match="allow-same-version-upgrades"):
+        load_configs(_write(tmp_path, target_extra='allow-same-version-upgrades = "yes"'))
+
+
 def test_format_required(tmp_path: Path):
     # A target table with no `format` is rejected (no default).
     text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(

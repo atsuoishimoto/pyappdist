@@ -46,6 +46,7 @@ platform = "windows-x86_64"
 format = "msi"
 manufacturer = "Example Inc."
 code-sign = false
+allow-same-version-upgrades = false
 extras = ["gui"]
 upgrade-code = "985116BA-A334-49DB-85E2-78E2FFC36FBB"
 

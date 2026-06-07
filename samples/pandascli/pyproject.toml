@@ -28,6 +28,7 @@ platform = "windows-x86_64"
 format = "msi"
 manufacturer = "Example Inc."
 code-sign = false
+allow-same-version-upgrades = false
 
 [[tool.pyappdist.targets]]
 name = "store"
