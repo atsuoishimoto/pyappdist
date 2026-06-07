@@ -240,6 +240,7 @@ A single project can declare several targets and produce all of these at once:
    platform = "windows-x86_64"
    format = "msi"
    manufacturer = "Example Inc."
+   # upgrade-code = "..."    # auto-generated and written back if omitted
 
    [[tool.pyappdist.targets]]              # a Linux .tar.xz + .run installer
    name = "linux"
