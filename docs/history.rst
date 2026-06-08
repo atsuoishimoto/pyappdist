@@ -1,6 +1,33 @@
 Release history
 ===============
 
+0.5.0
+-----
+
+2026/06/08
+
+**Non-ASCII launcher and app names on Windows.** The generated ``build.bat`` and
+the launcher ``.rc`` were written as ASCII, so a non-ASCII launcher executable
+name (or app name in the ``VERSIONINFO``) raised ``UnicodeEncodeError`` before
+the toolchain even ran. The build now uses fixed ASCII basenames for every
+``cl``/``rc`` input and output — keeping ``build.bat`` pure ASCII — and renames
+the result to its (possibly non-ASCII) name in Python afterwards. The ``.rc`` is
+emitted as UTF-8 prefixed with ``#pragma code_page(65001)`` so ``rc.exe`` decodes
+non-ASCII resource strings without depending on the console codepage.
+
+**More robust MSVC toolchain discovery.** Launcher compilation located MSVC with
+a bare ``vswhere -latest``, which excluded the standalone "C++ Build Tools" SKU
+and preview channels and could return an install without the C++ workload.
+Discovery now mirrors setuptools — adding ``-products *``, ``-prerelease``, and
+``-requires VC.Tools.x86.x64`` — raises a clear error when no suitable install is
+found, and verifies that ``vcvars64.bat`` exists.
+
+**Documentation.** Added a step-by-step Windows installer tutorial (including
+brief MSVC + WiX setup steps), documented the auto-generated MSI ``upgrade-code``
+in the examples and tutorial, spelled out the ``pip wheel`` and launcher
+entry-point prerequisites, and corrected stale launcher, pipeline, and
+output-path descriptions.
+
 0.4.0
 ------
 
