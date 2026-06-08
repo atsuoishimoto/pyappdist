@@ -15,8 +15,9 @@ To build one, run ``pyappdist build`` (or a specific target) from its directory:
    cd samples/helloworld
    uv run pyappdist build windows      # build just the Windows MSI target
 
-The image, portable archive, and installer land under
-``samples/<name>/appdist/<target>/``.
+The shippable packages (installer and portable archive) land under
+``samples/<name>/appdist/<target>/``; build intermediates (runtime, wheelhouse,
+image) live separately under ``samples/<name>/.appdist-build/<target>/``.
 
 CLI samples
 -----------
