@@ -36,6 +36,20 @@ def _vswhere_path() -> Path:
     return base / "Microsoft Visual Studio" / "Installer" / "vswhere.exe"
 
 
+def _to_host_path(win_path: str) -> Path:
+    """Map a Windows path (e.g. from vswhere) to a path the host can stat.
+
+    On native Windows it is unchanged; on WSL ``C:\\...`` becomes ``/mnt/c/...``
+    (same drive-mount assumption as :func:`_vswhere_path`).
+    """
+    if sys.platform == "win32":
+        return Path(win_path)
+    p = win_path.replace("\\", "/")
+    if len(p) >= 2 and p[1] == ":":
+        return Path(f"/mnt/{p[0].lower()}") / p[3:]
+    return Path(p)
+
+
 def build_launchers(config: Config, layout: ImageLayout, workdir: Path, *, log=print) -> list[Path]:
     """Compile one launcher per spec into the image dir.
 
@@ -298,11 +312,32 @@ def _find_vcvars() -> str:
     vswhere = _vswhere_path()
     if not vswhere.is_file():
         raise BuildError(f"vswhere not found: {vswhere}")
+    # Mirror setuptools' MSVC discovery (_distutils/compilers/C/msvc.py):
+    #   -products *    also matches the standalone "C++ Build Tools" SKU
+    #                  (bare -latest excludes it; common on CI/build machines)
+    #   -requires ...  only an install with the C++ compiler workload, so the
+    #                  returned path actually has vcvars64.bat
+    #   -prerelease    also matches preview / Insiders channels
     proc = subprocess.run(
-        [str(vswhere), "-latest", "-property", "installationPath"],
+        [
+            str(vswhere), "-latest", "-prerelease", "-products", "*",
+            "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+            "-property", "installationPath",
+        ],
         capture_output=True, text=True, errors="replace",
     )
     install = proc.stdout.strip()
     if not install:
-        raise BuildError("Visual Studio (C++ tools) not found")
-    return install + r"\VC\Auxiliary\Build\vcvars64.bat"
+        raise BuildError(
+            "Visual Studio C++ build tools not found. Install the "
+            '"Desktop development with C++" workload or the standalone '
+            "Build Tools (vswhere found no install with the "
+            "VC.Tools.x86.x64 component)."
+        )
+    # Keep the native Windows path (with backslashes) for build.bat's `call`,
+    # which runs under cmd.exe on the Windows side. The existence check must use
+    # the host-side path, since on WSL the C:\... string is not a real Linux path.
+    vcvars = install + r"\VC\Auxiliary\Build\vcvars64.bat"
+    if not _to_host_path(vcvars).is_file():
+        raise BuildError(f"vcvars64.bat not found under the VS install: {vcvars}")
+    return vcvars

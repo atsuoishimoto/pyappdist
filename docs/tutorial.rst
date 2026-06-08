@@ -176,8 +176,7 @@ Step 6 — Build the installer
    .. code-block:: powershell
 
       # MSVC C++ build tools (the "Desktop development with C++" workload)
-      winget install --id Microsoft.VisualStudio.2022.BuildTools -e `
-        --override "--quiet --wait --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended"
+      winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
 
       # WiX v5 — a .NET tool, so install the .NET SDK first
       winget install --id Microsoft.DotNet.SDK.10 -e
