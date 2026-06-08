@@ -33,10 +33,10 @@ One ``pyproject.toml`` can describe several output packages at once — each is 
    ``linux-x86_64`` → ``.tar.{gz,bz2,xz}`` + ``.run`` installer.
 
 :doc:`macos <formats/macos>`
-   ``macos-aarch64`` / ``macos-x86_64`` → ``.tar.{gz,bz2,xz}`` + ``.run`` installer.
+   ``macos-aarch64`` → ``.tar.{gz,bz2,xz}`` + ``.run`` installer.
 
 :doc:`macapp / dmg <formats/macapp>`
-   ``macos-aarch64`` / ``macos-x86_64`` → a signed/notarized ``.app`` bundle, optionally
+   ``macos-aarch64`` → a signed/notarized ``.app`` bundle, optionally
    inside a ``.dmg``.
 
 Why "just works"

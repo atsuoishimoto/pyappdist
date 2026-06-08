@@ -2,8 +2,11 @@
 
 **Turn a Python app into a native installer — and it just works.**
 
-> ⚠️ **Alpha.** pyappdist is under active development. It works end-to-end today, but the
-> config schema, CLI, and output layout may still change without notice.
+pyappdist packages your Python application into a native installer:
+
+- Windows: MSI / MSIX
+- macOS: DMG(notarization supported)
+- Linux: Self-extracting installers
 
 pyappdist does **not** freeze your code. Instead of bundling Python and your app into a
 single executable (and fighting hidden imports, data files, and plugins along the way),
@@ -27,7 +30,9 @@ One `pyproject.toml` can describe several output packages — each is a
 | `msi`   | `windows-x86_64`                | `.msi` installer (per-user or machine-wide) + portable `.zip` |
 | `msix`  | `windows-x86_64`                | `.msix` package for the Microsoft Store / sideloading |
 | `linux` | `linux-x86_64`                  | `.tar.gz` + self-extracting `.run` installer (per-user, no root) |
-| `macos` | `macos-aarch64` / `macos-x86_64` | `.tar.gz` + self-extracting `.run` installer (per-user, no root) |
+| `macos` | `macos-aarch64` | `.tar.gz` + self-extracting `.run` installer (per-user, no root) |
+| `dmg`   | `macos-aarch64`  | `.dmg` disk image (code-signing / notarization supported) |
+| `macapp` | `macos-aarch64`  | `.app` bundle (code-signing / notarization supported) |
 
 ## Quick start
 
@@ -92,20 +97,6 @@ uv run pyappdist build linux           # build just the "linux" target
 uv run pyappdist build windows-x86_64  # build the Windows MSI
 ```
 
-## CLI
-
-`build` runs the whole pipeline; each stage is also its own subcommand if you need to run
-them individually (each takes an optional project dir via `-C`, default `.`):
-
-```bash
-uv run pyappdist fetch-runtime    # download the python-build-standalone runtime
-uv run pyappdist build-wheels     # app + dependency wheels -> <target>/wheelhouse
-uv run pyappdist build-image      # runtime + pip install + compileall -> <target>/image
-uv run pyappdist build-launchers  # compile launcher(s) into the image (Windows, MSVC)
-uv run pyappdist gen-wix          # scan the image -> WiX .wxs
-uv run pyappdist build            # all of the above -> the package(s) in <target>/dist
-```
-
 ## Samples
 
 Runnable example apps live under [`samples/`](samples/), each with its own
@@ -127,8 +118,3 @@ extensions, GUI stacks, data files, per-target extras):
 **Alpha** — the pipeline works end-to-end, but expect breaking changes to the config
 schema, CLI, and output layout as it matures.
 
-Targets today are Windows x64 (`msi`, `msix`), Linux x64 (`linux`), and macOS arm64/x64
-(`macos`). Auto-update and code-signing certificates are out of scope for now; optional
-signing of the Windows artifacts is available via `PYAPPDIST_SIGN_CMD`
-([docs](https://pyappdist.readthedocs.io/en/latest/signing.html)). Distributed apps are not
-obfuscated, and unsigned Windows installers will trigger a SmartScreen warning.
