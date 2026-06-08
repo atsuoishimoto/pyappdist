@@ -35,9 +35,10 @@ The pipeline
    byte-compiled. The result is a self-contained, ready-to-run directory.
 
 #. **Launcher.** One launcher per ``[[tool.pyappdist.launchers]]`` entry. On
-   Windows it is a small C stub (``launcher.exe``) compiled with MSVC; on
-   Linux/macOS it is a relocatable shell wrapper. Either way it starts the bundled
-   interpreter and runs your entry point.
+   Windows it is a small C stub (``launcher.exe``) compiled with MSVC; for a macOS
+   ``.app`` it is a compiled Mach-O stub (clang); for Linux and the macOS
+   ``.tar``/``.run`` it is a relocatable shell wrapper. Either way it starts the
+   bundled interpreter and runs your entry point.
 
 #. **Packaging.** The image is turned into the target's package: an ``.msi`` (+
    portable ``.zip``) or ``.msix`` on Windows, or a ``.tar`` + self-extracting
@@ -47,7 +48,11 @@ The pipeline
 The launcher
 ------------
 
-On Windows the launcher is a thin C process, not an embedded interpreter:
+One launcher per entry point starts the bundled interpreter and runs your code.
+The kind depends on the target **format**, not just the OS.
+
+**Windows** (``.msi`` / ``.msix``) — a thin C process (``launcher.exe``), not an
+embedded interpreter:
 
 * It spawns the bundled ``python.exe`` / ``pythonw.exe`` with ``-I`` (isolated
   mode) and strips ``PYTHON*`` environment variables, so the user's environment
@@ -58,9 +63,15 @@ On Windows the launcher is a thin C process, not an embedded interpreter:
   arguments, icon, and version resource) are baked into a generated header and
   ``.rc`` resource at build time; the C source is never edited.
 
-On Linux/macOS the launcher is a relocatable shell wrapper that resolves its own
-location and execs the bundled interpreter with the same isolated-mode bootstrap —
-no compiler needed.
+**macOS app bundle** (``.app`` / ``.dmg``) — a compiled Mach-O C stub (built with
+``clang``) at ``Contents/MacOS/<name>``. It execs the bundled interpreter under
+``Contents/Resources/python`` with the same isolated-mode bootstrap. Like the
+Windows stub it embeds no interpreter, so it is decoupled from the Python C-API;
+app-specific values are baked into a generated header at build time.
+
+**Linux, and macOS** ``.tar`` / ``.run`` — a relocatable shell wrapper that
+resolves its own location and execs the bundled interpreter with the same
+isolated-mode bootstrap — no compiler needed.
 
 GUI startup errors (Windows)
 ----------------------------

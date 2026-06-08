@@ -41,7 +41,7 @@ Commands
 ``build``
 ~~~~~~~~~
 
-Run the whole pipeline for each selected target: wheels → runtime → image →
+Run the whole pipeline for each selected target: runtime → wheels → image →
 launcher → (sign) → package. The package step branches by the target's ``format``
 (see :ref:`Output formats <config-formats>`).
 
@@ -80,8 +80,12 @@ launcher(s), and create the portable zip. Options: ``--no-compile``,
 ``build-launchers``
 ~~~~~~~~~~~~~~~~~~~
 
-(Re)build ``launcher.exe`` into an existing image. Requires a prior
-``build-image``. Windows toolchain (MSVC) only.
+(Re)build the launcher(s) into an existing image. Requires a prior
+``build-image``. The launcher kind follows the target's ``format``: a Windows
+``launcher.exe`` (MSVC) for ``msi``/``msix``, or a compiled Mach-O stub (clang)
+for the macOS ``.app`` (``macapp``/``dmg``). For ``linux`` and ``macos``
+(``.tar``/``.run``) the launcher is a shell wrapper written during packaging, so
+this command is a no-op.
 
 ``gen-wix``
 ~~~~~~~~~~~

@@ -57,8 +57,9 @@ break and needs manual patching. pyappdist skips all of that:
 
 On Windows the launcher is a tiny C stub that starts the bundled ``python.exe`` /
 ``pythonw.exe`` as a subprocess, so there is no ``pythonXX.dll`` embedding and no
-C-API version risk — the stub never changes when the Python version does. On
-Linux/macOS the launcher is a relocatable shell wrapper. See :doc:`how-it-works`.
+C-API version risk — the stub never changes when the Python version does. The macOS
+``.app`` uses an equivalent compiled Mach-O stub; Linux and the macOS ``.tar``/``.run``
+use a relocatable shell wrapper. See :doc:`how-it-works`.
 
 .. toctree::
    :maxdepth: 2
