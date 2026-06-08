@@ -13,7 +13,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .._hostexec import target_relpath
 from ..config import Config, LauncherConfig
 from ..errors import BuildError
 from ..image.layout import ImageLayout
@@ -163,8 +162,14 @@ def _build_one(
     # relative paths (no wslpath conversion across the Linux/Windows boundary).
     shutil.copy2(_LAUNCHER_C, gen / "launcher.c")
 
-    rc = gen / f"{spec.name}.rc"
-    rc.write_text(_render_rc(config, spec, gen), encoding="ascii")
+    # Every cl/rc input and output uses a fixed ASCII basename so build.bat — and
+    # the command lines cmd.exe parses out of it — stay pure ASCII no matter what
+    # the launcher (or app) name is. The non-ASCII final name is applied by Python
+    # afterwards via a rename, which handles Unicode filenames natively; this avoids
+    # `chcp 65001` / console-codepage games inside the batch entirely. The .rc still
+    # carries non-ASCII resource strings, but through its own UTF-8 encoding plus a
+    # `#pragma code_page(65001)` (see _render_rc), independent of the console.
+    (gen / "launcher.rc").write_text(_render_rc(config, spec, gen), encoding="utf-8")
 
     exe = layout.image_dir / f"{spec.name}.exe"
     subsystem = "WINDOWS" if spec.gui else "CONSOLE"
@@ -173,13 +178,13 @@ def _build_one(
     lines = [
         "@echo off",
         f'call "{vcvars}" >nul',
-        f'rc /nologo /fo "{spec.name}.res" "{spec.name}.rc"',
+        'rc /nologo /fo "launcher.res" "launcher.rc"',
         (
-            f'cl /nologo /O2 /W3 /utf-8 /I"." '
-            f'"launcher.c" '
-            f'"{spec.name}.res" '
-            f'/Fe:"{target_relpath(config.target, exe, gen)}" '
-            f'/Fo:"{spec.name}.obj" '
+            'cl /nologo /O2 /W3 /utf-8 /I"." '
+            '"launcher.c" '
+            '"launcher.res" '
+            '/Fe:"launcher_out.exe" '
+            '/Fo:"launcher.obj" '
             f"/link /SUBSYSTEM:{subsystem} Shell32.lib"
         ),
     ]
@@ -193,10 +198,13 @@ def _build_one(
         cwd=str(gen),
         capture_output=True, text=True, errors="replace",
     )
-    if proc.returncode != 0 or not exe.exists():
+    built = gen / "launcher_out.exe"
+    if proc.returncode != 0 or not built.exists():
         raise BuildError(
             f"launcher build failed ({spec.name}):\n{proc.stdout}\n{proc.stderr}"
         )
+    exe.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(built), str(exe))
     return exe
 
 
@@ -205,8 +213,13 @@ def _render_rc(config: Config, spec: LauncherConfig, gen: Path) -> str:
 
     The icon is staged into ``gen`` (the rc compiler's cwd) and referenced by
     name, so the source tree's location never needs path conversion.
+
+    The file is written as UTF-8 (see _build_one) and opens with
+    ``#pragma code_page(65001)`` so rc.exe reads non-ASCII resource strings
+    (app/file names) correctly without depending on the console codepage.
     """
-    parts: list[str] = []
+    # Must precede any string data so rc.exe decodes the rest of the file as UTF-8.
+    parts: list[str] = ["#pragma code_page(65001)"]
     icon_rel = spec.icon_for("windows")
     if icon_rel:
         icon = (config.project_dir / icon_rel).resolve()
