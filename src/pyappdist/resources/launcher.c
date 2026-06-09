@@ -4,6 +4,12 @@
  * via CreateProcess. Isolation is twofold: python's -I (=-E -s) plus an
  * environment block with PYTHON* removed. App-specific values are embedded at
  * build time via a generated header.
+ *
+ * Lifetime: the child is placed in a Job Object with KILL_ON_JOB_CLOSE, so if
+ * this launcher is terminated (e.g. killed by a parent or task manager) the
+ * python child -- and its whole descendant tree -- is torn down instead of
+ * being orphaned. Job setup is best-effort: any failure falls back to launching
+ * the child unmanaged rather than failing the launch.
  */
 
 #include <windows.h>
@@ -127,22 +133,55 @@ static int run(void) {
     }
 
     LPWSTR env = build_clean_env();
+
+    /* Create a kill-on-close Job Object so the child dies with us. Failure here
+       is non-fatal: job stays NULL and the child is launched unmanaged. */
+    HANDLE job = CreateJobObjectW(NULL, NULL);
+    if (job) {
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli;
+        ZeroMemory(&jeli, sizeof(jeli));
+        jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation,
+                                     &jeli, sizeof(jeli))) {
+            CloseHandle(job);
+            job = NULL;
+        }
+    }
+
     STARTUPINFOW si;
     PROCESS_INFORMATION pi;
     ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
 
+    /* Start suspended when using a job so the child can't spawn or escape before
+       it is assigned; resume only after AssignProcessToJobObject. */
+    DWORD flags = CREATE_UNICODE_ENVIRONMENT;
+    if (job) flags |= CREATE_SUSPENDED;
+
     BOOL ok = CreateProcessW(pyexe, cmd, NULL, NULL, TRUE,
-                             CREATE_UNICODE_ENVIRONMENT, env, NULL, &si, &pi);
+                             flags, env, NULL, &si, &pi);
     if (env) free(env);
-    if (!ok) return 126;
+    if (!ok) { if (job) CloseHandle(job); return 126; }
+
+    if (job) {
+        /* If assignment fails (e.g. nested-job restrictions on old Windows),
+           drop the job and let the child run unmanaged rather than killing it. */
+        if (!AssignProcessToJobObject(job, pi.hProcess)) {
+            CloseHandle(job);
+            job = NULL;
+        }
+        ResumeThread(pi.hThread);
+    }
 
     WaitForSingleObject(pi.hProcess, INFINITE);
     DWORD code = 1;
     GetExitCodeProcess(pi.hProcess, &code);
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
+    /* Safe to close now: on normal exit the child has already terminated, so
+       kill-on-close has nothing left to kill. */
+    if (job) CloseHandle(job);
     return (int)code;
 }
 
