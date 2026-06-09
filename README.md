@@ -18,7 +18,13 @@ Because the runtime is a normal Python environment, **most apps run as-is**: no 
 it almost certainly runs after `pyappdist build`. C extensions, `abi3` wheels, Qt plugins,
 and tkinter-based GUIs work unmodified because the install layout is real.
 
+
 📖 **Documentation:** https://pyappdist.readthedocs.io/
+
+## Status
+
+**Alpha** — the pipeline works end-to-end, but expect breaking changes to the config
+schema, CLI, and output layout as it matures.
 
 ## What it produces
 
@@ -113,8 +119,4 @@ extensions, GUI stacks, data files, per-target extras):
 | [`pyside6demo`](samples/pyside6demo) | GUI | A Qt window with PySide6 — a large `abi3` wheel (`cp39-abi3`) installed into the cp312 runtime, Qt plugins and all. `gui = true`. |
 | [`niceguidemo`](samples/niceguidemo) | GUI (web) | "Weather Panel" built with NiceGUI + pywebview + requests; uses per-target `extras` (`gtk`/`qt`/`gui`) to pick the webview backend per platform. |
 
-## Status
-
-**Alpha** — the pipeline works end-to-end, but expect breaking changes to the config
-schema, CLI, and output layout as it matures.
 
