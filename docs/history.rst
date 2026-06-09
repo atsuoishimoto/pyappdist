@@ -1,6 +1,20 @@
 Release history
 ===============
 
+0.6.0
+-----
+
+2026/06/09
+
+**Windows launchers no longer orphan their python child.** The launcher placed
+the python process it spawned outside any job, so terminating the launcher (by a
+parent process or Task Manager) left ``python.exe`` — and anything it had started
+— running. The launcher now creates a kill-on-close Job Object
+(``JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE``), starts the child suspended, assigns it
+to the job, and only then resumes it, so killing the launcher tears down the
+whole descendant tree. Job setup is best-effort: any failure falls back to
+launching the child unmanaged rather than failing the launch.
+
 0.5.0
 -----
 
