@@ -528,3 +528,50 @@ def test_ensure_upgrade_code_keeps_existing(tmp_path: Path):
     assert ensure_upgrade_code(proj, "win", log=lambda _m: None) == existing
     # unchanged file (no rewrite when a valid code is already present)
     assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == before
+
+
+def _launcher_pyproject(name_toml: str) -> str:
+    """A pyproject with one launcher whose ``name`` is the given TOML literal."""
+    return f"""
+[project]
+name = "helloworld"
+version = "0.1.0"
+
+[tool.pyappdist]
+python = "3.12"
+launchers = [ {{ name = {name_toml}, entry = "helloworld:main" }} ]
+
+[[tool.pyappdist.targets]]
+name = "win"
+platform = "windows-x86_64"
+format = "msi"
+"""
+
+
+@pytest.mark.parametrize(
+    "bad", ["my app", "a:b", "a/b", "a\\b", 'a"b', "a\tb", "a*b"]
+)
+def test_launcher_name_rejects_unsafe_chars(tmp_path: Path, bad: str):
+    # TOML literal strings ('...') take the name verbatim, no escape processing.
+    text = _launcher_pyproject(f"'{bad}'")
+    with pytest.raises(ConfigError, match="launchers\\[0\\].name"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_launcher_name_allows_unicode(tmp_path: Path):
+    cfg = load_configs(_write_text(tmp_path, _launcher_pyproject("'ハローワールド'")))[0]
+    assert cfg.launchers[0].name == "ハローワールド"
+
+
+def test_msi_rejects_non_numeric_version(tmp_path: Path):
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'version = "0.1.0"', 'version = "0.1.0a1"'
+    )
+    with pytest.raises(ConfigError, match="numeric version"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_posix_allows_non_numeric_version(tmp_path: Path):
+    text = _linux_pyproject("").replace('version = "0.1.0"', 'version = "0.1.0a1"')
+    cfg = load_configs(_write_text(tmp_path, text))[0]
+    assert cfg.version == "0.1.0a1"

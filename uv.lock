@@ -282,10 +282,9 @@ wheels = [
 
 [[package]]
 name = "pyappdist"
-version = "0.5.0"
+version = "0.6.0"
 source = { editable = "." }
 dependencies = [
-    { name = "packaging" },
     { name = "pip" },
     { name = "tomlkit" },
     { name = "wheel" },
@@ -301,7 +300,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "packaging", specifier = ">=23" },
     { name = "pip", specifier = ">=26.1.1" },
     { name = "tomlkit", specifier = ">=0.15.0" },
     { name = "wheel", specifier = ">=0.47.0" },
