@@ -1,6 +1,36 @@
 Release history
 ===============
 
+0.7.0
+-----
+
+2026/06/10
+
+**POSIX launchers are isolated from the host's PYTHON* environment.** The
+Linux/macOS shell-wrapper launchers ran the bundled interpreter with a plain
+``python3 -c <bootstrap>``, so a stray ``PYTHONHOME``/``PYTHONPATH`` (or any
+``PYTHON*`` variable) in the user's environment leaked into the app — unlike
+the Windows and macOS C launchers, which already pass ``-I`` and scrub
+``PYTHON*``. The wrappers now mirror that isolation: ``PYTHON*`` is scrubbed
+from the environment (so the app and anything it spawns don't inherit it) and
+python runs with ``-I``.
+
+**Windows launcher build robustness.** The ``vcvars64.bat`` path is now passed
+to the generated ``build.bat`` as a batch argument, so a Visual Studio install
+under a non-ASCII path no longer breaks the ASCII-only batch file; the app name
+embedded in the GUI error-dialog bootstrap is properly escaped; and the
+launcher itself now fails with exit code 124 when the assembled command line
+would exceed Windows' 32768-character limit instead of silently dropping
+arguments.
+
+**Pipeline and installer robustness.** ``build-wheels`` clears stale wheels
+from the wheelhouse first, so incremental stage runs can't hand pip two
+conflicting versions of a package. The POSIX ``.run`` installer verifies the
+decompressor and ``tar`` exist *before* removing a previous install, and quotes
+the ``Exec`` path in generated ``.desktop`` files. ``notarytool`` output that
+isn't valid JSON now produces a clear error instead of a traceback. The unused
+``packaging`` dependency was dropped.
+
 0.6.0
 -----
 
