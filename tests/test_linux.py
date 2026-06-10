@@ -160,6 +160,18 @@ def test_wrapper_is_relocatable():
     assert "from pkg.mod import main" in w
 
 
+def test_wrapper_isolates_python_env():
+    spec = LauncherConfig(name="app", entry="pkg.mod:main")
+    w = _wrapper(spec)
+    # Mirrors the C launchers: -I (=-E -s) tells the bundled interpreter to ignore
+    # PYTHON* env vars and the user site dir, and PYTHON* is scrubbed from the
+    # environment so the app (and anything it spawns) never sees a stray PYTHONHOME
+    # or PYTHONPATH from the host.
+    assert '"$HERE/python/bin/python3" -I -c ' in w
+    assert "unset" in w
+    assert "PYTHON" in w
+
+
 def test_sq_escapes_single_quotes():
     assert _sq("a'b") == "'a'\\''b'"
 
