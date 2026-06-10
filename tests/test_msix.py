@@ -56,3 +56,44 @@ def test_solid_png_is_valid_png():
     data = _solid_png(16, 16, (0, 120, 212))
     assert data[:8] == b"\x89PNG\r\n\x1a\n"
     assert b"IHDR" in data[:32] and data.rstrip().endswith(b"\xaeB`\x82")  # IEND CRC
+
+
+def test_build_msix_invokes_makeappx_with_relative_paths(
+    sample_config, tmp_path, monkeypatch
+):
+    """build_msix runs makeappx with cwd at the common ancestor and relative paths."""
+    import pyappdist.msix.build as mb
+
+    image = tmp_path / "image"
+    image.mkdir()
+    out = tmp_path / "dist" / "helloworld-1.2.3.msix"
+    monkeypatch.setenv("PYAPPDIST_MAKEAPPX", "makeappx.exe")
+
+    calls = {}
+
+    def fake_run(cmd, **kwargs):
+        calls["cmd"] = cmd
+        calls["cwd"] = kwargs.get("cwd")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"")
+
+        class P:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return P()
+
+    monkeypatch.setattr(mb.subprocess, "run", fake_run)
+
+    assert mb.build_msix(_msix(sample_config), image, out) == out
+    assert calls["cmd"][:2] == ["makeappx.exe", "pack"]
+    assert calls["cwd"] == str(tmp_path)
+    # /d and /p are relative to cwd, with Windows separators (no absolute paths).
+    d = calls["cmd"][calls["cmd"].index("/d") + 1]
+    p = calls["cmd"][calls["cmd"].index("/p") + 1]
+    assert d == "image"
+    assert p == "dist\\helloworld-1.2.3.msix"
+    # The manifest and logos were staged into the image.
+    assert (image / "AppxManifest.xml").is_file()
+    assert (image / "Assets" / "StoreLogo.png").is_file()

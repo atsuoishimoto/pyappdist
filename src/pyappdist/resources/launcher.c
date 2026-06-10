@@ -61,16 +61,20 @@ static LPWSTR build_clean_env(void) {
     return out;
 }
 
+/* Set when the command line would exceed CMD_MAX; checked before launching so
+   arguments are never silently dropped. */
+static int cmd_overflow = 0;
+
 static void append(WCHAR *buf, size_t *pos, const WCHAR *s) {
     size_t len = wcslen(s);
-    if (*pos + len + 1 >= CMD_MAX) return;
+    if (*pos + len + 1 >= CMD_MAX) { cmd_overflow = 1; return; }
     memcpy(buf + *pos, s, len * sizeof(WCHAR));
     *pos += len;
     buf[*pos] = L'\0';
 }
 
 static void append_ch(WCHAR *buf, size_t *pos, WCHAR c) {
-    if (*pos + 2 >= CMD_MAX) return;
+    if (*pos + 2 >= CMD_MAX) { cmd_overflow = 1; return; }
     buf[(*pos)++] = c;
     buf[*pos] = L'\0';
 }
@@ -130,6 +134,13 @@ static int run(void) {
             append_quoted(cmd, &pos, argv[i]);
         }
         LocalFree(argv);
+    }
+
+    if (cmd_overflow) {
+        /* Console launchers surface this; gui ones at least exit non-zero. */
+        fwprintf(stderr, L"error: command line exceeds the %d-character limit\n",
+                 CMD_MAX);
+        return 124;
     }
 
     LPWSTR env = build_clean_env();

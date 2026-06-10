@@ -54,12 +54,16 @@ def fetch_runtime(
 ) -> RuntimeInfo:
     """Extract the runtime into ``dest`` and return RuntimeInfo."""
     minor = ".".join(python.split(".")[:2])
+    # An X.Y.Z config pins that exact patch release; X.Y means the latest patch.
+    exact = python if python.count(".") == 2 else None
     cache_dir = cache_dir or (Path.home() / ".cache" / "pyappdist" / "runtime")
 
     # Idempotency: skip if already extracted under the same conditions
     existing = _read_marker(dest)
     if existing and existing["triple"] == target.triple and existing["minor"] == minor:
-        if not runtime_release or existing["tag"] == runtime_release:
+        if (not runtime_release or existing["tag"] == runtime_release) and (
+            not exact or existing["version"] == exact
+        ):
             log(f"runtime: reusing existing ({existing['version']} @ {dest})")
             return _info_from_marker(dest, existing)
 
@@ -70,7 +74,7 @@ def fetch_runtime(
     tag, prefix = _resolve_release(runtime_release, log)
 
     # 2. resolve full version and sha256 from SHA256SUMS
-    filename, sha256, version = _select_asset(prefix, target.triple, minor, log)
+    filename, sha256, version = _select_asset(prefix, target.triple, minor, exact, log)
 
     # 3. download + verify (cache)
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -104,7 +108,10 @@ def _resolve_release(pinned: str | None, log) -> tuple[str, str]:
     return data["tag"], data["asset_url_prefix"]
 
 
-def _select_asset(prefix: str, triple: str, minor: str, log) -> tuple[str, str, str]:
+def _select_asset(
+    prefix: str, triple: str, minor: str, exact: str | None, log
+) -> tuple[str, str, str]:
+    """Pick the asset for ``minor`` (latest patch) or the ``exact`` X.Y.Z when pinned."""
     text = _http_get(f"{prefix}/SHA256SUMS").decode("utf-8", "replace")
     pat = re.compile(
         r"^(?P<sha>[0-9a-f]{64})\s+\*?"
@@ -118,13 +125,22 @@ def _select_asset(prefix: str, triple: str, minor: str, log) -> tuple[str, str, 
         if not m:
             continue
         ver = m.group("ver")
-        if ".".join(ver.split(".")[:2]) != minor:
+        if exact is not None:
+            if ver != exact:
+                continue
+        elif ".".join(ver.split(".")[:2]) != minor:
             continue
         key = tuple(int(p) for p in ver.split("."))
         candidates.append((key, m.group("name"), m.group("sha"), ver))
     if not candidates:
         raise BuildError(
-            f"no matching runtime found: python {minor} / {triple} / {FLAVOR}"
+            f"no matching runtime found: python {exact or minor} / {triple} / {FLAVOR}"
+            + (
+                "\n  (the exact X.Y.Z is pinned; use X.Y in [tool.pyappdist].python "
+                "for the latest patch release)"
+                if exact
+                else ""
+            )
         )
     candidates.sort()
     _, name, sha, ver = candidates[-1]

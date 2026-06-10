@@ -174,10 +174,14 @@ def _build_one(
     exe = layout.image_dir / f"{spec.name}.exe"
     subsystem = "WINDOWS" if spec.gui else "CONSOLE"
 
+    # vcvars64.bat's path is passed as an argument rather than embedded, so the batch
+    # file itself stays pure ASCII even when the VS install path contains non-ASCII
+    # (cmd.exe receives argv as Unicode through interop; batch file bytes are read in
+    # an unpredictable console codepage).
     bat = gen / "build.bat"
     lines = [
         "@echo off",
-        f'call "{vcvars}" >nul',
+        'call %1 >nul',
         'rc /nologo /fo "launcher.res" "launcher.rc"',
         (
             'cl /nologo /O2 /W3 /utf-8 /I"." '
@@ -193,8 +197,10 @@ def _build_one(
     # Use an explicit ".\" path: when Windows has NoDefaultCurrentDirectoryInExePath
     # set, cmd.exe will not search the current directory for "build.bat" and the
     # launch fails. ".\build.bat" forces resolution relative to cwd=gen.
+    # The path argument is quoted by the subprocess layer when it contains spaces, and
+    # %1 in the batch keeps those quotes, so `call %1` resolves it verbatim.
     proc = subprocess.run(
-        ["cmd.exe", "/c", r".\build.bat"],
+        ["cmd.exe", "/c", r".\build.bat", vcvars],
         cwd=str(gen),
         capture_output=True, text=True, errors="replace",
     )
@@ -294,7 +300,10 @@ def _bootstrap(spec: LauncherConfig, config: Config) -> str:
         return spec.bootstrap
     module, _, func = spec.entry.partition(":")
 
-    title = f'"{config.name}"'  # embed Unicode as-is (the header is UTF-8)
+    # A Python string literal of the app name: repr() escapes quotes/backslashes so an
+    # arbitrary name can't break the generated source (Unicode passes through as-is,
+    # the header is UTF-8).
+    title = repr(config.name)
     return "\n".join(
         [
             "import sys",

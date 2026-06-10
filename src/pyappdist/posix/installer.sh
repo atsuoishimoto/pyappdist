@@ -95,6 +95,15 @@ if [ -z "$_payload_line" ]; then
     exit 1
 fi
 
+# Check the tools extraction needs *before* removing any existing install, so a
+# missing decompressor (e.g. xz on a minimal system) can't leave the user with nothing.
+for _tool in "${DECOMPRESS%% *}" tar; do
+    if ! command -v "$_tool" >/dev/null 2>&1; then
+        echo "error: required tool '$_tool' not found; cannot extract the payload" >&2
+        exit 1
+    fi
+done
+
 # Verify the payload checksum *before* removing any existing install, so a
 # corrupted download can't leave the user with nothing.
 _actual_sha=$(tail -n +"$_payload_line" "$SELF" | sha256_of_stdin)
@@ -132,7 +141,7 @@ for _entry in $LAUNCHERS; do
 Type=Application
 Version=1.0
 Name=$APP_NAME
-Exec=$LIBDIR/$_name %U
+Exec="$LIBDIR/$_name" %U
 Icon=$LIBDIR/$_icon
 Terminal=$_term
 Categories=$CATEGORIES

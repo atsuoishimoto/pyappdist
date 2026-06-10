@@ -34,6 +34,11 @@ from .runtime import RuntimeInfo
 def build_wheelhouse(config: Config, runtime: RuntimeInfo, wheelhouse: Path, *, log=print) -> list[Path]:
     """Prepare the app + dependency wheels in the wheelhouse and return the list."""
     wheelhouse.mkdir(parents=True, exist_ok=True)
+    # Start from an empty wheelhouse: the later install passes *every* wheel in it to
+    # pip, so a stale wheel from a previous app/dependency version would make pip see
+    # two conflicting versions of the same project. pip's own cache keeps this cheap.
+    for stale in wheelhouse.glob("*.whl"):
+        stale.unlink()
     build_app_wheel(config, runtime, wheelhouse, log=log)
     requirements = resolve_requirements(config, wheelhouse, log=log)
     collect_dependencies(runtime, requirements, wheelhouse, log=log)

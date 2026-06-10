@@ -66,8 +66,13 @@ def _submit(artifact: Path, profile: str, *, log) -> None:
                 "\nInspect the log with: xcrun notarytool log "
                 f"{submission_id} --keychain-profile {profile}"
             )
+        reason = (
+            "notarytool output was not parseable JSON"
+            if status is None
+            else f"status={status!r}"
+        )
         raise BuildError(
-            f"notarization failed for {artifact.name} (status={status!r}):\n"
+            f"notarization failed for {artifact.name} ({reason}):\n"
             f"{proc.stdout}\n{proc.stderr}{hint}"
         )
     log(f"notarize: accepted {artifact.name}")

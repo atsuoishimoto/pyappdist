@@ -55,6 +55,19 @@ _IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
 _ENTRY_MODULE_RE = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*)*$")
 _ENTRY_CALLABLE_RE = re.compile(r"^[A-Za-z_]\w*$")
 
+# Characters a launcher name must not contain. Non-ASCII names are supported (the
+# Windows build pipeline renames the final .exe with Python exactly for that), but the
+# name becomes a filename on every OS (Windows forbids <>:"/\|?*), a symlink in
+# <prefix>/bin, and a field in the .run installer's whitespace/colon-delimited
+# launcher records — so path separators, those Windows-reserved characters,
+# whitespace, and control characters are all rejected.
+_LAUNCHER_NAME_BAD_CHARS = set('<>:"/\\|?*')
+
+# MSI ProductVersion (and the MSIX Identity Version derived from it) must be a dotted
+# numeric version; anything else (e.g. "1.0.0rc1") fails at package build time with an
+# obscure toolchain error, so reject it up front for msi/msix targets only.
+_MSI_VERSION_RE = re.compile(r"^\d+(\.\d+){0,3}$")
+
 
 @dataclass(frozen=True)
 class LauncherConfig:
@@ -249,6 +262,14 @@ def load_configs(
             '(reverse-DNS, e.g. "com.example.myapp")'
         )
 
+    if any(fmt in ("msi", "msix") for (_, _, fmt, *_rest) in specs) and not _MSI_VERSION_RE.match(
+        str(version)
+    ):
+        raise ConfigError(
+            "msi/msix targets require a dotted numeric version "
+            f'(e.g. "1.2.3"; MSI ProductVersion cannot express pre-releases): {version!r}'
+        )
+
     available = [s[0] for s in specs]
     if select:
         unknown = [s for s in select if s not in available]
@@ -439,6 +460,17 @@ def _opt_str(raw: dict, key: str) -> str | None:
     return str(value) if value is not None else None
 
 
+def _validate_launcher_name(name: str, i: int) -> None:
+    """Reject launcher names that would break filenames or the installer's records."""
+    if any(
+        c in _LAUNCHER_NAME_BAD_CHARS or c.isspace() or ord(c) < 32 for c in name
+    ):
+        raise ConfigError(
+            "launchers[{}].name must not contain whitespace, control characters, "
+            'or any of <>:"/\\|?* : {!r}'.format(i, name)
+        )
+
+
 def _validate_entry(entry: str, i: int) -> None:
     """Validate a launcher ``entry`` (``"module:callable"`` or dotted ``"module.path"``)."""
     if ":" in entry:
@@ -468,6 +500,7 @@ def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:
             raise ConfigError(f"launchers[{i}].name is required")
         if not entry:
             raise ConfigError(f"launchers[{i}].entry is required")
+        _validate_launcher_name(str(name), i)
         _validate_entry(str(entry), i)
         out.append(
             LauncherConfig(
