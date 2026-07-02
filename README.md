@@ -114,9 +114,9 @@ extensions, GUI stacks, data files, per-target extras):
 | [`helloworld`](samples/helloworld) | CLI | Smallest possible config — no dependencies. A good starting template; builds for every format (`msi`/`msix`/`linux`/`macos`/`dmg`). |
 | [`pandascli`](samples/pandascli) | CLI | pandas + numpy (C extensions) collected as binary wheels and installed into the runtime. Console launcher (`gui = false`). |
 | [`datafiles`](samples/datafiles) | CLI | Ships a bundled data file (`data/ebi.jpeg`) via `[tool.uv.build-backend].data` and reads it through `sysconfig`; opens it with Pillow. |
-| [`matplotlibdemo`](samples/matplotlibdemo) | GUI | matplotlib plot with the **TkAgg** backend — uses the runtime's bundled tkinter/tcl-tk, no extra GUI deps. `gui = true` → `pythonw.exe`. |
-| [`pygamedemo`](samples/pygamedemo) | GUI | A bouncing ball with pygame-ce (C extensions) collected as Windows wheels. `gui = true`. |
-| [`pyside6demo`](samples/pyside6demo) | GUI | A Qt window with PySide6 — a large `abi3` wheel (`cp39-abi3`) installed into the cp312 runtime, Qt plugins and all. `gui = true`. |
+| [`matplotlibdemo`](samples/matplotlibdemo) | GUI | matplotlib plot with the **TkAgg** backend — uses the runtime's bundled tkinter/tcl-tk, no extra GUI deps. |
+| [`pygamedemo`](samples/pygamedemo) | GUI | A bouncing ball with pygame-ce (C extensions) collected as Windows wheels.|
+| [`pyside6demo`](samples/pyside6demo) | GUI | A Qt window with PySide6 — a large `abi3` wheel (`cp39-abi3`) installed into the cp312 runtime, Qt plugins and all. |
 | [`niceguidemo`](samples/niceguidemo) | GUI (web) | "Weather Panel" built with NiceGUI + pywebview + requests; uses per-target `extras` (`gtk`/`qt`/`gui`) to pick the webview backend per platform. |
 
 
