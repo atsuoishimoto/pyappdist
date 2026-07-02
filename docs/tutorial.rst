@@ -30,13 +30,9 @@ package, a ``[build-system]``, and a console-script entry point:
    uv init --package hellotk
    cd hellotk
 
-The ``--package`` flag is deliberate. In uv's default (application) mode the
-project itself is never installed — code just runs out of the checkout, and
-only the dependencies go into the environment. Package mode adds the
-``[build-system]`` and the ``src/`` layout, so the sources that make up the
-app are stated explicitly by the package definition: exactly what the wheel
-build includes is what pyappdist installs — no more, no less, and nothing
-picked up loosely from your working directory.
+The ``--package`` flag matters: it makes the project itself installable, so
+the package definition states exactly which sources pyappdist installs —
+nothing is picked up loosely from the working directory.
 
 You get a ``pyproject.toml`` like this (note the ``[project.scripts]`` entry —
 ``hellotk = "hellotk:main"`` — which is the same ``module:callable`` form
