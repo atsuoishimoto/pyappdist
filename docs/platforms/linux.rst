@@ -36,8 +36,7 @@ Configuration
 Build requirements
 ------------------
 
-None beyond pip and the chosen compressor — Linux launchers are relocatable shell
-wrappers, so there is no MSVC/WiX toolchain. Build on Linux.
+None beyond pip and the chosen compressor.
 
 Install behavior
 ----------------

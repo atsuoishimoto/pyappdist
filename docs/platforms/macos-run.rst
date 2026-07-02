@@ -37,8 +37,7 @@ Configuration
 Build requirements
 ------------------
 
-None beyond pip and the chosen compressor — macOS launchers are relocatable shell
-wrappers (no MSVC/WiX). Build on macOS.
+None beyond pip and the chosen compressor.
 
 Install behavior
 ----------------
