@@ -4,11 +4,11 @@ How it works
 pyappdist installs your app into a real Python runtime and ships that runtime.
 There is no freezing and no code analysis.
 
-.. code-block:: text
-
-   your app  ───pip wheel───▶  app wheel ─┐
-                                           ├─▶ wheelhouse ─pip install─▶ runtime image ─▶ package
-   dependencies ─lockfile → pip wheel─────┘   (python-build-standalone)  + launcher       (by format)
+.. image:: images/how-it-works.svg
+   :alt: your app and its dependencies are built into wheels, collected into a
+         wheelhouse, pip-installed into a python-build-standalone runtime image
+         with a launcher, then packaged by format.
+   :width: 100%
 
 The image — a self-contained, ready-to-run directory — is built the same way for
 every target. Only the final **packaging** step branches by ``format``.

@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 340" width="1500" height="340">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+  </defs>
+
+  <style>
+    text { font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #1e293b; }
+    .box   { fill: #f1f5f9; stroke: #475569; stroke-width: 1.5; }
+    .box2  { fill: #e0ecf7; stroke: #2c5f8a; stroke-width: 1.5; }
+    .label { font-size: 19px; font-weight: 600; text-anchor: middle; }
+    .sub   { font-size: 14px; fill: #475569; text-anchor: middle; }
+    .edge  { font-size: 15px; fill: #334155; text-anchor: middle; font-style: italic; }
+    .line  { stroke: #334155; stroke-width: 2; fill: none; }
+  </style>
+
+  <!-- your app -->
+  <rect class="box" x="30" y="48" width="170" height="56" rx="10"/>
+  <text class="label" x="115" y="83">your app</text>
+
+  <!-- dependencies -->
+  <rect class="box" x="30" y="236" width="170" height="56" rx="10"/>
+  <text class="label" x="115" y="271">dependencies</text>
+
+  <!-- app wheel -->
+  <rect class="box" x="350" y="48" width="160" height="56" rx="10"/>
+  <text class="label" x="430" y="83">app wheel</text>
+
+  <!-- your app -> app wheel -->
+  <line class="line" x1="200" y1="76" x2="345" y2="76" marker-end="url(#arrow)"/>
+  <text class="edge" x="272" y="65">pip wheel</text>
+
+  <!-- app wheel -> merge point -->
+  <polyline class="line" points="510,76 585,76 585,170"/>
+
+  <!-- dependencies -> merge point -->
+  <polyline class="line" points="200,264 585,264 585,170"/>
+  <text class="edge" x="392" y="253">lockfile → pip wheel</text>
+
+  <!-- merge point -> wheelhouse -->
+  <line class="line" x1="585" y1="170" x2="635" y2="170" marker-end="url(#arrow)"/>
+
+  <!-- wheelhouse -->
+  <rect class="box" x="640" y="142" width="170" height="56" rx="10"/>
+  <text class="label" x="725" y="177">wheelhouse</text>
+
+  <!-- wheelhouse -> runtime image -->
+  <line class="line" x1="810" y1="170" x2="985" y2="170" marker-end="url(#arrow)"/>
+  <text class="edge" x="898" y="159">pip install</text>
+
+  <!-- runtime image -->
+  <rect class="box2" x="990" y="128" width="240" height="84" rx="10"/>
+  <text class="label" x="1110" y="163">runtime image</text>
+  <text class="sub" x="1110" y="185">python-build-standalone</text>
+  <text class="sub" x="1110" y="203">+ launcher</text>
+
+  <!-- runtime image -> package -->
+  <line class="line" x1="1230" y1="170" x2="1295" y2="170" marker-end="url(#arrow)"/>
+
+  <!-- package -->
+  <rect class="box2" x="1300" y="134" width="170" height="72" rx="10"/>
+  <text class="label" x="1385" y="167">package</text>
+  <text class="sub" x="1385" y="190">by format</text>
+</svg>
