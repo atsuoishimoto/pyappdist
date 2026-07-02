@@ -38,8 +38,7 @@ Build requirements
 ------------------
 
 None beyond pip and the chosen compressor — macOS launchers are relocatable shell
-wrappers (no MSVC/WiX). Build on macOS; on a non-macOS host the step is skipped (the
-image is still built).
+wrappers (no MSVC/WiX). Build on macOS.
 
 Install behavior
 ----------------

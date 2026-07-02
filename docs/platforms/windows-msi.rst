@@ -89,23 +89,6 @@ are enough:
 ``Microsoft.VisualStudio.2022.Community``, works too if you prefer the IDE — use
 the same ``--override`` workload arguments.)
 
-On a non-Windows host the MSI step is skipped (the image is still built) —
-except from WSL, which can cross-build:
-
-.. _wsl-cross-build:
-
-Cross-building from WSL
------------------------
-
-A Windows MSI or MSIX can be built from a WSL shell. pyappdist invokes the
-Windows-side toolchain (the runtime's ``python.exe``, MSVC, WiX) through WSL's
-Windows-interop, so:
-
-* install the toolchain **on the Windows side** as above;
-* keep the project on a path the Windows tools can reach (a Windows drive such
-  as ``/mnt/c/...``);
-* run ``pyappdist build`` from WSL as usual.
-
 Install behavior
 ----------------
 
