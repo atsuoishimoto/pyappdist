@@ -53,8 +53,7 @@ Build requirements
 * **makeappx** (Windows SDK) — located automatically, or set ``PYAPPDIST_MAKEAPPX``
   to its path.
 
-No WiX is needed. On a non-Windows host the MSIX step is skipped (the image is
-still built).
+No WiX is needed.
 
 Signing and install
 -------------------

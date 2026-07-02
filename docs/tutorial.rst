@@ -174,8 +174,7 @@ Step 6 — Build the installer
    the launcher ``.exe``) and **WiX v5** (to build the MSI). If you don't have
    them yet, follow the ``winget`` install steps in
    :ref:`Build requirements <platforms/windows-msi:Build requirements>` — the
-   build-only Build Tools (no full Visual Studio IDE) are enough. On a
-   non-Windows host the package step is skipped and only the image is produced.
+   build-only Build Tools (no full Visual Studio IDE) are enough.
 
 Build the Windows target:
 
@@ -240,8 +239,7 @@ target next to the Windows one:
    format = "linux"
 
 No toolchain is needed this time — Linux launchers are relocatable shell
-wrappers, so no compiler and no WiX are involved. Build it **on Linux** (on
-another OS the package step is skipped):
+wrappers, so no compiler and no WiX are involved. Build it **on Linux**:
 
 .. code-block:: bash
 

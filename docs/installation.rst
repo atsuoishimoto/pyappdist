@@ -30,8 +30,7 @@ pyappdist builds the app wheel with ``python -m pip``, so producing the
   beyond pip and the chosen compressor (the launchers are shell wrappers).
 * :doc:`macapp / dmg <platforms/macos-app>` — the Xcode command-line tools.
 
-Each format is built on its own OS. When a format's OS doesn't match the build
-host, the package step is skipped and only the image is produced.
+Each format is built on its own OS.
 
 Package manager (for dependency pinning)
 ----------------------------------------

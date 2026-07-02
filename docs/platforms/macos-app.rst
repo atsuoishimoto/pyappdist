@@ -16,8 +16,7 @@ macOS — .app / .dmg (GUI apps)
 
 Both are **code-signed**; with a Developer ID identity they are also **notarized and
 stapled** (see :ref:`macos-signing` below). Build on macOS — an Apple Silicon host for
-``macos-aarch64``, an Intel host for ``macos-x86_64``. On a non-macOS host the step is
-skipped (the image is still built).
+``macos-aarch64``, an Intel host for ``macos-x86_64``.
 
 The bundle layout is the real install tree, unchanged: the python-build-standalone
 runtime with your app pip-installed lands in ``Contents/Resources/python``, and a tiny
