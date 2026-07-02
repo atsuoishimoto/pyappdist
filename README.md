@@ -1,6 +1,6 @@
 # pyappdist
 
-**Turn a Python app into a native installer — and it just works.**
+**Build native installers for Python apps without hunting down hidden imports, data files, or plugins.**
 
 pyappdist packages your Python application into a native installer:
 

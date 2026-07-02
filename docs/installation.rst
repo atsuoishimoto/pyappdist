@@ -12,10 +12,6 @@ Any PEP 517/621 project works (uv, poetry, hatch, pdm, plain pip). If you do not
 use uv, install pyappdist into the environment you build from in the usual way,
 e.g. ``pip install pyappdist`` or ``poetry add --group dev pyappdist``.
 
-The Python runtime itself is downloaded from `python-build-standalone
-<https://github.com/astral-sh/python-build-standalone>`_ and cached under
-``~/.cache/pyappdist/runtime``; you do not install it yourself.
-
 Build-time toolchain
 --------------------
 
