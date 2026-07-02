@@ -67,7 +67,6 @@ use a relocatable shell wrapper. See :doc:`how-it-works`.
    :caption: Getting started
 
    installation
-   quickstart
    tutorial
 
 .. toctree::
