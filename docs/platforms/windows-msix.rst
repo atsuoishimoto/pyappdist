@@ -54,8 +54,7 @@ Build requirements
   to its path.
 
 No WiX is needed. On a non-Windows host the MSIX step is skipped (the image is
-still built); building from WSL works the same way as for MSI — see
-:ref:`wsl-cross-build`.
+still built).
 
 Signing and install
 -------------------

@@ -31,9 +31,7 @@ pyappdist builds the app wheel with ``python -m pip``, so producing the
 * :doc:`macapp / dmg <platforms/macos-app>` — the Xcode command-line tools.
 
 Each format is built on its own OS. When a format's OS doesn't match the build
-host, the package step is skipped and only the image is produced — except that a
-Windows MSI/MSIX can also be cross-built from WSL (see
-:ref:`wsl-cross-build`).
+host, the package step is skipped and only the image is produced.
 
 Package manager (for dependency pinning)
 ----------------------------------------

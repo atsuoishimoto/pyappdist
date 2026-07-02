@@ -15,8 +15,8 @@ third-party dependencies** — keeping the focus on packaging.
 .. note::
 
    The final MSI step needs the Windows toolchain (MSVC + WiX). Run the build on
-   Windows, or cross-build from WSL — see :doc:`platforms/windows-msi`. Steps 1–4
-   are plain Python and work on any OS.
+   Windows — see :doc:`platforms/windows-msi`. Steps 1–4 are plain Python and
+   work on any OS.
 
 Step 1 — Scaffold a package with uv
 -----------------------------------
@@ -175,8 +175,7 @@ Step 6 — Build the installer
    them yet, follow the ``winget`` install steps in
    :ref:`Build requirements <platforms/windows-msi:Build requirements>` — the
    build-only Build Tools (no full Visual Studio IDE) are enough. On a
-   non-Windows host the package step is skipped and only the image is produced,
-   unless you cross-build from WSL (see :ref:`wsl-cross-build`).
+   non-Windows host the package step is skipped and only the image is produced.
 
 Build the Windows target:
 
@@ -293,8 +292,8 @@ app must carry. Add it to ``[tool.pyappdist]``, then add the target:
    platform = "macos-aarch64"           # Apple Silicon; "macos-x86_64" for Intel
    format = "dmg"
 
-Unlike the MSI (which can be cross-built from WSL), the ``.app``/``.dmg`` build
-is **native-only**: run it on a Mac with the Xcode command-line tools installed
+The ``.app``/``.dmg`` build is **native-only**: run it on a Mac with the Xcode
+command-line tools installed
 (``xcode-select --install`` provides ``clang``, ``codesign``, and ``hdiutil``):
 
 .. code-block:: bash
