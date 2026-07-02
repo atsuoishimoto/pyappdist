@@ -1,5 +1,13 @@
-macOS
-=====
+macOS — tarball / .run (command-line tools)
+===========================================
+
+.. note::
+
+   Two macOS distributions exist. **This page** (``format = "macos"``) ships a
+   per-user ``.tar`` / ``.run`` installer whose launchers land in
+   ``<prefix>/bin`` — right for **command-line tools**. For a double-click
+   **GUI app** (a signed/notarized ``.app`` or ``.dmg``), use
+   :doc:`macos-app` instead.
 
 ``format = "macos"`` builds the same two artifacts as :doc:`linux` — a portable
 tarball and a self-extracting ``.run`` installer — with the same per-user install
@@ -48,6 +56,4 @@ each launcher into ``<prefix>/bin``, drops an ``uninstall.sh``, and supports
 
 macOS has no freedesktop equivalent, so launcher ``icon`` and ``gui`` are ignored —
 the installer creates the ``<prefix>/bin`` symlinks only. This format produces no
-``.app`` bundle; it suits command-line tools launched by their ``bin`` name. For a
-double-click GUI app (a signed/notarized ``.app`` or ``.dmg``), use
-:doc:`format = "macapp" / "dmg" <macapp>` instead.
+``.app`` bundle; it suits command-line tools launched by their ``bin`` name.

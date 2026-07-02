@@ -1,5 +1,5 @@
-Linux
-=====
+Linux — tarball / .run installer
+================================
 
 ``format = "linux"`` builds a real Linux distribution and emits two artifacts in
 ``appdist/<target>/dist/``:

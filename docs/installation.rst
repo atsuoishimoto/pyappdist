@@ -23,14 +23,17 @@ pyappdist builds the app wheel with ``python -m pip``, so producing the
 *wheelhouse* and the runtime image needs nothing beyond pip. Producing the final
 **package** needs a per-format toolchain, documented on each format's page:
 
-* :doc:`MSI <formats/msi>` — MSVC build tools + WiX v5.
-* :doc:`MSIX <formats/msix>` — MSVC build tools + ``makeappx`` (Windows SDK).
-* :doc:`Linux <formats/linux>` / :doc:`macOS <formats/macos>` — none beyond pip and
-  the chosen compressor (the launchers are shell wrappers).
+* :doc:`MSI <platforms/windows-msi>` — MSVC build tools + WiX v5.
+* :doc:`MSIX <platforms/windows-msix>` — MSVC build tools + ``makeappx``
+  (Windows SDK).
+* :doc:`Linux <platforms/linux>` / :doc:`macOS <platforms/macos-run>` — none
+  beyond pip and the chosen compressor (the launchers are shell wrappers).
+* :doc:`macapp / dmg <platforms/macos-app>` — the Xcode command-line tools.
 
 Each format is built on its own OS. When a format's OS doesn't match the build
 host, the package step is skipped and only the image is produced — except that a
-Windows MSI/MSIX can also be **cross-built from WSL** (see below).
+Windows MSI/MSIX can also be cross-built from WSL (see
+:ref:`wsl-cross-build`).
 
 Package manager (for dependency pinning)
 ----------------------------------------
@@ -38,4 +41,3 @@ Package manager (for dependency pinning)
 Dependencies are pinned from your project's lockfile, exported via your package
 manager (uv / poetry / pipenv / PDM). The relevant tool must be available at
 build time. See :doc:`dependencies` for details.
-

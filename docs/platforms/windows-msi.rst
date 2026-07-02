@@ -1,4 +1,4 @@
-MSI (Windows installer)
+Windows — MSI installer
 =======================
 
 ``format = "msi"`` produces a Windows ``.msi`` installer, plus a portable ``.zip``
@@ -34,12 +34,12 @@ Configuration
 
 ``code-sign``
    Code-sign the launcher ``.exe`` and the ``.msi`` (default ``false``). See
-   :doc:`/signing`.
+   :ref:`msi-code-signing` below.
 
 ``code-sign-command``
    Signing command used when ``code-sign`` is true, unless overridden by the
-   ``PYAPPDIST_SIGN_CMD`` environment variable. Defaults to a ``signtool`` invocation.
-   See :doc:`/signing`.
+   ``PYAPPDIST_SIGN_CMD`` environment variable. Defaults to a ``signtool``
+   invocation. See :ref:`msi-code-signing` below.
 
 ``allow-same-version-upgrades``
    Sets ``AllowSameVersionUpgrades="yes"`` on the WiX ``MajorUpgrade`` (default
@@ -57,23 +57,54 @@ Configuration
    scope = "user"            # "user" (default) or "machine"
    # upgrade-code = "..."    # auto-generated and written back if omitted
    # license = "EULA.rtf"    # optional EULA shown at install time
-   # code-sign = true        # sign the .exe and .msi (see /signing)
+   # code-sign = true        # sign the .exe and .msi (see below)
    # allow-same-version-upgrades = false  # reinstall same version upgrades in place
 
 Build requirements
 ------------------
 
 * **MSVC C++ build tools** (``cl.exe`` / ``rc.exe``) — to compile the launcher
-  ``.exe``. Located via ``vswhere``.
-* **WiX v5** (``dotnet tool install --global wix --version 5.0.2``) — to build the
-  MSI. Pin to **v5.0.2**: v6/v7 require accepting an EULA that blocks an unattended
-  ``wix build``.
+  ``.exe``. Located automatically via ``vswhere``; no need to put ``cl.exe`` on
+  ``PATH``.
+* **WiX v5** — to build the MSI. Pin to **v5.0.2**: v6/v7 require accepting a
+  EULA that blocks an unattended ``wix build``.
 * Only when you set ``license``, also add the WiX UI extension (once)::
 
      wix extension add -g WixToolset.UI.wixext/5.0.2
 
-On a non-Windows host the MSI step is skipped (the image is still built); see
-:doc:`/installation` for cross-building from WSL.
+If you don't have the toolchain yet, install both with ``winget`` from an
+**elevated** PowerShell — the build-only Build Tools (no full Visual Studio IDE)
+are enough:
+
+.. code-block:: powershell
+
+   # MSVC C++ build tools (the "Desktop development with C++" workload)
+   winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+
+   # WiX v5 — a .NET tool, so install the .NET SDK first
+   winget install --id Microsoft.DotNet.SDK.10 -e
+   dotnet tool install --global wix --version 5.0.2
+
+(The full Visual Studio Community edition,
+``Microsoft.VisualStudio.2022.Community``, works too if you prefer the IDE — use
+the same ``--override`` workload arguments.)
+
+On a non-Windows host the MSI step is skipped (the image is still built) —
+except from WSL, which can cross-build:
+
+.. _wsl-cross-build:
+
+Cross-building from WSL
+-----------------------
+
+A Windows MSI or MSIX can be built from a WSL shell. pyappdist invokes the
+Windows-side toolchain (the runtime's ``python.exe``, MSVC, WiX) through WSL's
+Windows-interop, so:
+
+* install the toolchain **on the Windows side** as above;
+* keep the project on a path the Windows tools can reach (a Windows drive such
+  as ``/mnt/c/...``);
+* run ``pyappdist build`` from WSL as usual.
 
 Install behavior
 ----------------
@@ -101,5 +132,43 @@ back with ``tomlkit``, which preserves your file's existing formatting and comme
 
 Launchers are compiled native ``.exe`` stubs: ``gui = true`` uses ``pythonw.exe``
 (no console) and ``icon`` is embedded into the executable and the Start-menu
-shortcut. Optional code signing of the launchers and the MSI is available via
-:doc:`/signing`.
+shortcut.
+
+.. _msi-code-signing:
+
+Code signing
+------------
+
+MSI targets are unsigned by default. Enable signing with ``code-sign = true`` on the
+target; ``pyappdist build`` then signs each launcher ``.exe`` after it is compiled and
+the ``.msi`` after it is built.
+
+.. code-block:: toml
+
+   [[tool.pyappdist.targets]]
+   name = "win"
+   platform = "windows-x86_64"
+   format = "msi"
+   code-sign = true
+   # code-sign-command = 'signtool.exe sign ... "{file}"'   # optional; default used if omitted
+
+With ``code-sign = true`` the signing command is resolved in this order:
+
+1. the ``PYAPPDIST_SIGN_CMD`` environment variable (highest priority);
+2. the target's ``code-sign-command``;
+3. a built-in default:
+   ``signtool.exe sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /a "{file}"``.
+
+The default uses ``/a`` to auto-select the best certificate from the Windows certificate
+store, so a non-secret command line can live in ``pyproject.toml``; use
+``PYAPPDIST_SIGN_CMD`` to override per machine (for example a ``.pfx`` whose password
+must not be committed). The token ``{file}`` is replaced with the path of the artifact
+being signed (appended to the command if absent).
+
+When ``code-sign`` is unset (or ``false``), signing is skipped regardless of
+``PYAPPDIST_SIGN_CMD``.
+
+.. note::
+
+   Obtaining and managing code-signing certificates is out of scope for
+   pyappdist. Unsigned installers will trigger a Windows SmartScreen warning.

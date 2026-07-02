@@ -35,6 +35,30 @@ Commands that fetch the runtime (``build``, ``build-wheels``,
 ``--runtime-release TAG``
    Pin a specific python-build-standalone release tag.
 
+.. _cli-output-layout:
+
+Output layout
+-------------
+
+Build intermediates and final artifacts go to separate trees.
+
+Intermediates land under ``.appdist-build/<target>/``:
+
+``wheelhouse/``
+   The app wheel + dependency wheels (and ``requirements.txt``).
+
+``runtime/``
+   The extracted python-build-standalone runtime.
+
+``image/``
+   The installed, ready-to-run app — itself a portable directory.
+
+The shippable packages land under ``appdist/<target>/``:
+
+``dist/``
+   The shippable package(s) for the target's format — see the per-format pages
+   under :ref:`Output formats <config-formats>`.
+
 Commands
 --------
 

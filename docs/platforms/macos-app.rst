@@ -1,17 +1,21 @@
-macOS app bundle (.app / .dmg)
+macOS — .app / .dmg (GUI apps)
 ==============================
 
-``format = "macapp"`` and ``format = "dmg"`` build a native macOS ``.app`` bundle — the
-double-click-to-launch, Dock-able form a GUI app is distributed in — rather than the
-``.run`` installer that :doc:`macos` produces. Use these for graphical apps; use
-``macos`` for command-line tools.
+.. note::
+
+   Two macOS distributions exist. **This page** (``format = "macapp"`` /
+   ``"dmg"``) builds the double-click-to-launch, Dock-able ``.app`` bundle a
+   GUI app is distributed in. For a **command-line tool** installed into
+   ``<prefix>/bin``, use :doc:`macos-run` instead.
+
+``format = "macapp"`` and ``format = "dmg"`` build a native macOS ``.app`` bundle:
 
 * ``macapp`` assembles one ``<name>.app`` per launcher into ``appdist/<name>/dist/``.
 * ``dmg`` does the same, then wraps the bundle(s) in a compressed ``<name>-<version>.dmg``
   disk image with the classic drag-to-``/Applications`` layout.
 
 Both are **code-signed**; with a Developer ID identity they are also **notarized and
-stapled** (see :doc:`../signing`). Build on macOS — an Apple Silicon host for
+stapled** (see :ref:`macos-signing` below). Build on macOS — an Apple Silicon host for
 ``macos-aarch64``, an Intel host for ``macos-x86_64``. On a non-macOS host the step is
 skipped (the image is still built).
 
@@ -49,7 +53,7 @@ from its launcher's ``icon`` table — the ``macos`` key (a ``.png``), resized i
    ``"Developer ID Application: Your Name (TEAMID)"`` (or the
    ``PYAPPDIST_SIGNING_IDENTITY`` environment variable). When unset the bundle is **ad-hoc
    signed** — it runs locally but Gatekeeper rejects it on other machines. See
-   :doc:`../signing`.
+   :ref:`macos-signing` below.
 
 ``team-id``
    Apple Developer Team ID (informational).
@@ -80,6 +84,49 @@ from its launcher's ``icon`` table — the ``macos`` key (a ``.png``), resized i
    # min-macos = "12.0"
    # signing-identity = "Developer ID Application: Your Name (TEAMID)"
    # notary-profile = "your-notary-profile"
+
+.. _macos-signing:
+
+Code signing and notarization
+-----------------------------
+
+The bundle is always code-signed. Without a configured identity it is **ad-hoc**
+signed (``codesign -s -``): it runs on the build machine but Gatekeeper rejects it
+elsewhere. To distribute, sign with a **Developer ID Application** certificate and
+**notarize**.
+
+Prerequisites (one-time):
+
+1. Enroll in the Apple Developer Program and create a *Developer ID Application*
+   certificate (Xcode → Settings → Accounts, or the Developer portal). Confirm it is
+   installed::
+
+      security find-identity -v -p codesigning
+      # 1) ... "Developer ID Application: Your Name (TEAMID)"
+
+2. Create a ``notarytool`` keychain profile from an `app-specific password
+   <https://account.apple.com>`_ (Sign-In & Security → App-Specific Passwords). The
+   password authorizes the *tool*, not one app — one profile notarizes every build.
+   pyappdist never sees the password; it lives only in the keychain::
+
+      xcrun notarytool store-credentials your-notary-profile \
+          --apple-id you@example.com --team-id TEAMID
+
+Then set ``signing-identity`` and ``notary-profile`` on the target (or use the
+``PYAPPDIST_SIGNING_IDENTITY`` / ``PYAPPDIST_NOTARY_PROFILE`` environment
+variables), as in the configuration example above.
+
+``pyappdist build`` then deep-signs every Mach-O in the bundle with a hardened
+runtime, signs the ``.dmg``, submits it to Apple's notary service, waits, and staples
+the ticket so it validates offline. Verify the result::
+
+   codesign --verify --deep --strict --verbose=2 dist/MyApp.app
+   spctl -a -t open --context context:primary-signature dist/MyApp-1.0.dmg
+   xcrun stapler validate dist/MyApp-1.0.dmg
+
+Notarization runs only when **both** a Developer ID identity and a notary profile are
+set; an ad-hoc build skips it. ``PYAPPDIST_SIGN_CMD`` (see
+:ref:`msi-code-signing`) is also applied to the ``.dmg`` as an extra hook if set.
 
 Install behavior
 ----------------

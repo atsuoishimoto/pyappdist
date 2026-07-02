@@ -23,21 +23,22 @@ Output formats
 One ``pyproject.toml`` can describe several output packages at once — each is a
 :ref:`target <config-targets>` with its own platform and format:
 
-:doc:`msi <formats/msi>`
+:doc:`msi <platforms/windows-msi>`
    ``windows-x86_64`` → ``.msi`` installer + portable ``.zip``.
 
-:doc:`msix <formats/msix>`
+:doc:`msix <platforms/windows-msix>`
    ``windows-x86_64`` → ``.msix`` (Store / sideloading).
 
-:doc:`linux <formats/linux>`
+:doc:`linux <platforms/linux>`
    ``linux-x86_64`` → ``.tar.{gz,bz2,xz}`` + ``.run`` installer.
 
-:doc:`macos <formats/macos>`
-   ``macos-aarch64`` → ``.tar.{gz,bz2,xz}`` + ``.run`` installer.
+:doc:`macos <platforms/macos-run>`
+   ``macos-aarch64`` → ``.tar.{gz,bz2,xz}`` + ``.run`` installer, for
+   **command-line tools**.
 
-:doc:`macapp / dmg <formats/macapp>`
+:doc:`macapp / dmg <platforms/macos-app>`
    ``macos-aarch64`` → a signed/notarized ``.app`` bundle, optionally
-   inside a ``.dmg``.
+   inside a ``.dmg``, for **GUI apps**.
 
 Why "just works"
 ----------------
@@ -68,27 +69,31 @@ use a relocatable shell wrapper. See :doc:`how-it-works`.
    installation
    quickstart
    tutorial
-   configuration
-   samples
 
 .. toctree::
    :maxdepth: 2
-   :caption: Output formats
+   :caption: Concepts
 
-   formats/msi
-   formats/msix
-   formats/linux
-   formats/macos
-   formats/macapp
+   how-it-works
+   dependencies
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Shipping guides
+
+   platforms/windows-msi
+   platforms/windows-msix
+   platforms/linux
+   platforms/macos-run
+   platforms/macos-app
 
 .. toctree::
    :maxdepth: 2
    :caption: Reference
 
+   configuration
    cli
-   how-it-works
-   dependencies
-   signing
+   samples
    history
    GitHub <https://github.com/atsuoishimoto/pyappdist>
 
@@ -100,6 +105,6 @@ config schema, CLI, and output layout as it matures.
 
 Targets today are Windows x64 (``msi``, ``msix``), Linux x64 (``linux``), and
 macOS arm64/x64 (``macos``). Auto-update and code-signing certificates are out of
-scope for now; optional :doc:`signing` of the Windows artifacts is available.
-Distributed apps are not obfuscated, and unsigned Windows installers will trigger a
-SmartScreen warning.
+scope for now; optional :ref:`code signing <msi-code-signing>` of the Windows
+artifacts is available. Distributed apps are not obfuscated, and unsigned Windows
+installers will trigger a SmartScreen warning.
