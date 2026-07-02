@@ -10,6 +10,35 @@ of the same image that runs without installation.
 
 Only ``platform = "windows-x86_64"`` may use this format.
 
+Build requirements
+------------------
+
+* **MSVC C++ build tools** (``cl.exe`` / ``rc.exe``) — to compile the launcher
+  ``.exe``. Located automatically via ``vswhere``; no need to put ``cl.exe`` on
+  ``PATH``.
+* **WiX v5** — to build the MSI. Pin to **v5.0.2**: v6/v7 require accepting a
+  EULA that blocks an unattended ``wix build``.
+* Only when you set ``license``, also add the WiX UI extension (once)::
+
+     wix extension add -g WixToolset.UI.wixext/5.0.2
+
+If you don't have the toolchain yet, install both with ``winget`` from an
+**elevated** PowerShell — the build-only Build Tools (no full Visual Studio IDE)
+are enough:
+
+.. code-block:: powershell
+
+   # MSVC C++ build tools (the "Desktop development with C++" workload)
+   winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+
+   # WiX v5 — a .NET tool, so install the .NET SDK first
+   winget install --id Microsoft.DotNet.SDK.10 -e
+   dotnet tool install --global wix --version 5.0.2
+
+(The full Visual Studio Community edition,
+``Microsoft.VisualStudio.2022.Community``, works too if you prefer the IDE — use
+the same ``--override`` workload arguments.)
+
 Configuration
 -------------
 
@@ -59,35 +88,6 @@ Configuration
    # license = "EULA.rtf"    # optional EULA shown at install time
    # code-sign = true        # sign the .exe and .msi (see below)
    # allow-same-version-upgrades = false  # reinstall same version upgrades in place
-
-Build requirements
-------------------
-
-* **MSVC C++ build tools** (``cl.exe`` / ``rc.exe``) — to compile the launcher
-  ``.exe``. Located automatically via ``vswhere``; no need to put ``cl.exe`` on
-  ``PATH``.
-* **WiX v5** — to build the MSI. Pin to **v5.0.2**: v6/v7 require accepting a
-  EULA that blocks an unattended ``wix build``.
-* Only when you set ``license``, also add the WiX UI extension (once)::
-
-     wix extension add -g WixToolset.UI.wixext/5.0.2
-
-If you don't have the toolchain yet, install both with ``winget`` from an
-**elevated** PowerShell — the build-only Build Tools (no full Visual Studio IDE)
-are enough:
-
-.. code-block:: powershell
-
-   # MSVC C++ build tools (the "Desktop development with C++" workload)
-   winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
-
-   # WiX v5 — a .NET tool, so install the .NET SDK first
-   winget install --id Microsoft.DotNet.SDK.10 -e
-   dotnet tool install --global wix --version 5.0.2
-
-(The full Visual Studio Community edition,
-``Microsoft.VisualStudio.2022.Community``, works too if you prefer the IDE — use
-the same ``--override`` workload arguments.)
 
 Install behavior
 ----------------

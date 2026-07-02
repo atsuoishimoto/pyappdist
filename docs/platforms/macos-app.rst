@@ -24,13 +24,20 @@ Mach-O launcher at ``Contents/MacOS/<name>`` ``execv``\ s the bundled interprete
 several launchers you get one ``.app`` each (a bundle has exactly one executable), all
 packed into a single ``.dmg``.
 
-Requirements
-------------
+Build requirements
+------------------
 
-``identifier`` (app-level) is **required** — the reverse-DNS CFBundleIdentifier (e.g.
-``"com.example.myapp"``). The toolchain (``clang``, ``codesign``, ``hdiutil``, ``sips`` /
-``iconutil`` for the icon, and ``xcrun notarytool`` / ``stapler`` for notarization) ships
-with the Xcode command-line tools.
+The whole toolchain (``clang``, ``codesign``, ``hdiutil``, ``sips`` / ``iconutil``
+for the icon, and ``xcrun notarytool`` / ``stapler`` for notarization) ships with
+the **Xcode Command Line Tools**. If they are not installed yet, install them from
+a terminal — a dialog confirms the download; the full Xcode IDE is not required:
+
+.. code-block:: console
+
+   $ xcode-select --install
+
+In the configuration, ``identifier`` (app-level) is **required** — the reverse-DNS
+CFBundleIdentifier (e.g. ``"com.example.myapp"``).
 
 Configuration
 -------------

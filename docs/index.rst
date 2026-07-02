@@ -1,7 +1,7 @@
 pyappdist
 =========
 
-**Build native installers for Python apps without hunting down hidden imports, data files, or plugins.*
+**Build native installers for Python apps without hunting down hidden imports, data files, or plugins.**
 
 .. warning::
 

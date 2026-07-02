@@ -10,6 +10,22 @@ launchers are packaged as full-trust Win32 apps (``runFullTrust``), one
 There is no portable ``.zip`` for this format (the ``.msix`` is the deliverable).
 Only ``platform = "windows-x86_64"`` may use this format.
 
+Build requirements
+------------------
+
+* **MSVC C++ build tools** (``cl.exe`` / ``rc.exe``) — to compile the launcher
+  ``.exe`` (same as :doc:`MSI <windows-msi>`; see its
+  :ref:`install steps <platforms/windows-msi:Build requirements>`).
+* **makeappx** (Windows SDK) — located automatically, or set ``PYAPPDIST_MAKEAPPX``
+  to its path. It is included in the Windows SDK that the MSVC Build Tools
+  install pulls in; standalone, it comes with the Windows SDK installer or
+
+  .. code-block:: powershell
+
+     winget install --id Microsoft.WindowsSDK.10.0.26100 -e
+
+No WiX is needed.
+
 Configuration
 -------------
 
@@ -43,17 +59,6 @@ Configuration
    # publisher = "CN=Contoso"
    # display-name = "My App"
    # logo = "assets/logo.png"
-
-Build requirements
-------------------
-
-* **MSVC C++ build tools** (``cl.exe`` / ``rc.exe``) — to compile the launcher
-  ``.exe`` (same as :doc:`MSI <windows-msi>`; see its
-  :ref:`install steps <platforms/windows-msi:Build requirements>`).
-* **makeappx** (Windows SDK) — located automatically, or set ``PYAPPDIST_MAKEAPPX``
-  to its path.
-
-No WiX is needed.
 
 Signing and install
 -------------------

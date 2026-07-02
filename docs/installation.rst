@@ -23,7 +23,7 @@ pyappdist builds the app wheel with ``python -m pip``, so producing the
 * :doc:`MSIX <platforms/windows-msix>` — MSVC build tools + ``makeappx``
   (Windows SDK).
 * :doc:`Linux <platforms/linux>` / :doc:`macOS <platforms/macos-run>` — none
-  beyond pip and the chosen compressor (the launchers are shell wrappers).
+  (the launchers are shell scripts).
 * :doc:`macapp / dmg <platforms/macos-app>` — the Xcode command-line tools.
 
 Each format is built on its own OS.
