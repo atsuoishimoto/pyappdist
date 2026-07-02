@@ -19,6 +19,13 @@ model. Build a macOS target **on macOS**: an Apple Silicon host for
 
 Only ``platform = "macos-aarch64"`` or ``"macos-x86_64"`` may use this format.
 
+Build requirements
+------------------
+
+None. The launchers are shell scripts and the payload is compressed with
+Python's own ``tarfile`` — unlike :doc:`macos-app`, this format needs no Xcode
+Command Line Tools.
+
 Configuration
 -------------
 
@@ -33,11 +40,6 @@ Configuration
    platform = "macos-aarch64"             # or "macos-x86_64" for Intel
    format = "macos"
    # compression = "gzip"                  # "gzip" | "bzip2" | "xz" (default "gzip")
-
-Build requirements
-------------------
-
-None beyond pip and the chosen compressor.
 
 Install behavior
 ----------------

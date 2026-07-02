@@ -12,6 +12,13 @@ Linux — tarball / .run installer
 
 Only ``platform = "linux-x86_64"`` may use this format.
 
+Build requirements
+------------------
+
+None. The launchers are shell scripts and the payload is compressed with
+Python's own ``tarfile``, so no compiler and no external compression tool is
+needed on the build machine.
+
 Configuration
 -------------
 
@@ -32,11 +39,6 @@ Configuration
    format = "linux"
    # categories = "Utility;Development;"   # for launchers that set an icon
    # compression = "xz"                    # "gzip" | "bzip2" | "xz" (default "xz")
-
-Build requirements
-------------------
-
-None beyond pip and the chosen compressor.
 
 Install behavior
 ----------------
