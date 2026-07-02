@@ -1,10 +1,12 @@
-Tutorial: a Windows installer from scratch
-==========================================
+Tutorial: installers from scratch
+=================================
 
 This walkthrough builds a real Windows ``.msi`` installer for a tiny tkinter GUI,
-starting from an empty directory. It follows the path pyappdist itself takes:
-scaffold a proper package, confirm it builds a wheel, confirm its launcher command
-runs from that wheel, then add the pyappdist config and build the installer.
+starting from an empty directory, then ships the very same project as a Linux
+``.run`` installer and a macOS ``.dmg``. It follows the path pyappdist itself
+takes: scaffold a proper package, confirm it builds a wheel, confirm its launcher
+command runs from that wheel, then add the pyappdist config and build the
+installers.
 
 tkinter is used on purpose: it is part of the Python standard library and ships
 with the bundled python-build-standalone runtime, so the app needs **no
@@ -224,12 +226,107 @@ you prefer to pick the GUID yourself, set ``upgrade-code`` before the first buil
 and pyappdist will leave it alone.) See :doc:`platforms/windows-msi` for the full
 upgrade behavior.
 
+Step 8 — Add a Linux ``.run`` installer
+---------------------------------------
+
+The same project can ship to other platforms: each output package is one more
+``[[tool.pyappdist.targets]]`` entry in the same ``pyproject.toml``. Add a Linux
+target next to the Windows one:
+
+.. code-block:: toml
+
+   [[tool.pyappdist.targets]]
+   name = "linux"
+   platform = "linux-x86_64"
+   format = "linux"
+
+No toolchain is needed this time — Linux launchers are relocatable shell
+wrappers, so no compiler and no WiX are involved. Build it **on Linux** (on
+another OS the package step is skipped):
+
+.. code-block:: bash
+
+   uv run pyappdist build linux
+
+Now that the project defines more than one target, ``pyappdist build`` requires
+the target name — which is why the commands here say ``windows`` and ``linux``
+explicitly. Two artifacts land in ``appdist/linux/dist/``:
+
+.. code-block:: text
+
+   appdist/linux/dist/hellotk-0.1.0-linux.tar.xz   # extract anywhere and run
+   appdist/linux/dist/hellotk-0.1.0-linux.run      # self-extracting installer
+
+The ``.run`` file is the installer: per-user, no root required. It copies the
+app under ``~/.local``, symlinks the launcher into ``~/.local/bin`` (so typing
+``hellotk`` in a terminal opens the window), and drops an ``uninstall.sh``:
+
+.. code-block:: console
+
+   $ ./hellotk-0.1.0-linux.run               # install into ~/.local
+   $ hellotk                                 # run it
+   $ ./hellotk-0.1.0-linux.run --uninstall   # remove it
+
+(``gui = true`` has no effect on Linux — there is no console-window concept to
+suppress.) A ``.desktop`` menu entry is written only for launchers that define
+an ``icon``; this tutorial's launcher has none, so the app is started from the
+terminal. See :doc:`platforms/linux` for ``--prefix``, the ``compression``
+choices, and the ``categories`` key.
+
+Step 9 — Add a macOS ``.dmg``
+-----------------------------
+
+A GUI app on macOS ships as a drag-to-``/Applications`` ``.app`` bundle, usually
+inside a ``.dmg`` disk image — that is ``format = "dmg"``. It needs one new
+**app-level** key: ``identifier``, the reverse-DNS bundle identifier every macOS
+app must carry. Add it to ``[tool.pyappdist]``, then add the target:
+
+.. code-block:: toml
+
+   [tool.pyappdist]
+   name = "Hello Tk"
+   python = "3.12"
+   identifier = "com.example.hellotk"   # required for macapp/dmg
+
+   [[tool.pyappdist.targets]]
+   name = "macos"
+   platform = "macos-aarch64"           # Apple Silicon; "macos-x86_64" for Intel
+   format = "dmg"
+
+Unlike the MSI (which can be cross-built from WSL), the ``.app``/``.dmg`` build
+is **native-only**: run it on a Mac with the Xcode command-line tools installed
+(``xcode-select --install`` provides ``clang``, ``codesign``, and ``hdiutil``):
+
+.. code-block:: bash
+
+   uv run pyappdist build macos
+
+The result is a disk image in ``appdist/macos/dist/``:
+
+.. code-block:: text
+
+   appdist/macos/dist/hellotk-0.1.0.dmg
+
+Mount it and drag **Hello Tk.app** into ``/Applications``. The bundle is named
+after the app-level ``name``, carries its own Python runtime under
+``Contents/Resources/python``, and gets a generated placeholder icon — set
+``icon = { macos = "..." }`` on the launcher to supply a real ``.png``.
+
+One caveat before distributing it: without a configured signing identity the
+bundle is **ad-hoc signed** — it runs on the build machine, but Gatekeeper
+rejects it on anyone else's Mac. To pass Gatekeeper, set ``signing-identity``
+and ``notary-profile`` on the target so the build signs with your Developer ID
+and notarizes the ``.dmg``; the one-time Apple setup and the exact keys are in
+:ref:`macos-signing`.
+
 Where to go next
 ----------------
 
 * :doc:`configuration` — every configuration key.
 * :doc:`samples` — runnable examples with dependencies, C extensions, and other GUI
   stacks (PySide6, pygame, NiceGUI).
-* :doc:`platforms/windows-msix`, :doc:`platforms/linux`, :doc:`platforms/macos-run`,
-  :doc:`platforms/macos-app` — add more targets to the same ``pyproject.toml`` to
-  ship other platforms from one project.
+* :doc:`platforms/windows-msi`, :doc:`platforms/linux`, :doc:`platforms/macos-app` —
+  the full options behind the three targets built here.
+* :doc:`platforms/windows-msix`, :doc:`platforms/macos-run` — the remaining
+  formats: the Microsoft Store package, and the tarball/``.run`` installer for
+  macOS command-line tools.
