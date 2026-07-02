@@ -1,5 +1,5 @@
-MSIX (Microsoft Store / sideloading)
-====================================
+Windows — MSIX (Microsoft Store / sideloading)
+==============================================
 
 ``format = "msix"`` packs the runtime image into a Windows ``.msix`` package. The
 launchers are packaged as full-trust Win32 apps (``runFullTrust``), one
@@ -48,12 +48,14 @@ Build requirements
 ------------------
 
 * **MSVC C++ build tools** (``cl.exe`` / ``rc.exe``) — to compile the launcher
-  ``.exe`` (same as MSI).
+  ``.exe`` (same as :doc:`MSI <windows-msi>`; see its
+  :ref:`install steps <platforms/windows-msi:Build requirements>`).
 * **makeappx** (Windows SDK) — located automatically, or set ``PYAPPDIST_MAKEAPPX``
   to its path.
 
 No WiX is needed. On a non-Windows host the MSIX step is skipped (the image is
-still built).
+still built); building from WSL works the same way as for MSI — see
+:ref:`wsl-cross-build`.
 
 Signing and install
 -------------------
@@ -71,4 +73,10 @@ developers; one-time, requires admin), then:
    # or:  Add-AppxPackage -AllowUnsigned <app>.msix
 
 Without the Store or Developer Mode, an unsigned MSIX cannot be installed (it would
-need your own trusted code-signing certificate). To sign locally, see :doc:`/signing`.
+need your own trusted code-signing certificate). For sideloading, the signing
+certificate's subject must match the manifest ``Publisher``.
+
+MSIX is **not** covered by the MSI ``code-sign`` key: the package is signed only
+when the ``PYAPPDIST_SIGN_CMD`` environment variable is set. The command receives
+the artifact path via the ``{file}`` token, exactly as described in
+:ref:`msi-code-signing`.

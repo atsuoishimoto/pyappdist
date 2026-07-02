@@ -13,8 +13,8 @@ third-party dependencies** — keeping the focus on packaging.
 .. note::
 
    The final MSI step needs the Windows toolchain (MSVC + WiX). Run the build on
-   Windows, or cross-build from WSL — see :doc:`formats/msi` and
-   :doc:`installation`. Steps 1–4 are plain Python and work on any OS.
+   Windows, or cross-build from WSL — see :doc:`platforms/windows-msi`. Steps 1–4
+   are plain Python and work on any OS.
 
 Step 1 — Scaffold a package with uv
 -----------------------------------
@@ -99,7 +99,7 @@ This must succeed and drop a ``.whl`` in ``dist/``:
 
 (The equivalent without uv is ``python -m pip wheel --no-deps .``.) If this fails,
 fix the packaging before going further — pyappdist cannot distribute an app that
-does not build a wheel. See :ref:`What your project must satisfy <config-prereqs>`.
+does not build a wheel. See :ref:`What your project must satisfy <project-prereqs>`.
 
 Step 4 — Test the launcher command from the installed wheel
 -----------------------------------------------------------
@@ -161,7 +161,7 @@ a GUI), and one Windows MSI target:
 
 The ``entry`` is the very command you tested in step 4, and ``gui = true`` is
 what makes the console window disappear. See :doc:`configuration` for every key
-and :doc:`formats/msi` for the MSI-specific options.
+and :doc:`platforms/windows-msi` for the MSI-specific options.
 
 Step 6 — Build the installer
 ----------------------------
@@ -170,25 +170,11 @@ Step 6 — Build the installer
 
    This step needs the Windows toolchain: **MSVC C++ build tools** (to compile
    the launcher ``.exe``) and **WiX v5** (to build the MSI). If you don't have
-   them yet, install both with ``winget`` from an **elevated** PowerShell — the
-   build-only Build Tools (no full Visual Studio IDE) are enough:
-
-   .. code-block:: powershell
-
-      # MSVC C++ build tools (the "Desktop development with C++" workload)
-      winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
-
-      # WiX v5 — a .NET tool, so install the .NET SDK first
-      winget install --id Microsoft.DotNet.SDK.10 -e
-      dotnet tool install --global wix --version 5.0.2
-
-   pyappdist locates MSVC automatically via ``vswhere``; no need to put
-   ``cl.exe`` on ``PATH``. Pin WiX to **5.0.2** — v6/v7 require accepting a EULA
-   that blocks an unattended ``wix build``. (The full Visual Studio Community
-   edition, ``Microsoft.VisualStudio.2022.Community``, works too if you prefer
-   the IDE — use the same ``--override`` workload arguments.) See
-   :doc:`formats/msi` for the toolchain details and :doc:`installation` for the
-   WSL cross-build path.
+   them yet, follow the ``winget`` install steps in
+   :ref:`Build requirements <platforms/windows-msi:Build requirements>` — the
+   build-only Build Tools (no full Visual Studio IDE) are enough. On a
+   non-Windows host the package step is skipped and only the image is produced,
+   unless you cross-build from WSL (see :ref:`wsl-cross-build`).
 
 Build the Windows target:
 
@@ -209,13 +195,6 @@ it all with WiX. The artifacts land under ``appdist/windows/dist/``:
 Double-click the ``.msi`` to install (a per-user install needs no admin rights);
 ``hellotk`` then appears in the Start menu and launches your tkinter window — with
 its own private Python runtime, independent of any Python on the machine.
-
-.. note::
-
-   The MSI step requires MSVC build tools and WiX v5. On a non-Windows host the
-   package step is skipped and only the image under ``appdist/windows/image/`` is
-   produced, unless you cross-build from WSL. See :doc:`formats/msi` for the
-   toolchain setup and :doc:`installation` for the WSL path.
 
 Step 7 — Confirm the ``upgrade-code``
 -------------------------------------
@@ -242,8 +221,8 @@ now find a concrete value where the comment used to be:
 Commit this value and keep it: build the same project again and the line stays
 unchanged, so every release shares one ``upgrade-code`` and upgrades cleanly. (If
 you prefer to pick the GUID yourself, set ``upgrade-code`` before the first build
-and pyappdist will leave it alone.) See :doc:`formats/msi` for the full upgrade
-behavior.
+and pyappdist will leave it alone.) See :doc:`platforms/windows-msi` for the full
+upgrade behavior.
 
 Where to go next
 ----------------
@@ -251,5 +230,6 @@ Where to go next
 * :doc:`configuration` — every configuration key.
 * :doc:`samples` — runnable examples with dependencies, C extensions, and other GUI
   stacks (PySide6, pygame, NiceGUI).
-* :doc:`formats/msix`, :doc:`formats/linux`, :doc:`formats/macos` — add more targets
-  to the same ``pyproject.toml`` to ship other platforms from one project.
+* :doc:`platforms/windows-msix`, :doc:`platforms/linux`, :doc:`platforms/macos-run`,
+  :doc:`platforms/macos-app` — add more targets to the same ``pyproject.toml`` to
+  ship other platforms from one project.
