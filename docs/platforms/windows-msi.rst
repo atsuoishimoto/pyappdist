@@ -89,8 +89,6 @@ are enough:
 ``Microsoft.VisualStudio.2022.Community``, works too if you prefer the IDE — use
 the same ``--override`` workload arguments.)
 
-On a non-Windows host the MSI step is skipped (the image is still built).
-
 Install behavior
 ----------------
 
