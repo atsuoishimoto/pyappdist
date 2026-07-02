@@ -30,7 +30,7 @@ CLI samples
 `pandascli <https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pandascli>`_
    Formats and prints a DataFrame with pandas + numpy. Shows that C-extension
    dependencies are collected as binary wheels and installed into the runtime's
-   site-packages. Console launcher (``gui = false`` → ``python.exe``).
+   site-packages. Console launcher.
 
 `datafiles <https://github.com/atsuoishimoto/pyappdist/tree/main/samples/datafiles>`_
    Ships a non-code data file (``data/ebi.jpeg``) via
