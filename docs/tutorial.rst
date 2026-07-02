@@ -30,6 +30,10 @@ package, a ``[build-system]``, and a console-script entry point:
    uv init --package hellotk
    cd hellotk
 
+The ``--package`` flag matters: it makes the project itself installable, so
+the package definition states exactly which sources pyappdist installs —
+nothing is picked up loosely from the working directory.
+
 You get a ``pyproject.toml`` like this (note the ``[project.scripts]`` entry —
 ``hellotk = "hellotk:main"`` — which is the same ``module:callable`` form
 pyappdist's launcher uses):
