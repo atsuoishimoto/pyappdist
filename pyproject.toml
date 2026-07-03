@@ -72,6 +72,6 @@ tasks = ["build-installer"]
 
 [tool.uv-matrix.tasks.build-installer]
 when = "target.startswith(platform)"
-continue-on-error = "environ.get('CI') == 'true'"   # CI では失敗セルで止めず残りも試行
+continue-on-error = "environ.get('CI') == 'true'"   # in CI, keep building the rest after a failed cell
 cwd = "samples/{{ project }}"
 run = "uvx --with ../.. pyappdist build {{ target }}"

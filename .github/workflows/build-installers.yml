@@ -1,23 +1,23 @@
 name: Build installers
 
-# 手動実行（workflow_dispatch）で samples 以下の各プロジェクトを 3 OS
-# （Linux / Windows / macOS-arm）でビルドする。ビルドの実体は uv-matrix の
-# `build-installers` マトリクス。各セルは `when = "target.startswith(platform)"`
-# で自分の OS のターゲットだけを実行するので、同じコマンドを各ランナーで走らせる。
+# Manually (workflow_dispatch) build every project under samples/ on 3 OSes
+# (Linux / Windows / macOS-arm). The build is driven by uv-matrix's
+# `build-installers` matrix. Each cell runs only the targets for its own OS via
+# `when = "target.startswith(platform)"`, so the same command runs on every runner.
 on:
   workflow_dispatch:
 
 jobs:
   build:
     strategy:
-      fail-fast: false   # 1 OS の失敗が他の OS をキャンセルしないようにする
+      fail-fast: false   # one OS failing must not cancel the others
       matrix:
         include:
           - os: ubuntu-latest
             artifact: installers-linux
           - os: windows-latest
             artifact: installers-windows
-          - os: macos-14          # Apple Silicon (arm64) ランナー
+          - os: macos-14          # Apple Silicon (arm64) runner
             artifact: installers-macos-arm
     runs-on: ${{ matrix.os }}
     steps:
@@ -25,22 +25,22 @@ jobs:
 
       - uses: astral-sh/setup-uv@v5
 
-      # Windows の MSI 用 WiX は dotnet グローバルツール。
-      # MSVC (cl.exe/rc.exe) と Windows SDK (makeappx: MSIX 用) は windows-latest に
-      # プリインストール済みで、pyappdist は vswhere 経由で自動解決する。
-      # macOS の Xcode CLT (clang/codesign/hdiutil/sips/iconutil)、Linux は追加不要。
+      # WiX (for the Windows MSI) is a dotnet global tool. MSVC (cl.exe/rc.exe)
+      # and the Windows SDK (makeappx, for MSIX) are preinstalled on
+      # windows-latest and resolved automatically by pyappdist via vswhere.
+      # macOS Xcode CLT (clang/codesign/hdiutil/sips/iconutil) and Linux need nothing extra.
       - name: Install WiX (Windows only)
         if: runner.os == 'Windows'
         run: dotnet tool install --global wix --version 5.0.2
 
       - name: Build installers (build-installers matrix)
         env:
-          # 署名する場合のみ secret を設定（未設定なら未署名で出荷）。
+          # Set this secret only to sign; unset means ship unsigned.
           PYAPPDIST_SIGN_CMD: ${{ secrets.PYAPPDIST_SIGN_CMD }}
         run: uv run uv-matrix run --matrix build-installers
 
       - name: Upload installers
-        if: always()      # ビルドが途中失敗しても成功分は必ずアップロード
+        if: always()      # upload whatever built even if some cells failed
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
