@@ -1,7 +1,8 @@
 name: Release
 
-# タグ push でクリーンルーム（windows-latest）E2E を行い、MSI + portable zip を
-# リリース成果物として生成・検証する。サンプル helloworld を E2E フィクスチャに使う。
+# On a tag push, run a clean-room (windows-latest) E2E build that produces and
+# verifies the release artifacts (MSI + portable zip). The helloworld sample is
+# used as the E2E fixture.
 on:
   push:
     tags: ['v*']
@@ -15,13 +16,13 @@ jobs:
 
       - uses: astral-sh/setup-uv@v5
 
-      - name: Install WiX (v5, OSMF フィー無し)
+      - name: Install WiX (v5, no OSMF fee)
         run: dotnet tool install --global wix --version 5.0.2
 
       - name: Build (wheels -> runtime -> image -> launcher -> wix -> MSI)
         env:
-          # 署名する場合のみ secret を設定（未設定なら未署名で出荷）。
-          # 例: 'signtool.exe sign /fd SHA256 /tr <ts-url> /td SHA256 /f cert.pfx /p $PWD "{file}"'
+          # Set this secret only to sign; unset means ship unsigned.
+          # e.g. 'signtool.exe sign /fd SHA256 /tr <ts-url> /td SHA256 /f cert.pfx /p $PWD "{file}"'
           PYAPPDIST_SIGN_CMD: ${{ secrets.PYAPPDIST_SIGN_CMD }}
         run: uv run pyappdist build sample/helloworld
 
