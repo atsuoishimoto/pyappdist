@@ -20,6 +20,10 @@ jobs:
           - os: macos-14          # Apple Silicon (arm64) runner
             artifact: installers-macos-arm
     runs-on: ${{ matrix.os }}
+    # The macOS signing secrets live in the `sign_macos` environment; only the
+    # macOS cell enters it (an empty environment = none), so Linux/Windows runs
+    # never touch it and any environment protection rules gate only macOS.
+    environment: ${{ startsWith(matrix.os, 'macos') && 'sign_macos' || '' }}
     # Lifted to job level so the macOS signing step's `if` can test it — the
     # `secrets` context is not available in a step-level `if`, but `env` is.
     env:
