@@ -24,16 +24,16 @@ One ``pyproject.toml`` can describe several output packages at once — each is 
 :ref:`target <config-targets>` with its own platform and format:
 
 :doc:`msi <platforms/windows-msi>`
-   ``windows-x86_64`` → ``.msi`` installer + portable ``.zip``.
+   ``windows-x86_64`` → ``.msi`` installer.
 
 :doc:`msix <platforms/windows-msix>`
    ``windows-x86_64`` → ``.msix`` (Store / sideloading).
 
 :doc:`linux <platforms/linux>`
-   ``linux-x86_64`` → ``.tar.{gz,bz2,xz}`` + ``.run`` installer.
+   ``linux-x86_64`` → ``.run`` installer.
 
 :doc:`macos <platforms/macos-run>`
-   ``macos-aarch64`` → ``.tar.{gz,bz2,xz}`` + ``.run`` installer, for
+   ``macos-aarch64`` → ``.run`` installer, for
    **command-line tools**.
 
 :doc:`macapp / dmg <platforms/macos-app>`
@@ -59,7 +59,7 @@ break and needs manual patching. pyappdist skips all of that:
 On Windows the launcher is a tiny C stub that starts the bundled ``python.exe`` /
 ``pythonw.exe`` as a subprocess, so there is no ``pythonXX.dll`` embedding and no
 C-API version risk — the stub never changes when the Python version does. The macOS
-``.app`` uses an equivalent compiled Mach-O stub; Linux and the macOS ``.tar``/``.run``
+``.app`` uses an equivalent compiled Mach-O stub; Linux and the macOS ``.run``
 use a relocatable shell wrapper. See :doc:`how-it-works`.
 
 .. toctree::

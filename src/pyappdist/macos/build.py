@@ -1,4 +1,4 @@
-"""Build the macOS deliverables: a portable tarball plus a self-extracting .run.
+"""Build the macOS deliverable: a self-extracting .run installer.
 
 The packaging logic is shared with Linux in :mod:`pyappdist.posix`; this is a thin
 ``os_kind="macos"`` wrapper. macOS has no freedesktop ``.desktop`` equivalent, so
@@ -18,7 +18,7 @@ from ..posix.build import build_posix
 def build_macos(
     config: Config, layout: ImageLayout, dist_dir: Path, *, log=print
 ) -> list[Path] | None:
-    """Build the .tar.gz and .run from the image. Returns None for non-macOS targets."""
+    """Build the .run installer from the image. Returns None for non-macOS targets."""
     return build_posix(
         config,
         layout,

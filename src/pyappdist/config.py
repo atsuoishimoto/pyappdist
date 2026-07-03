@@ -30,8 +30,8 @@ _WIX_SCOPES = ("machine", "user")
 
 # Output package format per target.
 #   msi/msix - Windows packages (see WixConfig/MsixConfig)
-#   linux    - a portable tarball plus a self-extracting .run installer (see LinuxConfig)
-#   macos    - the same POSIX tarball + .run, for macOS (see MacosConfig)
+#   linux    - a self-extracting .run installer (see LinuxConfig)
+#   macos    - the same POSIX .run installer, for macOS (see MacosConfig)
 #   macapp/dmg - a macOS .app bundle (GUI distribution); dmg additionally wraps it in a
 #              disk image. Both Developer-ID-sign + notarize when configured (see MacosConfig).
 _FORMATS = ("msi", "msix", "linux", "macos", "macapp", "dmg")
@@ -139,10 +139,10 @@ class MsixConfig:
 class LinuxConfig:
     """Linux ``format = "linux"`` settings.
 
-    The output is a portable ``.tar.gz`` (the image tree) plus a self-extracting
-    ``.run`` installer that copies into a per-user prefix (``$HOME/.local`` by default),
-    symlinks each launcher into ``<prefix>/bin``, and — only when a launcher has an
-    ``icon`` — writes a ``.desktop`` entry. No root required; updates are the app's job.
+    The output is a self-extracting ``.run`` installer that copies the image tree into a
+    per-user prefix (``$HOME/.local`` by default), symlinks each launcher into
+    ``<prefix>/bin``, and — only when a launcher has an ``icon`` — writes a ``.desktop``
+    entry. No root required; updates are the app's job.
     """
 
     categories: str = "Utility;"  # freedesktop .desktop Categories (icon launchers only)
@@ -154,10 +154,10 @@ class MacosConfig:
     """macOS target settings, shared by ``macos`` (.run) and ``app``/``dmg`` (.app bundle).
 
     ``compression`` applies only to ``format = "macos"``: the output mirrors Linux — a
-    portable tarball plus a self-extracting ``.run`` that installs into a per-user prefix
-    and symlinks each launcher into ``<prefix>/bin`` (macOS has no freedesktop equivalent,
-    so launcher ``icon``/``gui`` are ignored). The default is ``gzip`` (not ``xz``) because
-    ``xz`` is not preinstalled on macOS.
+    self-extracting ``.run`` that installs into a per-user prefix and symlinks each launcher
+    into ``<prefix>/bin`` (macOS has no freedesktop equivalent, so launcher ``icon``/``gui``
+    are ignored). The default is ``gzip`` (not ``xz``) because ``xz`` is not preinstalled on
+    macOS.
 
     The remaining fields apply to ``format = "macapp"``/``"dmg"`` — assembling a ``.app``
     bundle (and, for ``dmg``, wrapping it in a disk image). When ``signing-identity`` (or

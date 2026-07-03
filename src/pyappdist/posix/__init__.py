@@ -1,4 +1,4 @@
-"""Shared POSIX packaging (Linux and macOS): a portable tarball plus a .run installer."""
+"""Shared POSIX packaging (Linux and macOS): a self-extracting .run installer."""
 
 from __future__ import annotations
 

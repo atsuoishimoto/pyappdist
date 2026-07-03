@@ -189,12 +189,11 @@ Build the Windows target:
 pyappdist runs the full pipeline — exports your locked dependencies (none here),
 builds wheels with the target runtime, installs them into a fresh
 python-build-standalone runtime, compiles the ``hellotk.exe`` launcher, and packs
-it all with WiX. The artifacts land under ``appdist/windows/dist/``:
+it all with WiX. The artifact lands under ``appdist/windows/dist/``:
 
 .. code-block:: text
 
    appdist/windows/dist/hellotk-0.1.0.msi             # the installer
-   appdist/windows/dist/hellotk-0.1.0-portable.zip    # the same image, runnable in place
 
 Double-click the ``.msi`` to install (a per-user install needs no admin rights);
 ``hellotk`` then appears in the Start menu and launches your tkinter window — with
@@ -251,11 +250,10 @@ wrappers, so no compiler and no WiX are involved. Build it **on Linux**:
 
 Now that the project defines more than one target, ``pyappdist build`` requires
 the target name — which is why the commands here say ``windows`` and ``linux``
-explicitly. Two artifacts land in ``appdist/linux/dist/``:
+explicitly. The artifact lands in ``appdist/linux/dist/``:
 
 .. code-block:: text
 
-   appdist/linux/dist/hellotk-0.1.0-linux.tar.xz   # extract anywhere and run
    appdist/linux/dist/hellotk-0.1.0-linux.run      # self-extracting installer
 
 The ``.run`` file is the installer: per-user, no root required. It copies the
@@ -329,5 +327,5 @@ Where to go next
 * :doc:`platforms/windows-msi`, :doc:`platforms/linux`, :doc:`platforms/macos-app` —
   the full options behind the three targets built here.
 * :doc:`platforms/windows-msix`, :doc:`platforms/macos-run` — the remaining
-  formats: the Microsoft Store package, and the tarball/``.run`` installer for
+  formats: the Microsoft Store package, and the ``.run`` installer for
   macOS command-line tools.

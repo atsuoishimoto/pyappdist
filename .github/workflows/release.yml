@@ -41,4 +41,3 @@ jobs:
           name: helloworld-windows
           path: |
             sample/helloworld/appdist/dist/*.msi
-            sample/helloworld/appdist/dist/*.zip

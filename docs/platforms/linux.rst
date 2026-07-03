@@ -1,14 +1,11 @@
-Linux — tarball / .run installer
-================================
+Linux — .run installer
+======================
 
-``format = "linux"`` builds a real Linux distribution and emits two artifacts in
-``appdist/<target>/dist/``:
+``format = "linux"`` builds a real Linux distribution and emits a self-extracting
+installer in ``appdist/<target>/dist/``:
 
-* ``<name>-<version>-<target>.tar{.gz,.bz2,.xz}`` — the image tree under a top-level
-  directory (extension follows ``compression``). Users who don't want an installer
-  just extract it and run ``<dir>/<launcher>``.
 * ``<name>-<version>-<target>.run`` — a self-extracting installer (a POSIX shell
-  script with the compressed tarball appended).
+  script with the compressed image payload appended).
 
 Only ``platform = "linux-x86_64"`` may use this format.
 
@@ -27,7 +24,7 @@ Configuration
    only for launchers that define an ``icon``.
 
 ``compression``
-   Payload compression for the ``.tar`` and ``.run``: ``"gzip"``, ``"bzip2"`` or
+   Payload compression for the ``.run``: ``"gzip"``, ``"bzip2"`` or
    ``"xz"`` (default ``"xz"``). The matching decompressor must be present on the
    target machine at install time.
 

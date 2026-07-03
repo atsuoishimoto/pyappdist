@@ -1,4 +1,4 @@
-"""Tests for the Linux .tar.gz + self-extracting .run build."""
+"""Tests for the Linux self-extracting .run build."""
 
 from __future__ import annotations
 
@@ -29,11 +29,11 @@ def _make_image(tmp_path: Path) -> ImageLayout:
     return ImageLayout(image_dir=image_dir, target=get_target("linux-x86_64"), minor="3.12")
 
 
-# compression name -> (payload magic bytes, tarfile read mode, tarball extension)
+# compression name -> (payload magic bytes, tarfile read mode)
 _COMPRESSION = {
-    "gzip": (b"\x1f\x8b", "r:gz", ".tar.gz"),
-    "bzip2": (b"BZh", "r:bz2", ".tar.bz2"),
-    "xz": (b"\xfd7zXZ\x00", "r:xz", ".tar.xz"),
+    "gzip": (b"\x1f\x8b", "r:gz"),
+    "bzip2": (b"BZh", "r:bz2"),
+    "xz": (b"\xfd7zXZ\x00", "r:xz"),
 }
 # CLI decompressor each compression needs at install time.
 _DECOMP_TOOL = {"gzip": "gzip", "bzip2": "bzip2", "xz": "xz"}
@@ -72,17 +72,17 @@ def _split_run(run: Path) -> tuple[str, bytes]:
     return data[:idx].decode("utf-8"), data[idx + len(_PAYLOAD_MARKER):]
 
 
-def test_build_linux_produces_both_artifacts(tmp_path, sample_config):
+def test_build_linux_produces_only_the_run_installer(tmp_path, sample_config):
     layout = _make_image(tmp_path)
     config = _linux_config(sample_config, tmp_path)
     arts = build_linux(config, layout, tmp_path / "dist", log=lambda *a: None)
 
+    # Only the installer lands in dist/ — no portable tarball.
     names = sorted(p.name for p in arts)
-    assert names == [
-        "helloworld-1.2.3-linux-x86_64.run",
-        "helloworld-1.2.3-linux-x86_64.tar.xz",  # xz is the default
-    ]
-    run = next(p for p in arts if p.suffix == ".run")
+    assert names == ["helloworld-1.2.3-linux-x86_64.run"]
+    assert sorted(p.name for p in (tmp_path / "dist").iterdir()) == names
+    run = arts[0]
+    assert run.suffix == ".run"
     assert run.stat().st_mode & 0o111  # executable
 
 
@@ -116,17 +116,6 @@ def test_run_payload_is_the_image_tree(tmp_path, sample_config):
     # Payload has no top-level dir; it includes the generated launcher wrapper.
     assert "python/bin/python3" in members
     assert "helloworld" in members
-
-
-def test_tarball_has_top_level_dir(tmp_path, sample_config):
-    layout = _make_image(tmp_path)
-    config = _linux_config(sample_config, tmp_path)
-    arts = build_linux(config, layout, tmp_path / "dist", log=lambda *a: None)
-    tarball = next(p for p in arts if p.name.endswith(".tar.xz"))
-
-    with tarfile.open(tarball, "r:xz") as tf:
-        names = tf.getnames()
-    assert all(n.startswith("helloworld-1.2.3/") for n in names)
 
 
 def test_icon_triggers_desktop_record(tmp_path, sample_config):
@@ -178,20 +167,17 @@ def test_sq_escapes_single_quotes():
 
 @pytest.mark.parametrize("compression", ["gzip", "bzip2", "xz"])
 def test_compression_option(tmp_path, sample_config, compression):
-    """Each compression sets the payload format, extension, decompressor and sha256."""
-    magic, read_mode, ext = _COMPRESSION[compression]
+    """Each compression sets the payload format, decompressor and sha256."""
+    magic, read_mode = _COMPRESSION[compression]
     layout = _make_image(tmp_path)
     config = _linux_config(sample_config, tmp_path, compression=compression)
     arts = build_linux(config, layout, tmp_path / "dist", log=lambda *a: None)
 
-    tarball = next(p for p in arts if p.suffix != ".run")
-    assert tarball.name.endswith(ext)
-    with tarfile.open(tarball, read_mode) as tf:  # opens => correct compression
-        assert tf.getnames()
-
     run = next(p for p in arts if p.suffix == ".run")
     script, payload = _split_run(run)
     assert payload[: len(magic)] == magic
+    with tarfile.open(fileobj=io.BytesIO(payload), mode=read_mode) as tf:  # correct compression
+        assert tf.getnames()
     assert f"PAYLOAD_SHA256='{hashlib.sha256(payload).hexdigest()}'" in script
     assert f"DECOMPRESS='{_DECOMP_TOOL[compression]} -dc'" in script
 

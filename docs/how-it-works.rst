@@ -89,13 +89,12 @@ The pipeline
 #. **Launcher.** One launcher per ``[[tool.pyappdist.launchers]]`` entry. On
    Windows it is a small C stub (``launcher.exe``) compiled with MSVC; for a macOS
    ``.app`` it is a compiled Mach-O stub (clang); for Linux and the macOS
-   ``.tar``/``.run`` it is a relocatable shell wrapper. Either way it starts the
+   ``.run`` it is a relocatable shell wrapper. Either way it starts the
    bundled interpreter and runs your entry point.
 
-#. **Packaging.** The image is turned into the target's package: an ``.msi`` (+
-   portable ``.zip``) or ``.msix`` on Windows, or a ``.tar`` + self-extracting
-   ``.run`` on Linux/macOS. See the per-format pages under
-   :ref:`Output formats <config-formats>`.
+#. **Packaging.** The image is turned into the target's package: an ``.msi`` or
+   ``.msix`` on Windows, or a self-extracting ``.run`` on Linux/macOS. See the
+   per-format pages under :ref:`Output formats <config-formats>`.
 
 The launcher
 ------------
@@ -121,7 +120,7 @@ embedded interpreter:
 Windows stub it embeds no interpreter, so it is decoupled from the Python C-API;
 app-specific values are baked into a generated header at build time.
 
-**Linux, and macOS** ``.tar`` / ``.run`` — a relocatable shell wrapper that
+**Linux, and macOS** ``.run`` — a relocatable shell wrapper that
 resolves its own location and execs the bundled interpreter with the same
 isolated-mode bootstrap — no compiler needed.
 

@@ -79,8 +79,8 @@ Unlike the individual pipeline stages (which default to *all* targets), ``build`
 builds the single defined target when no name is given and otherwise requires an
 explicit selection, so it never builds every target at once by accident.
 
-Extra options: ``--no-compile`` (skip byte-compilation), ``--no-zip`` (skip the
-portable zip). Plus the common and runtime options above.
+Extra options: ``--no-compile`` (skip byte-compilation). Plus the common and
+runtime options above.
 
 ``build-wheels``
 ~~~~~~~~~~~~~~~~
@@ -97,9 +97,8 @@ Download, verify, and extract the python-build-standalone runtime into
 ``build-image``
 ~~~~~~~~~~~~~~~
 
-Assemble the runtime image: install the wheelhouse, byte-compile, build the
-launcher(s), and create the portable zip. Options: ``--no-compile``,
-``--no-zip``.
+Assemble the runtime image: install the wheelhouse, byte-compile, and build the
+launcher(s). Options: ``--no-compile``.
 
 ``build-launchers``
 ~~~~~~~~~~~~~~~~~~~
@@ -108,7 +107,7 @@ launcher(s), and create the portable zip. Options: ``--no-compile``,
 ``build-image``. The launcher kind follows the target's ``format``: a Windows
 ``launcher.exe`` (MSVC) for ``msi``/``msix``, or a compiled Mach-O stub (clang)
 for the macOS ``.app`` (``macapp``/``dmg``). For ``linux`` and ``macos``
-(``.tar``/``.run``) the launcher is a shell wrapper written during packaging, so
+(``.run``) the launcher is a shell wrapper written during packaging, so
 this command is a no-op.
 
 ``gen-wix``

@@ -11,7 +11,7 @@ Build intermediates go to ``<build-dir>/<target-name>/`` (default
 Subcommands:
   build-wheels    app + dependency wheels into <target>/wheelhouse
   fetch-runtime   python-build-standalone runtime into <target>/runtime
-  build-image     runtime + install + compileall + launcher + portable zip into <target>/image
+  build-image     runtime + install + compileall + launcher into <target>/image
   build-launchers build launcher.exe inside the image (Windows, MSVC)
   gen-wix         scan the image and generate WiX XML (.wxs)
   build           run wheels->runtime->image->launcher->wix->MSI in one go
@@ -97,9 +97,6 @@ def cmd_build_image(args: argparse.Namespace) -> int:
         build_wheelhouse(ctx.config, info, ctx.wheelhouse)
         layout = image_mod.build_image(ctx, info, compile_pyc=not args.no_compile)
         exes = build_launchers(ctx.config, layout, ctx.launcher_build_dir)
-        # The zip includes launcher.exe, so do it after the launcher build.
-        if not args.no_zip:
-            image_mod.make_portable_zip(ctx)
         print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} ({len(exes)} launcher)")
     return 0
 
@@ -155,7 +152,7 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
 
     if ctx.config.format in ("linux", "macos"):
         # Linux/macOS launchers are shell wrappers (no MSVC); the builder writes them into
-        # the image and produces the portable tarball + self-extracting .run.
+        # the image and produces the self-extracting .run installer.
         fmt = ctx.config.format
         build = build_linux if fmt == "linux" else build_macos
         arts = build(ctx.config, layout, ctx.dist_dir)
@@ -193,9 +190,6 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
         else:
             print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} (msix skipped on non-Windows)")
         return
-
-    if not args.no_zip:
-        image_mod.make_portable_zip(ctx)
 
     wxs = _write_wxs(ctx)
     msi_name = f"{ctx.config.dist_name}-{ctx.config.version}.msi"
@@ -331,7 +325,6 @@ def build_parser() -> argparse.ArgumentParser:
     _add_common(p)
     _add_runtime_opts(p)
     p.add_argument("--no-compile", action="store_true", help="skip compileall")
-    p.add_argument("--no-zip", action="store_true", help="do not create a portable zip")
     p.set_defaults(func=cmd_build_image)
 
     p = sub.add_parser("build-launchers", help="build launcher.exe into the image (Windows)")
@@ -346,7 +339,6 @@ def build_parser() -> argparse.ArgumentParser:
     _add_common(p)
     _add_runtime_opts(p)
     p.add_argument("--no-compile", action="store_true")
-    p.add_argument("--no-zip", action="store_true")
     p.set_defaults(func=cmd_build)
 
     return parser
