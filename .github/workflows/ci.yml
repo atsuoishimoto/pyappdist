@@ -7,7 +7,7 @@ on:
 
 jobs:
   test:
-    # Linux 完結のロジック（config / scan / guid / WiX 生成のゴールデン）をテストする
+    # Test the Linux-only logic (config / scan / guid / the WiX-generation golden test).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

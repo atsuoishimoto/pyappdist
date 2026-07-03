@@ -1,8 +1,8 @@
 name: Publish to PyPI
 
-# 手動実行（workflow_dispatch）で PyPI に公開する。
-# 認証は OIDC の Trusted Publishing を使うので API トークンは不要。
-# 事前に PyPI 側で Trusted Publisher を登録しておくこと:
+# Publish to PyPI manually (workflow_dispatch).
+# Auth uses OIDC Trusted Publishing, so no API token is needed.
+# Register the Trusted Publisher on PyPI beforehand:
 #   - PyPI Project: pyappdist
 #   - Owner: atsuoishimoto / Repository: pyappdist
 #   - Workflow: publish.yml
@@ -33,7 +33,7 @@ jobs:
       name: pypi
       url: https://pypi.org/p/pyappdist
     permissions:
-      id-token: write   # OIDC トークンの発行に必要（Trusted Publishing）
+      id-token: write   # required to mint the OIDC token (Trusted Publishing)
     steps:
       - uses: actions/download-artifact@v4
         with:
