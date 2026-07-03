@@ -20,6 +20,10 @@ jobs:
           - os: macos-14          # Apple Silicon (arm64) runner
             artifact: installers-macos-arm
     runs-on: ${{ matrix.os }}
+    # Lifted to job level so the macOS signing step's `if` can test it — the
+    # `secrets` context is not available in a step-level `if`, but `env` is.
+    env:
+      MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
     steps:
       - uses: actions/checkout@v4
 
@@ -33,10 +37,78 @@ jobs:
         if: runner.os == 'Windows'
         run: dotnet tool install --global wix --version 5.0.2
 
+      # --- macOS code-signing + notarization --------------------------------
+      # Only the dmg/macapp targets are signed & notarized; the .run (macos)
+      # format ships unsigned. Skipped automatically if the secrets below are
+      # empty, so forks without an Apple Developer account still build.
+      #
+      # Required GitHub Actions secrets (Settings > Secrets and variables > Actions):
+      #
+      #   MACOS_CERTIFICATE_P12
+      #     The "Developer ID Application" certificate + private key, exported
+      #     from Keychain Access (select the cert, File > Export Items > .p12)
+      #     and base64-encoded:  base64 -i cert.p12 | pbcopy
+      #   MACOS_CERTIFICATE_PASSWORD
+      #     The password you set when exporting that .p12.
+      #   MACOS_SIGNING_IDENTITY
+      #     The identity's full name, e.g.
+      #     "Developer ID Application: Your Name (TEAMID)".
+      #     List yours with:  security find-identity -v -p codesigning
+      #   MACOS_NOTARY_APPLE_ID
+      #     Your Apple ID email (the Apple Developer account).
+      #   MACOS_NOTARY_TEAM_ID
+      #     Your 10-char Developer Team ID (Apple Developer > Membership).
+      #   MACOS_NOTARY_PASSWORD
+      #     An app-specific password (NOT your Apple ID password) generated at
+      #     appleid.apple.com > Sign-In and Security > App-Specific Passwords.
+      #
+      # The temporary keychain's password is generated fresh each run below, so
+      # it is deliberately NOT a secret.
+      - name: Set up macOS signing
+        if: runner.os == 'macOS' && env.MACOS_CERTIFICATE_P12 != ''
+        env:
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/app-signing.keychain-db"
+          CERT="$RUNNER_TEMP/cert.p12"
+          # Disposable password for the throwaway keychain — never leaves this step.
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+
+          echo "$MACOS_CERTIFICATE_P12" | base64 --decode > "$CERT"
+
+          # Create + unlock a temp keychain and add it to the search list
+          # (alongside login, where the notary profile below is stored).
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$CERT" -P "$MACOS_CERTIFICATE_PASSWORD" \
+            -k "$KEYCHAIN" -T /usr/bin/codesign
+          # Let codesign use the private key without an interactive prompt.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+
+          # Create the notarytool keychain profile pyappdist expects. Omitting
+          # --keychain stores it in the default login keychain, which pyappdist
+          # reads back (also without --keychain).
+          xcrun notarytool store-credentials pyappdist-notary \
+            --apple-id "$NOTARY_APPLE_ID" \
+            --team-id "$NOTARY_TEAM_ID" \
+            --password "$NOTARY_PASSWORD"
+
       - name: Build installers (build-installers matrix)
         env:
           # Set this secret only to sign; unset means ship unsigned.
           PYAPPDIST_SIGN_CMD: ${{ secrets.PYAPPDIST_SIGN_CMD }}
+          # macOS: the Developer ID identity to sign with + the notarytool
+          # profile created in the step above. Ignored on Windows/Linux runners
+          # and when unset (dmg/macapp then fall back to ad-hoc, unnotarized).
+          PYAPPDIST_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          PYAPPDIST_NOTARY_PROFILE: pyappdist-notary
         run: uv run uv-matrix run --matrix build-installers
 
       - name: Upload installers
