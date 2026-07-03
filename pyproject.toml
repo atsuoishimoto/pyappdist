@@ -49,6 +49,7 @@ dev = [
     "pytest>=8",
     "sphinx>=9.0.4",
     "sphinx-rtd-theme>=3.1.0",
+    "uv-matrix>=0.0.3",
 ]
 
 [tool.pytest.ini_options]
@@ -58,3 +59,19 @@ testpaths = ["tests"]
 [build-system]
 requires = ["uv_build>=0.11.6,<0.12.0"]
 build-backend = "uv_build"
+
+[tool.uv-matrix]
+
+[tool.uv-matrix.matrix.build-installers]
+project = ["datafiles", "helloworld", "matplotlibdemo", "niceguidemo",
+           "pandascli", "pygamedemo", "pyside6demo"]
+target = ["win32-msi", "win32-store", "linux", "darwin-arm", "darwin-arm-dmg"]
+exclude = [{project = "niceguidemo", target = "linux"}]
+
+tasks = ["build-installer"]
+
+[tool.uv-matrix.tasks.build-installer]
+when = "target.startswith(platform)"
+continue-on-error = "environ.get('CI') == 'true'"   # CI では失敗セルで止めず残りも試行
+cwd = "samples/{{ project }}"
+run = "uvx --with ../.. pyappdist build {{ target }}"

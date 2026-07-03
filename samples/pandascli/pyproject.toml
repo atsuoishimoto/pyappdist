@@ -23,7 +23,7 @@ launchers = [
 ]
 
 [[tool.pyappdist.targets]]
-name = "windows"
+name = "win32-msi"
 platform = "windows-x86_64"
 format = "msi"
 # upgrade-code = "..."    # auto-generated and written back if omitted
@@ -32,7 +32,7 @@ code-sign = false
 allow-same-version-upgrades = false
 
 [[tool.pyappdist.targets]]
-name = "store"
+name = "win32-store"
 platform = "windows-x86_64"
 format = "msix"
 manufacturer = "Example Inc."
@@ -43,7 +43,7 @@ platform = "linux-x86_64"
 format = "linux"
 
 [[tool.pyappdist.targets]]
-name = "macos-arm"
+name = "darwin-arm"
 platform = "macos-aarch64"
 format = "macos"
 
@@ -53,7 +53,7 @@ platform = "macos-x86_64"
 format = "macos"
 
 [[tool.pyappdist.targets]]
-name = "macos-arm-dmg"
+name = "darwin-arm-dmg"
 platform = "macos-aarch64"
 format = "dmg"
 
