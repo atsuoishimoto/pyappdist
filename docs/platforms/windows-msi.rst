@@ -1,12 +1,9 @@
 Windows — MSI installer
 =======================
 
-``format = "msi"`` produces a Windows ``.msi`` installer, plus a portable ``.zip``
-of the same image that runs without installation.
+``format = "msi"`` produces a Windows ``.msi`` installer.
 
 * ``appdist/<target>/dist/<name>-<version>.msi`` — the installer.
-* ``appdist/<target>/dist/<name>-<version>-portable.zip`` — the image tree, runnable
-  in place (skip with ``--no-zip``).
 
 Only ``platform = "windows-x86_64"`` may use this format.
 

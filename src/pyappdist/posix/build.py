@@ -1,14 +1,12 @@
-"""Build the POSIX deliverables (Linux and macOS) from the image tree.
+"""Build the POSIX deliverable (Linux and macOS) from the image tree.
 
 Linux and macOS share the same packaging strategy — a relocatable shell-wrapper
-launcher plus two artifacts — so the logic lives here and the ``linux``/``macos``
-packages are thin ``os_kind`` wrappers over :func:`build_posix`.
+launcher plus a self-extracting installer — so the logic lives here and the
+``linux``/``macos`` packages are thin ``os_kind`` wrappers over :func:`build_posix`.
 
-Two artifacts are produced, both using the ``compression`` chosen in
+One artifact is produced, using the ``compression`` chosen in
 ``[[tool.pyappdist.targets]]`` (``gzip`` / ``bzip2`` / ``xz``):
 
-* ``<name>-<version>-<target>.tar{.gz,.bz2,.xz}`` — the image tree under a top-level
-  ``<name>-<version>/`` directory, for users who just want to extract and run.
 * ``<name>-<version>-<target>.run`` — a self-extracting installer: a POSIX shell
   script (``installer.sh``) with a compressed tar of the image tree appended after a
   ``__PYAPPDIST_PAYLOAD__`` marker. The header carries the payload's SHA-256, which the
@@ -39,11 +37,11 @@ from ..image.layout import ImageLayout
 
 _PAYLOAD_MARKER = b"__PYAPPDIST_PAYLOAD__\n"
 
-# compression name -> (tarfile mode suffix, tarball extension, installer decompress command)
+# compression name -> (tarfile mode suffix, installer decompress command)
 _COMPRESSION = {
-    "gzip": ("gz", ".tar.gz", "gzip -dc"),
-    "bzip2": ("bz2", ".tar.bz2", "bzip2 -dc"),
-    "xz": ("xz", ".tar.xz", "xz -dc"),
+    "gzip": ("gz", "gzip -dc"),
+    "bzip2": ("bz2", "bzip2 -dc"),
+    "xz": ("xz", "xz -dc"),
 }
 _INSTALLER_BODY = (Path(__file__).resolve().parent / "installer.sh").read_text(
     encoding="utf-8"
@@ -61,7 +59,7 @@ def build_posix(
     categories: str = "",
     log=print,
 ) -> list[Path] | None:
-    """Build the tarball and .run from the image. Returns None for a mismatched target.
+    """Build the .run installer from the image. Returns None for a mismatched target.
 
     ``os_kind`` is the OS this builder targets (``"linux"`` / ``"macos"``); a target whose
     ``os`` differs is skipped (returns ``None``) so a cross-OS config is a no-op. ``desktop``
@@ -71,7 +69,7 @@ def build_posix(
         log(f"{os_kind}: skipping because the target is not {os_kind}")
         return None
 
-    mode, ext, decompress = _COMPRESSION[compression]
+    mode, decompress = _COMPRESSION[compression]
 
     image_dir = layout.image_dir
     records = _write_launchers(config, image_dir, desktop=desktop, log=log)
@@ -81,10 +79,6 @@ def build_posix(
 
     dist_dir.mkdir(parents=True, exist_ok=True)
     base = f"{config.dist_name}-{config.version}-{config.target_name}"
-
-    tarball = dist_dir / f"{base}{ext}"
-    _make_tarball(image_dir, tarball, top=f"{config.dist_name}-{config.version}", mode=mode)
-    log(f"{os_kind}: tarball -> {tarball}")
 
     run = dist_dir / f"{base}.run"
     payload = _targz_bytes(image_dir, mode=mode)
@@ -105,7 +99,7 @@ def build_posix(
     )
     run.chmod(0o755)
     log(f"{os_kind}: installer -> {run} ({compression}, sha256 {sha256[:12]}…)")
-    return [tarball, run]
+    return [run]
 
 
 def _write_launchers(
@@ -210,10 +204,3 @@ def _targz_bytes(src_dir: Path, *, mode: str) -> bytes:
         for child in sorted(src_dir.iterdir()):
             tf.add(child, arcname=child.name)
     return buf.getvalue()
-
-
-def _make_tarball(src_dir: Path, out_path: Path, *, top: str, mode: str) -> None:
-    """Compressed tar of the directory contents under a ``top/`` prefix, preserving symlinks."""
-    with tarfile.open(out_path, f"w:{mode}") as tf:
-        for child in sorted(src_dir.iterdir()):
-            tf.add(child, arcname=f"{top}/{child.name}")

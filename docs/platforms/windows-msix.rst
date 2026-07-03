@@ -7,7 +7,6 @@ launchers are packaged as full-trust Win32 apps (``runFullTrust``), one
 
 * ``appdist/<target>/dist/<name>-<version>.msix`` — the package.
 
-There is no portable ``.zip`` for this format (the ``.msix`` is the deliverable).
 Only ``platform = "windows-x86_64"`` may use this format.
 
 Build requirements

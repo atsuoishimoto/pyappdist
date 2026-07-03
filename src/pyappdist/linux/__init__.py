@@ -1,4 +1,4 @@
-"""Linux packaging: a portable .tar.gz plus a self-extracting .run installer."""
+"""Linux packaging: a self-extracting .run installer."""
 
 from __future__ import annotations
 

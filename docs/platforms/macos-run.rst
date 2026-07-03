@@ -1,20 +1,19 @@
-macOS — tarball / .run (command-line tools)
+macOS — .run installer (command-line tools)
 ===========================================
 
 .. note::
 
    Two macOS distributions exist. **This page** (``format = "macos"``) ships a
-   per-user ``.tar`` / ``.run`` installer whose launchers land in
+   per-user ``.run`` installer whose launchers land in
    ``<prefix>/bin`` — right for **command-line tools**. For a double-click
    **GUI app** (a signed/notarized ``.app`` or ``.dmg``), use
    :doc:`macos-app` instead.
 
-``format = "macos"`` builds the same two artifacts as :doc:`linux` — a portable
-tarball and a self-extracting ``.run`` installer — with the same per-user install
+``format = "macos"`` builds the same self-extracting ``.run`` installer as
+:doc:`linux` — with the same per-user install
 model. Build a macOS target **on macOS**: an Apple Silicon host for
 ``macos-aarch64``, an Intel host for ``macos-x86_64``.
 
-* ``<name>-<version>-<target>.tar{.gz,.bz2,.xz}`` — the image tree.
 * ``<name>-<version>-<target>.run`` — the self-extracting installer.
 
 Only ``platform = "macos-aarch64"`` or ``"macos-x86_64"`` may use this format.
@@ -30,7 +29,7 @@ Configuration
 -------------
 
 ``compression``
-   Payload compression for the ``.tar`` and ``.run``: ``"gzip"``, ``"bzip2"`` or
+   Payload compression for the ``.run``: ``"gzip"``, ``"bzip2"`` or
    ``"xz"`` (default ``"gzip"``, because ``xz`` is not preinstalled on macOS).
 
 .. code-block:: toml

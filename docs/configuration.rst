@@ -153,7 +153,7 @@ These keys are common to every format; the format-specific keys live on the
 
 ``format`` (required)
    Output package. Must match the platform's OS: ``"msi"`` or ``"msix"`` on
-   Windows, ``"linux"`` on Linux, and on macOS either ``"macos"`` (a portable
+   Windows, ``"linux"`` on Linux, and on macOS either ``"macos"`` (a
    ``.run`` installer, like Linux) or ``"macapp"`` / ``"dmg"`` (a ``.app`` bundle,
    optionally inside a ``.dmg``, for GUI distribution). A mismatch (e.g. ``"msi"``
    with ``linux-x86_64``) is rejected at load. See
@@ -196,16 +196,16 @@ Each format has its own configuration keys, build requirements, and install
 behavior:
 
 :doc:`msi <platforms/windows-msi>`
-   ``.msi`` installer + portable ``.zip``.
+   ``.msi`` installer.
 
 :doc:`msix <platforms/windows-msix>`
    ``.msix`` package (Store / sideloading).
 
 :doc:`linux <platforms/linux>`
-   ``.tar.{gz,bz2,xz}`` + self-extracting ``.run``.
+   self-extracting ``.run``.
 
 :doc:`macos <platforms/macos-run>`
-   ``.tar.{gz,bz2,xz}`` + self-extracting ``.run``, for command-line tools.
+   self-extracting ``.run``, for command-line tools.
 
 :doc:`macapp / dmg <platforms/macos-app>`
    A macOS ``.app`` bundle (``macapp``), optionally wrapped in a ``.dmg`` (``dmg``),
@@ -222,12 +222,12 @@ A single project can declare several targets and produce all of these at once:
    manufacturer = "Example Inc."
    # upgrade-code = "..."    # auto-generated and written back if omitted
 
-   [[tool.pyappdist.targets]]              # a Linux .tar.xz + .run installer
+   [[tool.pyappdist.targets]]              # a Linux .run installer
    name = "linux"
    platform = "linux-x86_64"
    format = "linux"
 
-   [[tool.pyappdist.targets]]              # a macOS .tar.gz + .run installer
+   [[tool.pyappdist.targets]]              # a macOS .run installer
    name = "macos-arm"
    platform = "macos-aarch64"             # or "macos-x86_64" for Intel
    format = "macos"

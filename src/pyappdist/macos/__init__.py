@@ -1,4 +1,4 @@
-"""macOS packaging: a portable tarball plus a self-extracting .run installer."""
+"""macOS packaging: a self-extracting .run installer."""
 
 from __future__ import annotations
 

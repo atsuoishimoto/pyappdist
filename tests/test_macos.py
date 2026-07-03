@@ -1,4 +1,4 @@
-"""Tests for the macOS .tar.gz + self-extracting .run build.
+"""Tests for the macOS self-extracting .run build.
 
 macOS shares the POSIX builder with Linux (see test_linux.py); these tests cover the
 macOS-specific behavior: gzip default compression and no freedesktop integration
@@ -53,17 +53,17 @@ def _split_run(run: Path) -> tuple[str, bytes]:
     return data[:idx].decode("utf-8"), data[idx + len(_PAYLOAD_MARKER):]
 
 
-def test_build_macos_produces_both_artifacts(tmp_path, sample_config):
+def test_build_macos_produces_only_the_run_installer(tmp_path, sample_config):
     layout = _make_image(tmp_path)
     config = _macos_config(sample_config, tmp_path)
     arts = build_macos(config, layout, tmp_path / "dist", log=lambda *a: None)
 
+    # Only the installer lands in dist/ — no portable tarball.
     names = sorted(p.name for p in arts)
-    assert names == [
-        "helloworld-1.2.3-macos-aarch64.run",
-        "helloworld-1.2.3-macos-aarch64.tar.gz",  # gzip is the macOS default
-    ]
-    run = next(p for p in arts if p.suffix == ".run")
+    assert names == ["helloworld-1.2.3-macos-aarch64.run"]
+    assert sorted(p.name for p in (tmp_path / "dist").iterdir()) == names
+    run = arts[0]
+    assert run.suffix == ".run"
     assert run.stat().st_mode & 0o111  # executable
 
 
