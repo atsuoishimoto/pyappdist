@@ -182,6 +182,26 @@ def test_compression_option(tmp_path, sample_config, compression):
     assert f"DECOMPRESS='{_DECOMP_TOOL[compression]} -dc'" in script
 
 
+def test_xz_falls_back_to_lzma_without_the_command(tmp_path, sample_config, monkeypatch):
+    """With no xz command on the build host, the payload is still built (Python lzma)."""
+    import pyappdist.posix.build as posix_build
+
+    def no_xz(*args, **kwargs):
+        raise FileNotFoundError("xz")
+
+    monkeypatch.setattr(posix_build.subprocess, "Popen", no_xz)
+    layout = _make_image(tmp_path)
+    config = _linux_config(sample_config, tmp_path, compression="xz")
+    arts = build_linux(config, layout, tmp_path / "dist", log=lambda *a: None)
+
+    run = next(p for p in arts if p.suffix == ".run")
+    script, payload = _split_run(run)
+    assert payload[:6] == b"\xfd7zXZ\x00"
+    with tarfile.open(fileobj=io.BytesIO(payload), mode="r:xz") as tf:
+        assert tf.getnames()
+    assert f"PAYLOAD_SHA256='{hashlib.sha256(payload).hexdigest()}'" in script
+
+
 @pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
 def test_run_detects_corrupt_payload(tmp_path, sample_config):
     """A flipped payload byte fails the checksum and leaves an existing install intact."""

@@ -5,7 +5,9 @@ launcher plus a self-extracting installer — so the logic lives here and the
 ``linux``/``macos`` packages are thin ``os_kind`` wrappers over :func:`build_posix`.
 
 One artifact is produced, using the ``compression`` chosen in
-``[[tool.pyappdist.targets]]`` (``gzip`` / ``bzip2`` / ``xz``):
+``[[tool.pyappdist.targets]]`` (``gzip`` / ``bzip2`` / ``xz``; xz — the Linux default —
+is compressed with the multi-threaded ``xz`` command when it is installed on the build
+host, falling back to Python's single-threaded lzma otherwise):
 
 * ``<name>-<version>-<target>.run`` — a self-extracting installer: a POSIX shell
   script (``installer.sh``) with a compressed tar of the image tree appended after a
@@ -28,7 +30,9 @@ from __future__ import annotations
 import hashlib
 import io
 import shutil
+import subprocess
 import tarfile
+import threading
 from pathlib import Path
 
 from ..config import Config, LauncherConfig
@@ -197,10 +201,55 @@ def _sq(s: str) -> str:
     return "'" + s.replace("'", "'\\''") + "'"
 
 
+# xz preset for the payload. 1 favors build speed: on a typical image, preset 6 takes
+# several times longer for only a ~15% smaller payload. Python's lzma is single-threaded,
+# so xz compression prefers the multi-threaded ``xz`` command and falls back to tarfile's
+# built-in lzma (same preset, same output format) when the command is unavailable.
+_XZ_PRESET = 1
+
+
 def _targz_bytes(src_dir: Path, *, mode: str) -> bytes:
     """Compressed tar of the directory contents (no top-level dir), preserving symlinks."""
+    if mode == "xz":
+        data = _tar_xz_command(src_dir)
+        if data is not None:
+            return data
+    kw = {"preset": _XZ_PRESET} if mode == "xz" else {}
     buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode=f"w:{mode}") as tf:
-        for child in sorted(src_dir.iterdir()):
-            tf.add(child, arcname=child.name)
+    with tarfile.open(fileobj=buf, mode=f"w:{mode}", **kw) as tf:
+        _add_tree(tf, src_dir)
     return buf.getvalue()
+
+
+def _tar_xz_command(src_dir: Path) -> bytes | None:
+    """Tar piped through the ``xz`` command (all cores); None when xz is not installed."""
+    try:
+        proc = subprocess.Popen(
+            ["xz", f"-{_XZ_PRESET}", "-T0", "-c"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
+    except OSError:
+        return None
+    # Drain stdout on a thread while the tar is streamed in, so neither pipe fills up.
+    chunks: list[bytes] = []
+    reader = threading.Thread(target=lambda: chunks.append(proc.stdout.read()))
+    reader.start()
+    try:
+        try:
+            with tarfile.open(fileobj=proc.stdin, mode="w|") as tf:
+                _add_tree(tf, src_dir)
+        finally:
+            proc.stdin.close()
+    except BrokenPipeError:
+        pass  # xz exited early; reported via the exit status below
+    finally:
+        reader.join()
+    if proc.wait() != 0:
+        raise BuildError(f"xz failed while compressing the payload (exit {proc.returncode})")
+    return chunks[0]
+
+
+def _add_tree(tf: tarfile.TarFile, src_dir: Path) -> None:
+    for child in sorted(src_dir.iterdir()):
+        tf.add(child, arcname=child.name)
