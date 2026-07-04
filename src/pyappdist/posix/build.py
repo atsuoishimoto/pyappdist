@@ -5,7 +5,10 @@ launcher plus a self-extracting installer — so the logic lives here and the
 ``linux``/``macos`` packages are thin ``os_kind`` wrappers over :func:`build_posix`.
 
 One artifact is produced, using the ``compression`` chosen in
-``[[tool.pyappdist.targets]]`` (``gzip`` / ``bzip2`` / ``xz``):
+``[[tool.pyappdist.targets]]`` (``gzip`` / ``bzip2`` / ``xz``; gzip — the macOS
+default — and xz — the Linux default — are compressed through the ``gzip`` / ``xz``
+commands when installed on the build host (``xz -T0`` uses every core), falling back
+to tarfile's built-in single-threaded codecs otherwise):
 
 * ``<name>-<version>-<target>.run`` — a self-extracting installer: a POSIX shell
   script (``installer.sh``) with a compressed tar of the image tree appended after a
@@ -28,7 +31,9 @@ from __future__ import annotations
 import hashlib
 import io
 import shutil
+import subprocess
 import tarfile
+import tempfile
 from pathlib import Path
 
 from ..config import Config, LauncherConfig
@@ -81,7 +86,7 @@ def build_posix(
     base = f"{config.dist_name}-{config.version}-{config.target_name}"
 
     run = dist_dir / f"{base}.run"
-    payload = _targz_bytes(image_dir, mode=mode)
+    payload = _targz_bytes(image_dir, mode=mode, log=log)
     sha256 = hashlib.sha256(payload).hexdigest()
     header = _render_header(
         config,
@@ -197,10 +202,48 @@ def _sq(s: str) -> str:
     return "'" + s.replace("'", "'\\''") + "'"
 
 
-def _targz_bytes(src_dir: Path, *, mode: str) -> bytes:
+# Payload compression levels, chosen for build speed on a typical image: xz preset 6
+# (lzma's default) takes several times longer than preset 1 for only a ~15% smaller
+# payload, and gzip level 9 (tarfile's default) costs ~6x level 6 for ~1% smaller.
+# gzip and xz prefer the external command — ``xz -T0`` compresses on every core, unlike
+# Python's single-threaded lzma — and fall back to tarfile's built-in codec (same level,
+# same output format) when the command is missing or fails. bzip2 always uses the
+# built-in codec.
+_XZ_PRESET = 1
+_GZIP_LEVEL = 6
+# tarfile mode suffix -> (external command, tarfile.open fallback kwargs)
+_CODECS = {
+    "xz": (["xz", f"-{_XZ_PRESET}", "-T0", "-c"], {"preset": _XZ_PRESET}),
+    "gz": (["gzip", f"-{_GZIP_LEVEL}", "-c"], {"compresslevel": _GZIP_LEVEL}),
+    "bz2": (None, {}),
+}
+
+
+def _targz_bytes(src_dir: Path, *, mode: str, log=print) -> bytes:
     """Compressed tar of the directory contents (no top-level dir), preserving symlinks."""
+    cmd, fallback_kw = _CODECS[mode]
+    if cmd and shutil.which(cmd[0]):
+        # The uncompressed tar goes to an anonymous temp file, so the compressor reads
+        # a real fd and its stdout is the only pipe — safe to drain single-threaded
+        # (stdin and stdout both as pipes would deadlock once either buffer fills).
+        with tempfile.TemporaryFile() as raw:
+            with tarfile.open(fileobj=raw, mode="w") as tf:
+                _add_tree(tf, src_dir)
+            raw.seek(0)
+            proc = subprocess.run(cmd, stdin=raw, capture_output=True)
+        if proc.returncode == 0:
+            return proc.stdout
+        err = proc.stderr.decode(errors="replace").strip()
+        log(
+            f"posix: {cmd[0]} failed (exit {proc.returncode}), "
+            f"falling back to the built-in codec:\n{err}"
+        )
     buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode=f"w:{mode}") as tf:
-        for child in sorted(src_dir.iterdir()):
-            tf.add(child, arcname=child.name)
+    with tarfile.open(fileobj=buf, mode=f"w:{mode}", **fallback_kw) as tf:
+        _add_tree(tf, src_dir)
     return buf.getvalue()
+
+
+def _add_tree(tf: tarfile.TarFile, src_dir: Path) -> None:
+    for child in sorted(src_dir.iterdir()):
+        tf.add(child, arcname=child.name)
