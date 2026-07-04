@@ -5,9 +5,10 @@ launcher plus a self-extracting installer — so the logic lives here and the
 ``linux``/``macos`` packages are thin ``os_kind`` wrappers over :func:`build_posix`.
 
 One artifact is produced, using the ``compression`` chosen in
-``[[tool.pyappdist.targets]]`` (``gzip`` / ``bzip2`` / ``xz``; xz — the Linux default —
-is compressed with the multi-threaded ``xz`` command when it is installed on the build
-host, falling back to Python's single-threaded lzma otherwise):
+``[[tool.pyappdist.targets]]`` (``gzip`` / ``bzip2`` / ``xz``; gzip — the macOS
+default — and xz — the Linux default — are compressed through the ``gzip`` / ``xz``
+commands when installed on the build host (``xz -T0`` uses every core), falling back
+to tarfile's built-in single-threaded codecs otherwise):
 
 * ``<name>-<version>-<target>.run`` — a self-extracting installer: a POSIX shell
   script (``installer.sh``) with a compressed tar of the image tree appended after a
@@ -201,31 +202,40 @@ def _sq(s: str) -> str:
     return "'" + s.replace("'", "'\\''") + "'"
 
 
-# xz preset for the payload. 1 favors build speed: on a typical image, preset 6 takes
-# several times longer for only a ~15% smaller payload. Python's lzma is single-threaded,
-# so xz compression prefers the multi-threaded ``xz`` command and falls back to tarfile's
-# built-in lzma (same preset, same output format) when the command is unavailable.
+# Payload compression levels, chosen for build speed on a typical image: xz preset 6
+# (lzma's default) takes several times longer than preset 1 for only a ~15% smaller
+# payload, and gzip level 9 (tarfile's default) costs ~6x level 6 for ~1% smaller.
+# gzip and xz prefer the external command — ``xz -T0`` compresses on every core, unlike
+# Python's single-threaded lzma — and fall back to tarfile's built-in codec (same level,
+# same output format) when the command is missing. bzip2 always uses the built-in codec.
 _XZ_PRESET = 1
+_GZIP_LEVEL = 6
+# tarfile mode suffix -> (external command, tarfile.open fallback kwargs)
+_CODECS = {
+    "xz": (["xz", f"-{_XZ_PRESET}", "-T0", "-c"], {"preset": _XZ_PRESET}),
+    "gz": (["gzip", f"-{_GZIP_LEVEL}", "-c"], {"compresslevel": _GZIP_LEVEL}),
+    "bz2": (None, {}),
+}
 
 
 def _targz_bytes(src_dir: Path, *, mode: str) -> bytes:
     """Compressed tar of the directory contents (no top-level dir), preserving symlinks."""
-    if mode == "xz":
-        data = _tar_xz_command(src_dir)
+    cmd, fallback_kw = _CODECS[mode]
+    if cmd:
+        data = _tar_command(src_dir, cmd)
         if data is not None:
             return data
-    kw = {"preset": _XZ_PRESET} if mode == "xz" else {}
     buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode=f"w:{mode}", **kw) as tf:
+    with tarfile.open(fileobj=buf, mode=f"w:{mode}", **fallback_kw) as tf:
         _add_tree(tf, src_dir)
     return buf.getvalue()
 
 
-def _tar_xz_command(src_dir: Path) -> bytes | None:
-    """Tar piped through the ``xz`` command (all cores); None when xz is not installed."""
+def _tar_command(src_dir: Path, cmd: list[str]) -> bytes | None:
+    """Tar piped through an external compressor; None when the command is not installed."""
     try:
         proc = subprocess.Popen(
-            ["xz", f"-{_XZ_PRESET}", "-T0", "-c"],
+            cmd,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
         )
@@ -242,11 +252,13 @@ def _tar_xz_command(src_dir: Path) -> bytes | None:
         finally:
             proc.stdin.close()
     except BrokenPipeError:
-        pass  # xz exited early; reported via the exit status below
+        pass  # the compressor exited early; reported via the exit status below
     finally:
         reader.join()
     if proc.wait() != 0:
-        raise BuildError(f"xz failed while compressing the payload (exit {proc.returncode})")
+        raise BuildError(
+            f"{cmd[0]} failed while compressing the payload (exit {proc.returncode})"
+        )
     return chunks[0]
 
 

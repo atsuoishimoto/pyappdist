@@ -182,22 +182,26 @@ def test_compression_option(tmp_path, sample_config, compression):
     assert f"DECOMPRESS='{_DECOMP_TOOL[compression]} -dc'" in script
 
 
-def test_xz_falls_back_to_lzma_without_the_command(tmp_path, sample_config, monkeypatch):
-    """With no xz command on the build host, the payload is still built (Python lzma)."""
+@pytest.mark.parametrize("compression", ["gzip", "xz"])
+def test_falls_back_to_tarfile_codec_without_the_command(
+    tmp_path, sample_config, monkeypatch, compression
+):
+    """With no gzip/xz command on the build host, the payload is still built (tarfile)."""
     import pyappdist.posix.build as posix_build
 
-    def no_xz(*args, **kwargs):
-        raise FileNotFoundError("xz")
+    def no_command(*args, **kwargs):
+        raise FileNotFoundError(compression)
 
-    monkeypatch.setattr(posix_build.subprocess, "Popen", no_xz)
+    monkeypatch.setattr(posix_build.subprocess, "Popen", no_command)
+    magic, read_mode = _COMPRESSION[compression]
     layout = _make_image(tmp_path)
-    config = _linux_config(sample_config, tmp_path, compression="xz")
+    config = _linux_config(sample_config, tmp_path, compression=compression)
     arts = build_linux(config, layout, tmp_path / "dist", log=lambda *a: None)
 
     run = next(p for p in arts if p.suffix == ".run")
     script, payload = _split_run(run)
-    assert payload[:6] == b"\xfd7zXZ\x00"
-    with tarfile.open(fileobj=io.BytesIO(payload), mode="r:xz") as tf:
+    assert payload[: len(magic)] == magic
+    with tarfile.open(fileobj=io.BytesIO(payload), mode=read_mode) as tf:
         assert tf.getnames()
     assert f"PAYLOAD_SHA256='{hashlib.sha256(payload).hexdigest()}'" in script
 
