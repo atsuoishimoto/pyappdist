@@ -75,3 +75,11 @@ All raised errors subclass `PyappdistError` (`errors.py`): `ConfigError` for bad
 ## Tests
 
 pytest, fixtures in `tests/conftest.py` (`sample_config`, `sample_tree`). `test_generate.py` is a **golden test** against `tests/golden/sample.wxs` built from a synthetic (not real-image) tree so it stays deterministic — if a `.wxs` format change is intentional, regenerate the golden file. The E2E `pyappdist build` of a sample is the real integration test and requires the Windows toolchain.
+
+## Release history (`docs/history.rst`)
+
+When adding a new version entry to `docs/history.rst`:
+
+- **Derive the entry from the diff since the previous version's tag** (`git log <prev-tag>..HEAD`, `git diff <prev-tag>..HEAD`) — don't hand-collect changes from memory.
+- **Write only user-facing functional changes.** Omit anything about docs, samples, tests, or internal refactoring — the reader is an app author who cares about what the tool now does for them.
+- **Keep each item short — 1–2 sentences.** Lead with a bold one-line summary of the change, then at most a sentence of detail. Newest version goes at the top, in the same format as existing entries (version heading, date, bolded items).
