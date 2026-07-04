@@ -189,15 +189,38 @@ def test_falls_back_to_tarfile_codec_without_the_command(
     """With no gzip/xz command on the build host, the payload is still built (tarfile)."""
     import pyappdist.posix.build as posix_build
 
-    def no_command(*args, **kwargs):
-        raise FileNotFoundError(compression)
-
-    monkeypatch.setattr(posix_build.subprocess, "Popen", no_command)
+    monkeypatch.setattr(posix_build.shutil, "which", lambda cmd: None)
     magic, read_mode = _COMPRESSION[compression]
     layout = _make_image(tmp_path)
     config = _linux_config(sample_config, tmp_path, compression=compression)
     arts = build_linux(config, layout, tmp_path / "dist", log=lambda *a: None)
 
+    run = next(p for p in arts if p.suffix == ".run")
+    script, payload = _split_run(run)
+    assert payload[: len(magic)] == magic
+    with tarfile.open(fileobj=io.BytesIO(payload), mode=read_mode) as tf:
+        assert tf.getnames()
+    assert f"PAYLOAD_SHA256='{hashlib.sha256(payload).hexdigest()}'" in script
+
+
+@pytest.mark.parametrize("compression", ["gzip", "xz"])
+def test_falls_back_when_the_command_fails(tmp_path, sample_config, monkeypatch, compression):
+    """A failing gzip/xz command logs its stderr and falls back to the built-in codec."""
+    import pyappdist.posix.build as posix_build
+
+    tool = _DECOMP_TOOL[compression]
+
+    def failing_run(cmd, **kwargs):
+        return subprocess.CompletedProcess(cmd, 1, stdout=b"", stderr=b"out of memory")
+
+    monkeypatch.setattr(posix_build.subprocess, "run", failing_run)
+    magic, read_mode = _COMPRESSION[compression]
+    layout = _make_image(tmp_path)
+    config = _linux_config(sample_config, tmp_path, compression=compression)
+    logs: list[str] = []
+    arts = build_linux(config, layout, tmp_path / "dist", log=logs.append)
+
+    assert any(f"{tool} failed" in m and "out of memory" in m for m in logs)
     run = next(p for p in arts if p.suffix == ".run")
     script, payload = _split_run(run)
     assert payload[: len(magic)] == magic

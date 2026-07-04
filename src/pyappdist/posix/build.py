@@ -33,7 +33,7 @@ import io
 import shutil
 import subprocess
 import tarfile
-import threading
+import tempfile
 from pathlib import Path
 
 from ..config import Config, LauncherConfig
@@ -86,7 +86,7 @@ def build_posix(
     base = f"{config.dist_name}-{config.version}-{config.target_name}"
 
     run = dist_dir / f"{base}.run"
-    payload = _targz_bytes(image_dir, mode=mode)
+    payload = _targz_bytes(image_dir, mode=mode, log=log)
     sha256 = hashlib.sha256(payload).hexdigest()
     header = _render_header(
         config,
@@ -207,7 +207,8 @@ def _sq(s: str) -> str:
 # payload, and gzip level 9 (tarfile's default) costs ~6x level 6 for ~1% smaller.
 # gzip and xz prefer the external command — ``xz -T0`` compresses on every core, unlike
 # Python's single-threaded lzma — and fall back to tarfile's built-in codec (same level,
-# same output format) when the command is missing. bzip2 always uses the built-in codec.
+# same output format) when the command is missing or fails. bzip2 always uses the
+# built-in codec.
 _XZ_PRESET = 1
 _GZIP_LEVEL = 6
 # tarfile mode suffix -> (external command, tarfile.open fallback kwargs)
@@ -218,48 +219,29 @@ _CODECS = {
 }
 
 
-def _targz_bytes(src_dir: Path, *, mode: str) -> bytes:
+def _targz_bytes(src_dir: Path, *, mode: str, log=print) -> bytes:
     """Compressed tar of the directory contents (no top-level dir), preserving symlinks."""
     cmd, fallback_kw = _CODECS[mode]
-    if cmd:
-        data = _tar_command(src_dir, cmd)
-        if data is not None:
-            return data
+    if cmd and shutil.which(cmd[0]):
+        # The uncompressed tar goes to an anonymous temp file, so the compressor reads
+        # a real fd and its stdout is the only pipe — safe to drain single-threaded
+        # (stdin and stdout both as pipes would deadlock once either buffer fills).
+        with tempfile.TemporaryFile() as raw:
+            with tarfile.open(fileobj=raw, mode="w") as tf:
+                _add_tree(tf, src_dir)
+            raw.seek(0)
+            proc = subprocess.run(cmd, stdin=raw, capture_output=True)
+        if proc.returncode == 0:
+            return proc.stdout
+        err = proc.stderr.decode(errors="replace").strip()
+        log(
+            f"posix: {cmd[0]} failed (exit {proc.returncode}), "
+            f"falling back to the built-in codec:\n{err}"
+        )
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode=f"w:{mode}", **fallback_kw) as tf:
         _add_tree(tf, src_dir)
     return buf.getvalue()
-
-
-def _tar_command(src_dir: Path, cmd: list[str]) -> bytes | None:
-    """Tar piped through an external compressor; None when the command is not installed."""
-    try:
-        proc = subprocess.Popen(
-            cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-        )
-    except OSError:
-        return None
-    # Drain stdout on a thread while the tar is streamed in, so neither pipe fills up.
-    chunks: list[bytes] = []
-    reader = threading.Thread(target=lambda: chunks.append(proc.stdout.read()))
-    reader.start()
-    try:
-        try:
-            with tarfile.open(fileobj=proc.stdin, mode="w|") as tf:
-                _add_tree(tf, src_dir)
-        finally:
-            proc.stdin.close()
-    except BrokenPipeError:
-        pass  # the compressor exited early; reported via the exit status below
-    finally:
-        reader.join()
-    if proc.wait() != 0:
-        raise BuildError(
-            f"{cmd[0]} failed while compressing the payload (exit {proc.returncode})"
-        )
-    return chunks[0]
 
 
 def _add_tree(tf: tarfile.TarFile, src_dir: Path) -> None:
