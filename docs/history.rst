@@ -1,6 +1,21 @@
 Release history
 ===============
 
+0.8.0
+-----
+
+2026/07/04
+
+**Only the installer is emitted in** ``dist/`` *(breaking)*. The portable
+``.zip`` (MSI/MSIX) and the ``.tar.{gz,bz2,xz}`` (Linux/macOS) are no longer
+produced — each target now ships just its installer (``.msi``/``.msix``/``.run``).
+The ``--no-zip`` build option is removed.
+
+**Faster** ``.run`` **payload compression.** gzip and xz payloads are now
+compressed through the external ``gzip``/``xz`` commands when available
+(``xz -T0`` uses every core) at presets tuned for build speed, falling back to
+Python's built-in single-threaded codecs otherwise.
+
 0.7.0
 -----
 
