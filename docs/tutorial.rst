@@ -169,6 +169,14 @@ The ``entry`` is the very command you tested in step 4, and ``gui = true`` is
 what makes the console window disappear. See :doc:`configuration` for every key
 and :doc:`platforms/windows-msi` for the MSI-specific options.
 
+``python = "3.12"`` here is just an example — **replace it with the Python
+version you want the bundled runtime to be**. Pick a concrete version that is at
+least as new as the floor your project declares in ``[project]``
+``requires-python`` (``>=3.11`` in step 1): the runtime shipped in the installer
+must satisfy that constraint, so ``python`` has to be equal to or newer than
+``requires-python`` — never older. Choosing ``3.12`` here meets ``>=3.11``; if
+you raise ``requires-python`` to ``>=3.13``, bump ``python`` to match.
+
 Step 6 — Build the installer
 ----------------------------
 
