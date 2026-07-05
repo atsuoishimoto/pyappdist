@@ -152,7 +152,7 @@ a GUI), and one Windows MSI target:
 
    [tool.pyappdist]
    name = "Hello Tk"
-   python = "3.12"                        # runtime version; >= requires-python
+   python = "3.12"                        # bundled runtime; must satisfy requires-python
 
    launchers = [
      { name = "hellotk", entry = "hellotk:main", gui = true },
