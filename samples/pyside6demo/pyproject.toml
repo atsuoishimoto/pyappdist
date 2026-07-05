@@ -8,6 +8,9 @@ dependencies = [
     "PySide6>=6.7",
 ]
 
+[project.scripts]
+pyside6demo = "pyside6demo:main"
+
 [dependency-groups]
 dev = [
     "pyappdist",
@@ -57,4 +60,8 @@ format = "macos"
 name = "darwin-arm-dmg"
 platform = "macos-aarch64"
 format = "dmg"
+
+[build-system]
+requires = ["uv_build>=0.11.6,<0.12.0"]
+build-backend = "uv_build"
 

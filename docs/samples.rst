@@ -38,6 +38,21 @@ CLI samples
    ``sysconfig``, then opens it with Pillow. Shows where package data lands in
    the install tree.
 
+`multiprocessingdemo <https://github.com/atsuoishimoto/pyappdist/tree/main/samples/multiprocessingdemo>`_
+   Runs a ``multiprocessing.Pool`` across worker processes and prints each
+   worker's PID. Because the launcher runs the bundled interpreter directly,
+   ``sys.executable`` points at the shipped ``python`` and the ``spawn`` start
+   method (the default on Windows and macOS) re-launches it to create children
+   — no ``set_executable()`` needed. No dependencies. Console launcher.
+
+`pytorchdemo <https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pytorchdemo>`_
+   Ships **PyTorch built for CUDA 13** (``cu130``), pinned to the PyTorch wheel
+   index via ``[tool.uv.sources]`` + an ``explicit`` ``[[tool.uv.index]]``.
+   pyappdist exports those pins from ``uv.lock`` and installs the matching
+   wheels, so the app carries the CUDA build; it runs on the GPU when available
+   and falls back to the CPU otherwise. CUDA wheels exist only for Windows and
+   Linux, so the sample targets those two. Console launcher.
+
 GUI samples
 -----------
 

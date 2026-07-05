@@ -156,5 +156,9 @@ def index() -> None:
         ui.timer(0.1, lambda: update(city_select.value), once=True)
 
 
-if __name__ in {"__main__", "__mp_main__"}:
+def main() -> None:
     ui.run(title="World Weather", native=True)
+
+
+if __name__ in {"__main__", "__mp_main__"}:
+    main()
