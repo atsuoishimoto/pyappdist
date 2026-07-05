@@ -36,7 +36,12 @@ _LOCKFILES: tuple[tuple[str, str], ...] = (
 # tool name -> export command (run with cwd=project_dir, stdout becomes requirements.txt).
 # All emit production dependencies only (dev excluded), with hashes — the "nodev" default.
 _EXPORT_CMDS: dict[str, list[str]] = {
-    "uv": ["uv", "export", "--frozen", "--no-dev", "--no-emit-project", "--format", "requirements-txt"],
+    # --emit-index-url keeps any custom index from the lock (e.g. a PyTorch CUDA
+    # index pinned via [tool.uv.sources] / [[tool.uv.index]]) in the exported
+    # requirements.txt as --index-url/--extra-index-url; without it uv omits the
+    # index and pip wheel resolves the pinned versions against PyPI only, so a
+    # +cuXXX local build is never found (its source registry is silently ignored).
+    "uv": ["uv", "export", "--frozen", "--no-dev", "--no-emit-project", "--emit-index-url", "--format", "requirements-txt"],
     "poetry": ["poetry", "export", "-f", "requirements.txt", "--without", "dev"],
     "pipenv": ["pipenv", "requirements", "--hash"],
     "pdm": ["pdm", "export", "-f", "requirements", "--prod"],

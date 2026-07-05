@@ -68,7 +68,7 @@ def test_resolve_manager_undeterminable_errors(tmp_path: Path):
 def test_export_cmd_no_extras_is_nodev_default():
     # No extras: the command is the base export (production deps only).
     assert _export_cmd("uv", ()) == [
-        "uv", "export", "--frozen", "--no-dev", "--no-emit-project",
+        "uv", "export", "--frozen", "--no-dev", "--no-emit-project", "--emit-index-url",
         "--format", "requirements-txt",
     ]
 
