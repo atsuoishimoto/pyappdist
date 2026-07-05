@@ -72,9 +72,10 @@ The pipeline
    --no-deps`` using its own PEP 517 backend (so any backend works).
 
 #. **Dependency wheels.** Dependencies are pinned from your project's lockfile,
-   exported to a ``requirements.txt``, and turned into wheels by the *target*
-   runtime's ``python`` (``pip wheel -r``). Resolving on the target interpreter
-   keeps environment markers and wheel tags natively correct. See
+   exported to a dependency file (a PEP 751 ``pylock.toml`` for uv, a
+   ``requirements.txt`` for the other managers), and turned into wheels by the
+   *target* runtime's ``python`` (``pip wheel -r``). Resolving on the target
+   interpreter keeps environment markers and wheel tags natively correct. See
    :doc:`dependencies`.
 
 #. **Runtime.** A `python-build-standalone
