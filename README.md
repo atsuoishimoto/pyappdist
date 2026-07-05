@@ -18,6 +18,9 @@ Because the runtime is a normal Python environment, **most apps run as-is**: no 
 it almost certainly runs after `pyappdist build`. C extensions, `abi3` wheels, Qt plugins,
 and tkinter-based GUIs work unmodified because the install layout is real.
 
+Shipping a full runtime without selecting files makes packages larger, but against modern
+storage sizes that is a favorable trade for an environment that just runs.
+
 
 📖 **Documentation:** https://pyappdist.readthedocs.io/
 
