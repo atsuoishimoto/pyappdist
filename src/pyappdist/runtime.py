@@ -10,6 +10,7 @@ import hashlib
 import json
 import re
 import shutil
+import subprocess
 import tarfile
 import tempfile
 import urllib.request
@@ -25,6 +26,13 @@ LATEST_RELEASE_URL = (
 )
 FLAVOR = "install_only_stripped"
 _MARKER = ".pyappdist-runtime.json"
+
+# Minimum pip for handling a PEP 751 ``pylock.toml`` in ``pip wheel -r``. PEP 751
+# read support first landed in pip 25.1, but pyappdist requires 26.1+ for its later
+# pylock fixes. uv projects export pylock.toml, so the wheel step needs at least this;
+# python-build-standalone bundles whatever pip its ``ensurepip`` baked in, which can
+# be older, so the runtime's pip is upgraded when it is.
+_MIN_PIP = (26, 1)
 
 
 @dataclass(frozen=True)
@@ -65,7 +73,9 @@ def fetch_runtime(
             not exact or existing["version"] == exact
         ):
             log(f"runtime: reusing existing ({existing['version']} @ {dest})")
-            return _info_from_marker(dest, existing)
+            info = _info_from_marker(dest, existing)
+            ensure_pip(info, log=log)
+            return info
 
     if dest.exists():
         shutil.rmtree(dest)
@@ -89,11 +99,57 @@ def fetch_runtime(
     info = RuntimeInfo(version=version, minor=minor, tag=tag, triple=target.triple, root=dest)
     _verify(info)
     _write_marker(dest, info, sha256)
+    ensure_pip(info, log=log)
     log(f"runtime: ready {version} ({target.triple}) -> {dest}")
     return info
 
 
+def ensure_pip(info: RuntimeInfo, *, log=print) -> None:
+    """Upgrade the runtime's pip in place when it is older than :data:`_MIN_PIP`.
+
+    The wheel step runs ``<target python> -m pip wheel -r pylock.toml``; a
+    ``pylock.toml`` needs pip 26.1+. The plain version check skips the upgrade (and
+    its network round-trip) once the runtime's pip is recent enough, so a reused
+    runtime is effectively idempotent. Runs the runtime's own python, so it works
+    cross-OS through WSL interop just like the later ``pip install``.
+    """
+    current = _pip_version(info)
+    if current >= _MIN_PIP:
+        return
+    have = ".".join(map(str, current))
+    want = ".".join(map(str, _MIN_PIP))
+    log(f"runtime: upgrading bundled pip {have} (< {want}) for pylock.toml support")
+    cmd = [str(info.python_exe), "-m", "pip", "install", "--upgrade", "pip"]
+    # cwd=the runtime dir gives WSL->Windows interop a translatable working dir; no
+    # path arguments are relative to it (as in image/install.py's pip invocation).
+    proc = subprocess.run(
+        cmd, cwd=str(info.root), capture_output=True, text=True, errors="replace"
+    )
+    if proc.returncode != 0:
+        raise BuildError(
+            f"pip upgrade failed ({proc.returncode}): {' '.join(cmd)}\n{proc.stderr.strip()}"
+        )
+
+
 # --- internal implementation ---------------------------------------------
+
+
+def _pip_version(info: RuntimeInfo) -> tuple[int, int]:
+    """Return the runtime pip's ``(major, minor)`` from ``python -m pip --version``."""
+    cmd = [str(info.python_exe), "-m", "pip", "--version"]
+    proc = subprocess.run(
+        cmd, cwd=str(info.root), capture_output=True, text=True, errors="replace"
+    )
+    if proc.returncode != 0:
+        raise BuildError(
+            f"could not query the runtime pip version ({proc.returncode}): "
+            f"{' '.join(cmd)}\n{proc.stderr.strip()}"
+        )
+    # e.g. "pip 24.0 from /path/to/pip (python 3.12)"
+    m = re.search(r"pip\s+(\d+)\.(\d+)", proc.stdout)
+    if not m:
+        raise BuildError(f"could not parse the runtime pip version from: {proc.stdout.strip()!r}")
+    return int(m.group(1)), int(m.group(2))
 
 
 def _resolve_release(pinned: str | None, log) -> tuple[str, str]:

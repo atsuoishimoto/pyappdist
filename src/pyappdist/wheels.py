@@ -19,6 +19,11 @@
   (e.g. pandas's ``tzdata; sys_platform=="win32"`` is included). No cross specifier
   is needed. With pylock.toml, pip fetches each package's recorded artifact URL
   directly (no index resolution), so per-package index pins survive exactly.
+
+``pip wheel -r pylock.toml`` needs pip 26.1+, but python-build-standalone bundles
+whatever pip its ``ensurepip`` baked in, which can be older. fetch-runtime
+(:func:`pyappdist.runtime.ensure_pip`) upgrades the runtime's pip when it is too
+old, so the ``-m pip`` calls below can rely on pylock support being present.
 """
 
 from __future__ import annotations
