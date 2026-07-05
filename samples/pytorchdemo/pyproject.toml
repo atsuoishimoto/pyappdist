@@ -1,0 +1,58 @@
+[project]
+name = "pytorchdemo"
+version = "0.1.0"
+description = "PyTorch CUDA 13 sample for pyappdist"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "torch>=2.9",
+]
+
+[dependency-groups]
+dev = [
+    "pyappdist",
+]
+
+# Pull torch from the PyTorch CUDA 13.0 (cu130) wheel index on Windows/Linux.
+# The index is marked ``explicit`` so only packages listed in [tool.uv.sources]
+# resolve against it; everything else still comes from PyPI.
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu130", marker = "sys_platform == 'win32' or sys_platform == 'linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.pyappdist]
+name = "PyTorch CUDA Demo"
+python = "3.12"
+identifier = "com.example.pytorchdemo"
+
+launchers = [
+  { name = "pytorchdemo", entry = "pytorchdemo:main", gui = false },
+]
+
+# CUDA wheels are published only for Windows and Linux, so this sample targets
+# those two platforms. macOS has no CUDA build (it uses Metal/MPS instead).
+[[tool.pyappdist.targets]]
+name = "win32-msi"
+platform = "windows-x86_64"
+format = "msi"
+# upgrade-code = "..."    # auto-generated and written back if omitted
+manufacturer = "Example Inc."
+code-sign = false
+allow-same-version-upgrades = false
+
+[[tool.pyappdist.targets]]
+name = "win32-store"
+platform = "windows-x86_64"
+format = "msix"
+manufacturer = "Example Inc."
+
+[[tool.pyappdist.targets]]
+name = "linux"
+platform = "linux-x86_64"
+format = "linux"
