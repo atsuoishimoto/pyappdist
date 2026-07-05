@@ -17,6 +17,10 @@ Because the runtime is a normal Python environment, **most apps run as-is**: no
 hooks, no ``--hidden-import``, no ``--add-data``, no per-library workarounds. If
 it runs under ``uv run``, it almost certainly runs after ``pyappdist build``.
 
+Shipping a full runtime without selecting files makes packages larger, but against
+the storage of any modern machine that is a favorable trade for an environment that
+just runs.
+
 Output formats
 --------------
 

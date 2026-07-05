@@ -65,20 +65,6 @@ If they only work in your source checkout (because they read files that the whee
 doesn't include, or import a top-level script that isn't part of the package),
 fix the packaging first — the launcher would fail the same way.
 
-The trade-off: size for reliability
------------------------------------
-
-Because pyappdist ships a full runtime and never selects or strips out "unused"
-files, its packages are larger than a freezer that prunes everything it believes
-is unreachable. That extra size is deliberate: nothing is missing at run time
-because nothing was guessed away at build time — the same static analysis that
-lets freezers shrink output is exactly what makes them fragile with dynamic
-imports, plugins, and data files.
-
-Weighed against the storage capacity of any modern machine, a larger installer is
-a favorable trade for a runtime that reliably just runs. pyappdist optimizes for a
-stable execution environment over the smallest possible download.
-
 The pipeline
 ------------
 
