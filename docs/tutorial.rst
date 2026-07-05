@@ -152,7 +152,7 @@ a GUI), and one Windows MSI target:
 
    [tool.pyappdist]
    name = "Hello Tk"
-   python = "3.12"
+   python = "3.12"                        # bundled runtime; must satisfy requires-python
 
    launchers = [
      { name = "hellotk", entry = "hellotk:main", gui = true },
@@ -168,6 +168,10 @@ a GUI), and one Windows MSI target:
 The ``entry`` is the very command you tested in step 4, and ``gui = true`` is
 what makes the console window disappear. See :doc:`configuration` for every key
 and :doc:`platforms/windows-msi` for the MSI-specific options.
+
+**Replace ``python = "3.12"`` with the runtime version you want to ship.** It
+must satisfy your ``[project]`` ``requires-python`` (``>=3.11`` in step 1), so
+pick a version equal to or newer than that floor — never older.
 
 Step 6 — Build the installer
 ----------------------------

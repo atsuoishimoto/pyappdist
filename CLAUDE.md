@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Language
+
+English is the working language of this repository. Write all repository
+artifacts — code comments, commit messages, PR descriptions, and
+documentation — in English. (Interactive chat may be in another language.)
+
 ## What this is
 
 pyappdist turns a Python app into a Windows `.msi` installer (plus a portable `.zip`). It does **not** freeze code into an exe. Instead it installs the app into a real, dedicated python-build-standalone runtime exactly as `pip` would, then ships that tree. Because the install layout is real, most apps (C extensions, abi3 wheels, Qt plugins, tkinter) run unmodified.
