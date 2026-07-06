@@ -7,16 +7,23 @@
   constraints, version-conditional build logic), so building with a host python of a
   different version than the target may fail or produce a wrong wheel.
 * Dependencies: pinned **based on the project's lockfile**. Using the manager
-  (uv/poetry/pipenv/PDM), ``requirements.txt`` is exported from the lock
-  (:mod:`pyappdist.deps`) and passed to the **target runtime's python** to run
-  ``pip wheel -r requirements.txt``. For dependencies with published wheels that
+  (uv/poetry/pipenv/PDM), a dependency file is exported from the lock
+  (:mod:`pyappdist.deps` — PEP 751 ``pylock.toml`` for uv, ``requirements.txt``
+  otherwise) and passed to the **target runtime's python** to run
+  ``pip wheel -r <file>``. For dependencies with published wheels that
   wheel is fetched; dependencies with only an sdist are built into a wheel with the
   target python (so packages without wheels are handled too). As a result, the
   wheelhouse ends up containing only wheels, so the later offline install just needs
   the wheels. Because resolution uses the target machine's interpretation, both
   environment markers like ``sys_platform`` and the wheel tags are natively correct
   (e.g. pandas's ``tzdata; sys_platform=="win32"`` is included). No cross specifier
-  is needed.
+  is needed. With pylock.toml, pip fetches each package's recorded artifact URL
+  directly (no index resolution), so per-package index pins survive exactly.
+
+``pip wheel -r pylock.toml`` needs pip 26.1+, but python-build-standalone bundles
+whatever pip its ``ensurepip`` baked in, which can be older. fetch-runtime
+(:func:`pyappdist.runtime.ensure_pip`) upgrades the runtime's pip when it is too
+old, so the ``-m pip`` calls below can rely on pylock support being present.
 """
 
 from __future__ import annotations
@@ -75,15 +82,16 @@ def build_app_wheel(config: Config, runtime: RuntimeInfo, wheelhouse: Path, *, l
 
 
 def collect_dependencies(runtime: RuntimeInfo, requirements_file: Path, wheelhouse: Path, *, log=print) -> list[Path]:
-    """Collect the ``requirements.txt`` dependencies as wheels using the target runtime's python.
+    """Collect the exported dependencies as wheels using the target runtime's python.
 
-    Since it uses ``pip wheel -r``, dependencies with a wheel have that wheel
-    fetched, while dependencies with only an sdist are built into a wheel with the
-    target python (so packages without wheels are handled too). Markers are
-    evaluated with the target python, so only the applicable dependencies are
-    included.
+    ``requirements_file`` is the file produced by :func:`pyappdist.deps.resolve_requirements`
+    (``pylock.toml`` or ``requirements.txt`` — ``pip wheel -r`` accepts both).
+    Dependencies with a wheel have that wheel fetched, while dependencies with
+    only an sdist are built into a wheel with the target python (so packages
+    without wheels are handled too). Markers are evaluated with the target
+    python, so only the applicable dependencies are included.
     """
-    log("wheels: collecting dependency wheels (pip wheel -r with the target runtime's python)")
+    log(f"wheels: collecting dependency wheels (pip wheel -r {requirements_file.name} with the target runtime's python)")
     before = set(wheelhouse.glob("*.whl"))
     cmd = [
         str(runtime.python_exe), "-m", "pip", "wheel", "-r", requirements_file.name,

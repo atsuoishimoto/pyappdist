@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from pyappdist.deps import (
+    _add_encoded_artifact_names,
     _auto_detect,
     _export_cmd,
     resolve_manager,
@@ -67,9 +68,10 @@ def test_resolve_manager_undeterminable_errors(tmp_path: Path):
 
 def test_export_cmd_no_extras_is_nodev_default():
     # No extras: the command is the base export (production deps only).
+    # uv exports PEP 751 pylock.toml so per-package index pins survive.
     assert _export_cmd("uv", ()) == [
         "uv", "export", "--frozen", "--no-dev", "--no-emit-project",
-        "--format", "requirements-txt",
+        "--format", "pylock.toml",
     ]
 
 
@@ -81,6 +83,71 @@ def test_export_cmd_appends_extra_flags(manager: str, flag: str):
     cmd = _export_cmd(manager, ("gui", "extra"))
     # Each extra becomes a repeated selector flag, in order, after the base command.
     assert cmd[-4:] == [flag, "gui", flag, "extra"]
+
+
+def test_add_encoded_artifact_names_adds_decoded_name():
+    # A %2B (encoded "+") in the URL basename gets an explicit decoded name,
+    # so pip's URL-derived filename validation is bypassed; the URL is untouched.
+    line = (
+        '    { url = "https://dl.example/whl/torch-2.12.1%2Bcu130-cp312-win_amd64.whl",'
+        ' hashes = { sha256 = "aa" } },\n'
+    )
+    fixed = _add_encoded_artifact_names(line)
+    assert 'name = "torch-2.12.1+cu130-cp312-win_amd64.whl", url =' in fixed
+    assert "torch-2.12.1%2Bcu130-cp312-win_amd64.whl" in fixed  # URL preserved
+
+
+def test_add_encoded_artifact_names_leaves_plain_urls_alone():
+    text = (
+        'wheels = [\n'
+        '    { url = "https://files.pythonhosted.org/x/numpy-2.4.6-cp312-any.whl",'
+        ' hashes = { sha256 = "bb" } },\n'
+        ']\n'
+    )
+    assert _add_encoded_artifact_names(text) == text
+
+
+def _fake_export(monkeypatch, stdout: str) -> None:
+    """Replace subprocess.run in deps with a successful fake export."""
+    import subprocess as _subprocess
+
+    def fake_run(cmd, **_kwargs):
+        return _subprocess.CompletedProcess(cmd, 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr("pyappdist.deps.subprocess.run", fake_run)
+
+
+def test_resolve_requirements_uv_writes_pylock(tmp_path: Path, sample_config, monkeypatch):
+    # uv manager: the export is PEP 751 pylock.toml (per-package index pins survive)
+    # and must land under pip's recognized file name.
+    project = tmp_path / "proj"
+    project.mkdir()
+    _touch(project, "uv.lock")
+    wheelhouse = tmp_path / "wh"
+    wheelhouse.mkdir()
+    cfg = dataclasses.replace(sample_config, project_dir=project, manager=None)
+    _fake_export(monkeypatch, 'lock-version = "1.0"\n')
+
+    out = resolve_requirements(cfg, wheelhouse, log=lambda _m: None)
+
+    assert out == wheelhouse / "pylock.toml"
+    assert out.read_text(encoding="utf-8") == 'lock-version = "1.0"\n'
+
+
+def test_resolve_requirements_poetry_writes_requirements_txt(tmp_path: Path, sample_config, monkeypatch):
+    # Non-uv managers keep the requirements.txt export.
+    project = tmp_path / "proj"
+    project.mkdir()
+    _touch(project, "poetry.lock")
+    wheelhouse = tmp_path / "wh"
+    wheelhouse.mkdir()
+    cfg = dataclasses.replace(sample_config, project_dir=project, manager=None)
+    _fake_export(monkeypatch, "requests==2.0\n")
+
+    out = resolve_requirements(cfg, wheelhouse, log=lambda _m: None)
+
+    assert out == wheelhouse / "requirements.txt"
+    assert out.read_text(encoding="utf-8") == "requests==2.0\n"
 
 
 def test_resolve_requirements_extras_ignored_for_requirements_txt(tmp_path: Path, sample_config):

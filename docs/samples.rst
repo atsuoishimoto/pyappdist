@@ -47,11 +47,14 @@ CLI samples
 
 `pytorchdemo <https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pytorchdemo>`_
    Ships **PyTorch built for CUDA 13** (``cu130``), pinned to the PyTorch wheel
-   index via ``[tool.uv.sources]`` + an ``explicit`` ``[[tool.uv.index]]``.
-   pyappdist exports those pins from ``uv.lock`` and installs the matching
-   wheels, so the app carries the CUDA build; it runs on the GPU when available
-   and falls back to the CPU otherwise. CUDA wheels exist only for Windows and
-   Linux, so the sample targets those two. Console launcher.
+   index via ``[tool.uv.sources]`` + an ``explicit`` ``[[tool.uv.index]]`` (see
+   `Using uv with PyTorch <https://docs.astral.sh/uv/guides/integration/pytorch/>`_).
+   pyappdist exports ``uv.lock`` as PEP 751 ``pylock.toml``, so the per-package
+   index pin survives exactly and the app carries the CUDA build; it runs on
+   the GPU when available and falls back to the CPU otherwise. CUDA wheels
+   exist only for Windows and Linux, so the sample targets those two. Console
+   launcher. For GPU PyTorch, managing the project with **uv** is recommended
+   (:doc:`dependencies`).
 
 GUI samples
 -----------

@@ -33,8 +33,12 @@ url = "https://download.pytorch.org/whl/cu130"
 explicit = true
 ```
 
-pyappdist exports these pins from `uv.lock` and installs the matching wheels
-into the target runtime, so the shipped app carries the CUDA build of PyTorch.
+pyappdist exports `uv.lock` as a PEP 751 `pylock.toml`, which records each
+package's exact wheel URLs — so this per-package index pin survives into the
+build as locked, and the shipped app carries the CUDA build of PyTorch.
+For GPU builds of PyTorch, managing the project with **uv** is recommended;
+configure the index as described in
+[Using uv with PyTorch](https://docs.astral.sh/uv/guides/integration/pytorch/).
 The CUDA runtime libraries live inside the wheels — the target machine only
 needs an NVIDIA driver new enough for CUDA 13; no CUDA toolkit install is
 required. On a machine without a GPU (or without a compatible driver) the same

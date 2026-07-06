@@ -2,9 +2,10 @@ Dependency resolution
 ======================
 
 pyappdist pins **dependencies from your project's lockfile** so the distribution
-matches the versions you tested. It exports a ``requirements.txt`` using your
-package manager, then turns those requirements into wheels with the target
-runtime's own ``python.exe``.
+matches the versions you tested. It exports the lock with your package manager —
+to a PEP 751 ``pylock.toml`` for uv, or a ``requirements.txt`` for the other
+managers — then turns those pins into wheels with the target runtime's own
+``python.exe``.
 
 Why the lockfile
 ----------------
@@ -32,7 +33,10 @@ lockfile, in this order:
 
 **uv** — lockfile ``uv.lock``::
 
-   uv export --frozen --no-dev --no-emit-project --format requirements-txt
+   uv export --frozen --no-dev --no-emit-project --format pylock.toml
+
+uv exports a PEP 751 ``pylock.toml`` instead of a requirements.txt; see
+`Per-package indexes`_ below for why.
 
 **poetry** — lockfile ``poetry.lock``::
 
@@ -49,6 +53,47 @@ lockfile, in this order:
 All exports are **production dependencies only** (development dependencies are
 excluded, so pyappdist itself and other dev tooling are never bundled) and
 **include hashes**.
+
+.. _Per-package indexes:
+
+Per-package indexes (uv only)
+-----------------------------
+
+A lock can pin *individual packages* to an alternative index. The typical case
+is a **GPU (CUDA) build of PyTorch** from the PyTorch wheel index, configured
+with ``[tool.uv.sources]`` and an ``explicit = true`` ``[[tool.uv.index]]``:
+
+.. code-block:: toml
+
+   [tool.uv.sources]
+   torch = [
+       { index = "pytorch-cu130", marker = "sys_platform == 'win32' or sys_platform == 'linux'" },
+   ]
+
+   [[tool.uv.index]]
+   name = "pytorch-cu130"
+   url = "https://download.pytorch.org/whl/cu130"
+   explicit = true
+
+pip's ``--index-url`` / ``--extra-index-url`` are *global* options, so a
+requirements.txt cannot express this kind of per-package routing. The PEP 751
+``pylock.toml`` that uv exports records each package's **exact artifact URLs
+and hashes** instead, and pip fetches those URLs directly without consulting
+any index — the per-package pin survives into the build exactly as locked.
+
+For GPU builds of PyTorch (or any project pinning packages to a dedicated
+index) we therefore recommend managing the project with **uv**, configured as
+described in the uv documentation:
+`Using uv with PyTorch <https://docs.astral.sh/uv/guides/integration/pytorch/>`_.
+The ``pytorchdemo`` sample (:doc:`samples`) is a working configuration. With
+the other managers the exported requirements.txt flattens index configuration
+into global options, which cannot pin an index per package.
+
+.. note::
+
+   pip's ``pylock.toml`` support is recent (and marked experimental by pip), so
+   the bundled runtime needs a reasonably new pip. Current
+   python-build-standalone runtimes bundle one that qualifies.
 
 Including optional-dependency extras
 ------------------------------------
