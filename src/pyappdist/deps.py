@@ -33,6 +33,9 @@ import subprocess
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+import tomlkit
+from tomlkit.exceptions import TOMLKitError
+
 from .config import Config
 from .errors import BuildError
 
@@ -74,6 +77,28 @@ _EXTRA_FLAGS: dict[str, str] = {
 
 # An inline-table artifact entry in uv's pylock.toml output: `{ url = "..."` .
 _ARTIFACT_URL = re.compile(r'(\{\s*)url = "([^"]+)"')
+
+
+def _ensure_packages_key(pylock: str) -> str:
+    """Work around a uv bug that omits the required ``packages`` key when empty.
+
+    PEP 751 marks the top-level ``packages`` key as required, but when a project
+    has no dependencies ``uv export --format pylock.toml`` drops it entirely
+    (rather than emitting ``packages = []``). pip then rejects the file with
+    "Invalid pylock file: Missing required value in 'packages'". Add an empty
+    ``packages`` array when the parsed document lacks the key so the export stays
+    spec-compliant; tomlkit preserves the original layout (comments, spacing) when
+    dumping. An export that already has the key, or is not valid TOML, is returned
+    untouched.
+    """
+    try:
+        doc = tomlkit.parse(pylock)
+    except TOMLKitError:
+        return pylock
+    if "packages" in doc:
+        return pylock
+    doc["packages"] = tomlkit.array()
+    return tomlkit.dumps(doc)
 
 
 def _add_encoded_artifact_names(pylock: str) -> str:
@@ -192,6 +217,6 @@ def resolve_requirements(config: Config, wheelhouse: Path, *, log=print) -> Path
         )
     text = proc.stdout
     if manager == "uv":
-        text = _add_encoded_artifact_names(text)
+        text = _ensure_packages_key(_add_encoded_artifact_names(text))
     out.write_text(text, encoding="utf-8")
     return out
