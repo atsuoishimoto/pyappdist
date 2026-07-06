@@ -30,9 +30,11 @@ from __future__ import annotations
 
 import re
 import subprocess
-import tomllib
 from pathlib import Path
 from urllib.parse import unquote, urlparse
+
+import tomlkit
+from tomlkit.exceptions import TOMLKitError
 
 from .config import Config
 from .errors import BuildError
@@ -88,10 +90,10 @@ def _ensure_packages_key(pylock: str) -> str:
     spec-compliant. If the export is not valid TOML, leave it untouched.
     """
     try:
-        data = tomllib.loads(pylock)
-    except tomllib.TOMLDecodeError:
+        doc = tomlkit.parse(pylock)
+    except TOMLKitError:
         return pylock
-    if "packages" in data:
+    if "packages" in doc:
         return pylock
     sep = "" if pylock.endswith("\n") else "\n"
     return f"{pylock}{sep}packages = []\n"
