@@ -85,9 +85,11 @@ def _ensure_packages_key(pylock: str) -> str:
     PEP 751 marks the top-level ``packages`` key as required, but when a project
     has no dependencies ``uv export --format pylock.toml`` drops it entirely
     (rather than emitting ``packages = []``). pip then rejects the file with
-    "Invalid pylock file: Missing required value in 'packages'". Append an empty
+    "Invalid pylock file: Missing required value in 'packages'". Add an empty
     ``packages`` array when the parsed document lacks the key so the export stays
-    spec-compliant. If the export is not valid TOML, leave it untouched.
+    spec-compliant; tomlkit preserves the original layout (comments, spacing) when
+    dumping. An export that already has the key, or is not valid TOML, is returned
+    untouched.
     """
     try:
         doc = tomlkit.parse(pylock)
@@ -95,8 +97,8 @@ def _ensure_packages_key(pylock: str) -> str:
         return pylock
     if "packages" in doc:
         return pylock
-    sep = "" if pylock.endswith("\n") else "\n"
-    return f"{pylock}{sep}packages = []\n"
+    doc["packages"] = tomlkit.array()
+    return tomlkit.dumps(doc)
 
 
 def _add_encoded_artifact_names(pylock: str) -> str:
