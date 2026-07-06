@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import tomllib
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -76,11 +77,6 @@ _EXTRA_FLAGS: dict[str, str] = {
 _ARTIFACT_URL = re.compile(r'(\{\s*)url = "([^"]+)"')
 
 
-# The top-level `packages` key, as either an array-of-tables header (`[[packages]]`)
-# or an inline/multiline array (`packages = [...]`).
-_PACKAGES_KEY = re.compile(r"^\s*(\[\[\s*packages\s*\]\]|packages\s*=)", re.MULTILINE)
-
-
 def _ensure_packages_key(pylock: str) -> str:
     """Work around a uv bug that omits the required ``packages`` key when empty.
 
@@ -88,9 +84,14 @@ def _ensure_packages_key(pylock: str) -> str:
     has no dependencies ``uv export --format pylock.toml`` drops it entirely
     (rather than emitting ``packages = []``). pip then rejects the file with
     "Invalid pylock file: Missing required value in 'packages'". Append an empty
-    ``packages`` array when none is present so the export stays spec-compliant.
+    ``packages`` array when the parsed document lacks the key so the export stays
+    spec-compliant. If the export is not valid TOML, leave it untouched.
     """
-    if _PACKAGES_KEY.search(pylock):
+    try:
+        data = tomllib.loads(pylock)
+    except tomllib.TOMLDecodeError:
+        return pylock
+    if "packages" in data:
         return pylock
     sep = "" if pylock.endswith("\n") else "\n"
     return f"{pylock}{sep}packages = []\n"
