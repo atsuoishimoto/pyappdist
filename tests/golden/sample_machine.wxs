@@ -31,7 +31,7 @@
         <Component Id="cmp_shortcuts" Guid="352D8241-17A5-5EA3-A7CA-2716C6B39C41">
           <Shortcut Id="sc_6adfb183a4a2" Name="helloworld" Target="[INSTALLFOLDER]helloworld.exe" WorkingDirectory="INSTALLFOLDER" />
           <RemoveFolder Id="rm_ShortcutFolder" On="uninstall" />
-          <RegistryValue Root="HKCU" Key="Software\Example Inc.\Hello World" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+          <RegistryValue Root="HKLM" Key="Software\Example Inc.\Hello World" Name="installed" Type="integer" Value="1" KeyPath="yes" />
         </Component>
       </Directory>
     </StandardDirectory>

@@ -111,7 +111,7 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
         _sub(sc_comp, "RemoveFolder", Id="rm_ShortcutFolder", On="uninstall")
         _sub(
             sc_comp, "RegistryValue",
-            Root="HKCU", Key=reg_key, Name="installed",
+            Root=install_root_reg, Key=reg_key, Name="installed",
             Type="integer", Value="1", KeyPath="yes",
         )
         component_ids.append("cmp_shortcuts")
