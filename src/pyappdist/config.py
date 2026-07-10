@@ -230,11 +230,23 @@ def load_configs(
     name = tool.get("name") or dist_name
 
     version = tool.get("version") or project.get("version") or "0.0.0"
+    # An unquoted TOML number silently drops trailing zeros (1.10 parses as the
+    # float 1.1), so reject non-strings before they mangle the version.
+    if not isinstance(version, str):
+        raise ConfigError(
+            f'version must be a quoted string (e.g. version = "1.10"): got {version!r}'
+        )
 
     python = tool.get("python")
     if not python:
         raise ConfigError("[tool.pyappdist].python is required (e.g. \"3.12\")")
-    if not _PYTHON_RE.match(str(python)):
+    # Same trap as version: python = 3.10 is the float 3.1.
+    if not isinstance(python, str):
+        raise ConfigError(
+            "[tool.pyappdist].python must be a quoted string "
+            f'(e.g. python = "3.10"): got {python!r}'
+        )
+    if not _PYTHON_RE.match(python):
         raise ConfigError(f"python must be in X.Y or X.Y.Z format: {python!r}")
 
     launchers = _parse_launchers(tool.get("launchers"))
@@ -263,7 +275,7 @@ def load_configs(
         )
 
     if any(fmt in ("msi", "msix") for (_, _, fmt, *_rest) in specs) and not _MSI_VERSION_RE.match(
-        str(version)
+        version
     ):
         raise ConfigError(
             "msi/msix targets require a dotted numeric version "
@@ -284,8 +296,8 @@ def load_configs(
             project_dir=project_dir,
             name=str(name),
             dist_name=str(dist_name),
-            version=str(version),
-            python=str(python),
+            version=version,
+            python=python,
             identifier=identifier,
             target=target,
             target_name=target_name,
