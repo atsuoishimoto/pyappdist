@@ -3,7 +3,9 @@ name = "pyappdist"
 version = "0.8.0"
 description = "Turn a Python app into a native installer (Windows MSI/MSIX, Linux, macOS)"
 readme = "README.md"
-requires-python = ">=3.11"
+# 3.11.4+ because tarfile's extractall(filter=...) kwarg (used by runtime
+# extraction) first appeared in that patch release.
+requires-python = ">=3.11.4"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [

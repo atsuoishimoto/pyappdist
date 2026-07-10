@@ -5,7 +5,7 @@ from __future__ import annotations
 import shutil
 
 from ..context import BuildContext
-from ..runtime import RuntimeInfo
+from ..runtime import _MARKER, RuntimeInfo
 from .layout import ImageLayout
 
 
@@ -17,5 +17,8 @@ def assemble_runtime(ctx: BuildContext, runtime: RuntimeInfo, *, log=print) -> I
     image_dir.mkdir(parents=True)
     python_dir = image_dir / "python"
     log(f"image: copying runtime -> {python_dir}")
-    shutil.copytree(runtime.root, python_dir, symlinks=True)
+    # The runtime marker is build-cache metadata; keep it out of the shipped image.
+    shutil.copytree(
+        runtime.root, python_dir, symlinks=True, ignore=shutil.ignore_patterns(_MARKER)
+    )
     return ImageLayout(image_dir=image_dir, target=ctx.config.target, minor=runtime.minor)

@@ -7,12 +7,15 @@ spec. The resolution procedure corresponds to PLAN.md "runtime fetch (fetch-runt
 from __future__ import annotations
 
 import hashlib
+import http.client
 import json
+import os
 import re
 import shutil
 import subprocess
 import tarfile
 import tempfile
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,6 +29,15 @@ LATEST_RELEASE_URL = (
 )
 FLAVOR = "install_only_stripped"
 _MARKER = ".pyappdist-runtime.json"
+
+# Applies to both the connect and each socket read; a stalled connection fails the
+# build instead of hanging it forever.
+_HTTP_TIMEOUT = 60.0
+
+# Network/protocol errors that should surface as a clean ``error:`` line rather than
+# a traceback: DNS failure and HTTP status errors (URLError/HTTPError), a connection
+# dropped mid-body (IncompleteRead is an HTTPException), and socket timeouts.
+_HTTP_ERRORS = (urllib.error.URLError, http.client.HTTPException, TimeoutError)
 
 # Minimum pip for handling a PEP 751 ``pylock.toml`` in ``pip wheel -r``. PEP 751
 # read support first landed in pip 25.1, but pyappdist requires 26.1+ for its later
@@ -72,10 +84,18 @@ def fetch_runtime(
         if (not runtime_release or existing["tag"] == runtime_release) and (
             not exact or existing["version"] == exact
         ):
-            log(f"runtime: reusing existing ({existing['version']} @ {dest})")
             info = _info_from_marker(dest, existing)
-            ensure_pip(info, log=log)
-            return info
+            # The marker alone doesn't prove the tree is intact (a deleted
+            # python.exe, an interrupted extraction); re-verify and fall through
+            # to a fresh fetch so a damaged runtime heals itself.
+            try:
+                _verify(info)
+            except BuildError as exc:
+                log(f"runtime: existing tree is damaged ({exc}); refetching")
+            else:
+                log(f"runtime: reusing existing ({existing['version']} @ {dest})")
+                ensure_pip(info, log=log)
+                return info
 
     if dest.exists():
         shutil.rmtree(dest)
@@ -128,6 +148,16 @@ def ensure_pip(info: RuntimeInfo, *, log=print) -> None:
     if proc.returncode != 0:
         raise BuildError(
             f"pip upgrade failed ({proc.returncode}): {' '.join(cmd)}\n{proc.stderr.strip()}"
+        )
+    # On an old runtime the newest pip that still supports it may predate _MIN_PIP;
+    # the upgrade "succeeds" but pylock.toml would fail later with an opaque parse
+    # error, so fail here with the real cause instead.
+    upgraded = _pip_version(info)
+    if upgraded < _MIN_PIP:
+        raise BuildError(
+            f"the runtime's pip could only be upgraded to "
+            f"{'.'.join(map(str, upgraded))}, but pylock.toml support needs pip "
+            f"{want}+; python {info.minor} is too old for a pylock-based build"
         )
 
 
@@ -281,19 +311,35 @@ def _download_verified(url: str, dest: Path, sha256: str, log) -> None:
         log(f"runtime: cache hit {dest.name}")
         return
     log(f"runtime: download {url}")
-    tmp = dest.with_suffix(dest.suffix + ".part")
-    with urllib.request.urlopen(url) as r, open(tmp, "wb") as f:  # noqa: S310
-        shutil.copyfileobj(r, f)
-    actual = _sha256(tmp)
-    if actual != sha256:
+    # The cache dir is shared (~/.cache/pyappdist), so concurrent builds may fetch
+    # the same asset: each writes its own unique temp file and atomically renames
+    # the verified result into place; a fixed temp name would interleave writes.
+    fd, tmp_name = tempfile.mkstemp(dir=dest.parent, prefix=dest.name + ".", suffix=".part")
+    os.close(fd)
+    tmp = Path(tmp_name)
+    try:
+        try:
+            with urllib.request.urlopen(url, timeout=_HTTP_TIMEOUT) as r:  # noqa: S310
+                with open(tmp, "wb") as f:
+                    shutil.copyfileobj(r, f)
+        except _HTTP_ERRORS as exc:
+            raise BuildError(f"download failed: {url}\n  {exc}") from exc
+        actual = _sha256(tmp)
+        if actual != sha256:
+            raise BuildError(
+                f"sha256 mismatch: {url}\n  expected {sha256}\n  actual   {actual}"
+            )
+        tmp.replace(dest)
+    finally:
         tmp.unlink(missing_ok=True)
-        raise BuildError(f"sha256 mismatch: {url}\n  expected {sha256}\n  actual   {actual}")
-    tmp.replace(dest)
 
 
 def _http_get(url: str) -> bytes:
-    with urllib.request.urlopen(url) as r:  # noqa: S310
-        return r.read()
+    try:
+        with urllib.request.urlopen(url, timeout=_HTTP_TIMEOUT) as r:  # noqa: S310
+            return r.read()
+    except _HTTP_ERRORS as exc:
+        raise BuildError(f"download failed: {url}\n  {exc}") from exc
 
 
 def _sha256(path: Path) -> str:
