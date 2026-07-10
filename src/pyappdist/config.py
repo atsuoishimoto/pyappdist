@@ -382,7 +382,14 @@ def _parse_targets(
 
 
 def _parse_wix(raw: dict, index: int) -> WixConfig:
+    from .wix.guid import is_guid
+
     where = f"targets[{index}]"
+    upgrade_code = raw.get("upgrade-code")
+    if upgrade_code is not None and not is_guid(str(upgrade_code)):
+        raise ConfigError(
+            f"{where}.upgrade-code must be a valid GUID: {upgrade_code!r}"
+        )
     scope = raw.get("scope", "user")
     if scope not in _WIX_SCOPES:
         raise ConfigError(f"{where}.scope must be one of {_WIX_SCOPES}: {scope!r}")
@@ -399,7 +406,7 @@ def _parse_wix(raw: dict, index: int) -> WixConfig:
         )
     return WixConfig(
         manufacturer=raw.get("manufacturer"),
-        upgrade_code=raw.get("upgrade-code"),
+        upgrade_code=str(upgrade_code) if upgrade_code is not None else None,
         scope=str(scope),
         license=str(license_) if license_ is not None else None,
         code_sign=code_sign,
@@ -613,7 +620,15 @@ def ensure_upgrade_code(project_dir: Path, target_name: str, *, log=print) -> st
         )
 
     existing = entry.get("upgrade-code")
-    if existing and is_guid(str(existing)):
+    if existing is not None:
+        # Never replace an existing value: the upgrade code is the product's
+        # identity across versions, and silently regenerating a mistyped one
+        # would break MajorUpgrade of already-shipped installs.
+        if not is_guid(str(existing)):
+            raise ConfigError(
+                f"target {target_name!r} has an invalid upgrade-code: {existing!r} "
+                "(must be a valid GUID; fix it or remove the key to generate a new one)"
+            )
         return str(existing)
 
     code = str(uuid.uuid4()).upper()

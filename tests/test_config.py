@@ -589,6 +589,26 @@ def test_ensure_upgrade_code_keeps_existing(tmp_path: Path):
     assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == before
 
 
+def test_ensure_upgrade_code_rejects_invalid_existing(tmp_path: Path):
+    # A mistyped code must never be silently replaced with a fresh GUID:
+    # that would break MajorUpgrade of already-shipped installs.
+    invalid = "7E3F9A2C-5B1D-4E8A-9C6F-1A2B3C4D5E6"  # one hex digit short
+    proj = _write(tmp_path, target_extra=f'upgrade-code = "{invalid}"')
+    before = (tmp_path / "pyproject.toml").read_text(encoding="utf-8")
+
+    with pytest.raises(ConfigError, match="upgrade-code"):
+        ensure_upgrade_code(proj, "win", log=lambda _m: None)
+    # the user's value stays in the file untouched
+    assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == before
+
+
+def test_invalid_upgrade_code_rejected_at_load(tmp_path: Path):
+    with pytest.raises(ConfigError, match="upgrade-code must be a valid GUID"):
+        load_configs(_write(tmp_path, target_extra='upgrade-code = "not-a-guid"'))
+    with pytest.raises(ConfigError, match="upgrade-code must be a valid GUID"):
+        load_configs(_write(tmp_path, target_extra='upgrade-code = ""'))
+
+
 def _launcher_pyproject(name_toml: str) -> str:
     """A pyproject with one launcher whose ``name`` is the given TOML literal."""
     return f"""
