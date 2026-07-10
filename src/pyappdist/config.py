@@ -247,7 +247,18 @@ def load_configs(
 
     specs = _parse_targets(tool.get("targets"))
 
-    # CFBundleIdentifier (reverse-DNS). Required when any target builds a .app bundle.
+    available = [s[0] for s in specs]
+    if select:
+        unknown = [s for s in select if s not in available]
+        if unknown:
+            raise ConfigError(
+                f"unknown target(s): {unknown} (available: {available})"
+            )
+        specs = [s for s in specs if s[0] in set(select)]
+
+    # CFBundleIdentifier (reverse-DNS). Required when a *selected* target builds a .app
+    # bundle — merely-declared targets must not constrain unrelated builds, so this and
+    # the MSI version check below run after the select filter.
     identifier = tool.get("identifier")
     if identifier is not None:
         identifier = str(identifier)
@@ -269,15 +280,6 @@ def load_configs(
             "msi/msix targets require a dotted numeric version "
             f'(e.g. "1.2.3"; MSI ProductVersion cannot express pre-releases): {version!r}'
         )
-
-    available = [s[0] for s in specs]
-    if select:
-        unknown = [s for s in select if s not in available]
-        if unknown:
-            raise ConfigError(
-                f"unknown target(s): {unknown} (available: {available})"
-            )
-        specs = [s for s in specs if s[0] in set(select)]
 
     return [
         Config(
