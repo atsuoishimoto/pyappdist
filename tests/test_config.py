@@ -172,6 +172,29 @@ def test_invalid_python(tmp_path: Path):
         load_configs(_write_text(tmp_path, text))
 
 
+def test_unquoted_python_rejected(tmp_path: Path):
+    # python = 3.10 is the TOML float 3.1; require a quoted string.
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'python = "3.12"', "python = 3.10"
+    )
+    with pytest.raises(ConfigError, match="quoted string"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_unquoted_tool_version_rejected(tmp_path: Path):
+    text = _BASE.format(fmt="msi", app_extra="version = 1.10", target_extra="")
+    with pytest.raises(ConfigError, match="quoted string"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_unquoted_project_version_rejected(tmp_path: Path):
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'version = "0.1.0"', "version = 1.10"
+    )
+    with pytest.raises(ConfigError, match="quoted string"):
+        load_configs(_write_text(tmp_path, text))
+
+
 @pytest.mark.parametrize("bad", ['":main"', '"helloworld:"', '"bad name"', '"a..b"'])
 def test_launcher_entry_invalid(tmp_path: Path, bad: str):
     proj = _write(tmp_path)
