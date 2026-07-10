@@ -12,10 +12,15 @@ For MSI the command is resolved by :func:`resolve_msi_sign_command` from the tar
 fallback. MSIX and the macOS ``.dmg`` keep the legacy behaviour: signed only when
 ``PYAPPDIST_SIGN_CMD`` is set (:func:`env_sign_command`).
 
-The command runs through the platform's shell (cmd.exe on Windows). You can write the
-same command line you would normally type in a terminal, and the shell interprets
-Windows backslash paths and environment variables as-is. When it contains ``{file}``,
-quote it like ``"{file}"`` to guard against spaces.
+The command runs through the platform's shell (cmd.exe on Windows) with the
+artifact's directory as the working directory, and ``{file}`` is replaced with the
+artifact's *file name* (not its full path). Running from the artifact's directory
+lets WSL interop convert the cwd to the Windows side, so the relative name resolves
+correctly for ``signtool.exe`` in cross-builds (the same cwd + relative-path rule as
+``_hostexec.py``). Because of that, any *other* path in the command (a ``.pfx``
+certificate, an entitlements file, ...) must be absolute — a Windows-side absolute
+path when cross-building from WSL. When the command contains ``{file}``, quote it
+like ``"{file}"`` to guard against spaces.
 
 Example: PYAPPDIST_SIGN_CMD='signtool.exe sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /a "{file}"'
 """
@@ -64,12 +69,18 @@ def sign_artifact(path: Path, command: str | None, *, log=print) -> bool:
     if not command:
         log(f"sign: skipped (no sign command): {path.name}")
         return False
+    # Run from the artifact's directory and pass only the file name: WSL interop
+    # converts the cwd to the Windows side, so the relative name resolves for
+    # signtool.exe in cross-builds too (see _hostexec.py). Works natively as well.
     if "{file}" in command:
-        command = command.replace("{file}", str(path))
+        command = command.replace("{file}", path.name)
     else:
-        command = f'{command} "{path}"'
+        command = f'{command} "{path.name}"'
     log(f"sign: {path.name}")
-    proc = subprocess.run(command, shell=True, capture_output=True, text=True, errors="replace")
+    proc = subprocess.run(
+        command, shell=True, cwd=str(path.parent),
+        capture_output=True, text=True, errors="replace",
+    )
     if proc.returncode != 0:
         raise BuildError(f"signing failed ({path.name}):\n{proc.stdout}\n{proc.stderr}")
     return True

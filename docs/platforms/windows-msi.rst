@@ -142,8 +142,12 @@ With ``code-sign = true`` the signing command is resolved in this order:
 The default uses ``/a`` to auto-select the best certificate from the Windows certificate
 store, so a non-secret command line can live in ``pyproject.toml``; use
 ``PYAPPDIST_SIGN_CMD`` to override per machine (for example a ``.pfx`` whose password
-must not be committed). The token ``{file}`` is replaced with the path of the artifact
-being signed (appended to the command if absent).
+must not be committed). The command runs with the artifact's directory as the working
+directory, and the token ``{file}`` is replaced with the artifact's file name (appended
+to the command if absent) — this is what makes signing work when cross-building from
+WSL, where ``signtool.exe`` cannot resolve Linux paths. Any other file referenced in
+the command (such as a ``.pfx``) must therefore be given as an absolute path — a
+Windows-side path like ``D:\certs\app.pfx`` when cross-building.
 
 When ``code-sign`` is unset (or ``false``), signing is skipped regardless of
 ``PYAPPDIST_SIGN_CMD``.
