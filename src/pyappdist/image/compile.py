@@ -26,6 +26,16 @@ def compile_site_packages(layout: ImageLayout, *, log=print) -> None:
     the upstream build path (/build/out/...) -- get rewritten with a clean
     relative path.
 
+    .pyc validation is hash-based (--invalidation-mode checked-hash), not
+    the default timestamp mode: MSI payloads travel through a CAB, whose DOS
+    timestamps have 2-second granularity, so after install roughly half the
+    .py mtimes no longer match the mtime baked into their .pyc and Python
+    would treat those .pyc as stale (recompiling in memory on every cold
+    start on read-only perMachine installs, or rewriting MSI-owned files on
+    per-user installs). checked-hash records the source hash instead, so a
+    .pyc stays valid no matter what happens to file timestamps during
+    packaging, while imports still detect a source file edited in place.
+
     compileall runs with -q, so only its error messages are streamed through
     (the per-file progress listing is suppressed). A non-zero exit status is
     expected for some packages (e.g. PySide6 ships .py files that fail to
@@ -37,6 +47,7 @@ def compile_site_packages(layout: ImageLayout, *, log=print) -> None:
     log("image: compileall")
     cmd = [
         str(layout.python_exe), "-m", "compileall", "-q", "-f",
+        "--invalidation-mode", "checked-hash",
         target_relpath(target, layout.python_dir, layout.image_dir),
     ]
     try:
