@@ -110,9 +110,8 @@ one or more ``[project.optional-dependencies]`` extras, list them per target wit
    format = "msi"
    extras = ["gui", "pdf"]
 
-Each name is passed through to the manager's own extra selector, repeated once per
-extra — ``--extra`` for uv, ``--extras`` for poetry, ``--group`` for PDM, and
-``--categories`` for pipenv. ``extras`` is ignored (with a warning) in
+Each name is passed through to the manager's own extra selector, alongside the
+production dependencies. ``extras`` is ignored (with a warning) in
 ``requirements.txt`` mode, since that file is used verbatim.
 
 Overriding the manager

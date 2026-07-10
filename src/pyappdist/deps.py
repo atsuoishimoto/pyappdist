@@ -65,7 +65,8 @@ _EXPORT_CMDS: dict[str, list[str]] = {
 _EXPORT_FILENAMES: dict[str, str] = {"uv": "pylock.toml"}
 _DEFAULT_EXPORT_FILENAME = "requirements.txt"
 
-# tool name -> the flag that selects one optional-dependency extra (repeated per extra).
+# tool name -> the flag that selects one optional-dependency extra (repeated per
+# extra, except pipenv — see _export_cmd).
 # Each manager spells its own ``[project.optional-dependencies]`` selector differently.
 _EXTRA_FLAGS: dict[str, str] = {
     "uv": "--extra",
@@ -127,11 +128,20 @@ def _add_encoded_artifact_names(pylock: str) -> str:
 
 
 def _export_cmd(manager: str, extras: tuple[str, ...]) -> list[str]:
-    """The export command for ``manager`` with each ``extra`` appended as a selector flag."""
+    """The export command for ``manager`` with the ``extras`` selector flags appended."""
     cmd = list(_EXPORT_CMDS[manager])
+    if not extras:
+        return cmd
     flag = _EXTRA_FLAGS[manager]
-    for extra in extras:
-        cmd += [flag, extra]
+    if manager == "pipenv":
+        # pipenv's --categories is a single comma-separated option (a repeated
+        # flag keeps only the last value), and naming any category *replaces*
+        # the default "packages" section instead of adding to it — so emit one
+        # flag listing "packages" plus every extra.
+        cmd += [flag, ",".join(("packages", *extras))]
+    else:
+        for extra in extras:
+            cmd += [flag, extra]
     return cmd
 
 
