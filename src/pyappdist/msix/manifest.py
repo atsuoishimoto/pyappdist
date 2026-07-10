@@ -29,7 +29,10 @@ def generate_manifest(config: Config) -> str:
         raise ConfigError("MSIX generation requires at least one launcher")
 
     identity_name = config.msix.identity_name or config.dist_name
-    publisher = config.msix.publisher or f"CN={config.wix.manufacturer or config.name}"
+    # An explicit publisher is taken verbatim (the user supplies a complete DN that
+    # must match the signing cert subject); the default derives a single-RDN DN, so
+    # the value needs RFC 4514 escaping ("Acme, Inc." would otherwise parse as two RDNs).
+    publisher = config.msix.publisher or f"CN={_rdn_escape(config.wix.manufacturer or config.name)}"
     display_name = config.msix.display_name or config.name
     publisher_display = config.wix.manufacturer or config.name
     version = _version4(config.version)
@@ -82,6 +85,16 @@ def _version4(version: str) -> str:
     """MSIX requires a 4-part numeric version; pad X.Y[.Z] -> X.Y.Z.0."""
     parts = (version.split(".") + ["0", "0", "0", "0"])[:4]
     return ".".join(parts)
+
+
+def _rdn_escape(value: str) -> str:
+    """Escape an X.500 RDN attribute value per RFC 4514 (for ``CN=<value>``)."""
+    out = "".join("\\" + c if c in '\\,+"<>;=' else c for c in value)
+    if out.startswith(("#", " ")):
+        out = "\\" + out
+    if out.endswith(" "):
+        out = out[:-1] + "\\ "
+    return out
 
 
 def _app_id(name: str) -> str:

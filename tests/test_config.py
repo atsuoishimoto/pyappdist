@@ -467,6 +467,40 @@ def test_identifier_optional_for_non_app_targets(tmp_path: Path):
     assert cfg.identifier is None
 
 
+def _macos_multi_launcher_pyproject(name_a: str, name_b: str) -> str:
+    """A macapp pyproject with two launchers (each .app derives its own bundle id)."""
+    return _macos_app_pyproject("macapp", app_extra=_IDENT).replace(
+        '{ name = "helloworld", entry = "helloworld:main" },',
+        f'{{ name = "{name_a}", entry = "helloworld:main" }},\n'
+        f'  {{ name = "{name_b}", entry = "helloworld:other" }},',
+    )
+
+
+@pytest.mark.parametrize("bad", ["my_tool", "ハロー", "a.b"])
+def test_app_multi_launcher_name_must_be_identifier_segment(tmp_path: Path, bad: str):
+    # With multiple launchers each .app gets "<identifier>.<launcher name>", so the
+    # name must be a valid bundle-identifier segment (letters/digits/hyphens).
+    text = _macos_multi_launcher_pyproject("helloworld", bad)
+    with pytest.raises(ConfigError, match=r"launchers\[1\].name.*bundle identifier"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_app_multi_launcher_segment_names_accepted(tmp_path: Path):
+    text = _macos_multi_launcher_pyproject("hello-world", "Tool2")
+    cfgs = load_configs(_write_text(tmp_path, text))
+    assert [spec.name for spec in cfgs[0].launchers] == ["hello-world", "Tool2"]
+
+
+def test_app_single_launcher_name_unconstrained(tmp_path: Path):
+    # One launcher -> the .app uses the app-level identifier as-is; the launcher
+    # name never enters a bundle identifier, so underscores/unicode stay allowed.
+    text = _macos_app_pyproject("macapp", app_extra=_IDENT).replace(
+        'name = "helloworld", entry', 'name = "my_tool", entry'
+    )
+    cfg = load_configs(_write_text(tmp_path, text))[0]
+    assert cfg.launchers[0].name == "my_tool"
+
+
 def test_macos_app_fields_parsed(tmp_path: Path):
     extra = (
         'min-macos = "12.0"\n'
@@ -640,6 +674,36 @@ def test_launcher_name_rejects_unsafe_chars(tmp_path: Path, bad: str):
 def test_launcher_name_allows_unicode(tmp_path: Path):
     cfg = load_configs(_write_text(tmp_path, _launcher_pyproject("'ハローワールド'")))[0]
     assert cfg.launchers[0].name == "ハローワールド"
+
+
+def _two_launcher_pyproject(name_a: str, name_b: str) -> str:
+    """A pyproject with two launchers named ``name_a`` and ``name_b``."""
+    return _launcher_pyproject(f'"{name_a}"').replace(
+        f'launchers = [ {{ name = "{name_a}", entry = "helloworld:main" }} ]',
+        f'launchers = [\n'
+        f'  {{ name = "{name_a}", entry = "helloworld:main" }},\n'
+        f'  {{ name = "{name_b}", entry = "helloworld:other" }},\n'
+        f']',
+    )
+
+
+def test_duplicate_launcher_name(tmp_path: Path):
+    # Same-named launchers clobber each other's exe and break WiX; reject at load.
+    text = _two_launcher_pyproject("app", "app")
+    with pytest.raises(ConfigError, match="duplicate.*launchers.*'app'"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_duplicate_launcher_name_case_insensitive(tmp_path: Path):
+    # Case-only variants collide on the case-insensitive Windows filesystem.
+    text = _two_launcher_pyproject("App", "app")
+    with pytest.raises(ConfigError, match="duplicate.*launchers"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_distinct_launcher_names_accepted(tmp_path: Path):
+    cfgs = load_configs(_write_text(tmp_path, _two_launcher_pyproject("app", "tool")))
+    assert [spec.name for spec in cfgs[0].launchers] == ["app", "tool"]
 
 
 def test_msi_rejects_non_numeric_version(tmp_path: Path):

@@ -49,6 +49,10 @@ _FORMAT_OS = {
 # reverse-DNS CFBundleIdentifier (e.g. "com.example.myapp"); required for macapp/dmg targets.
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
 
+# One segment of a bundle identifier. With multiple launchers each .app gets
+# "<identifier>.<launcher name>", so the launcher name itself must be a valid segment.
+_IDENTIFIER_SEGMENT_RE = re.compile(r"^[A-Za-z0-9-]+$")
+
 # Launcher entry point. Two forms:
 #   "module:callable" - import callable from module and call it (sys.exit on its return)
 #   "module.path"     - run the module as `python -m module.path` (no callable)
@@ -279,11 +283,25 @@ def load_configs(
                 "[tool.pyappdist].identifier must be reverse-DNS "
                 f'(e.g. "com.example.myapp"): {identifier!r}'
             )
-    if any(fmt in ("macapp", "dmg") for (_, _, fmt, *_rest) in specs) and not identifier:
-        raise ConfigError(
-            '[tool.pyappdist].identifier is required for macapp/dmg targets '
-            '(reverse-DNS, e.g. "com.example.myapp")'
-        )
+    if any(fmt in ("macapp", "dmg") for (_, _, fmt, *_rest) in specs):
+        if not identifier:
+            raise ConfigError(
+                '[tool.pyappdist].identifier is required for macapp/dmg targets '
+                '(reverse-DNS, e.g. "com.example.myapp")'
+            )
+        # With multiple launchers each .app's CFBundleIdentifier is
+        # "<identifier>.<launcher name>", so every launcher name must be a valid
+        # identifier segment (same alphabet _IDENTIFIER_RE allows per segment) —
+        # otherwise the derived identifier is rejectable at notarization/upload.
+        if len(launchers) > 1:
+            for i, spec in enumerate(launchers):
+                if not _IDENTIFIER_SEGMENT_RE.match(spec.name):
+                    raise ConfigError(
+                        f"launchers[{i}].name {spec.name!r} cannot be used with "
+                        "multiple launchers on a macapp/dmg target: each .app's "
+                        'bundle identifier is "<identifier>.<launcher name>", so '
+                        "the name must contain only letters, digits, and hyphens"
+                    )
 
     if any(fmt in ("msi", "msix") for (_, _, fmt, *_rest) in specs) and not _MSI_VERSION_RE.match(
         version
@@ -551,6 +569,16 @@ def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:
                 icons=_parse_icon(item.get("icon"), i),
                 args=str(item.get("args", "")),
             )
+        )
+    # Duplicate names clobber each other's image/<name>.exe and produce duplicate
+    # WiX Shortcut ids (an opaque `wix build` error). Compare casefolded because the
+    # Windows filesystem is case-insensitive, so case-only variants collide too.
+    folded = [launcher.name.casefold() for launcher in out]
+    dups = sorted({name for name in folded if folded.count(name) > 1})
+    if dups:
+        raise ConfigError(
+            f"duplicate [[tool.pyappdist.launchers]].name: {dups} "
+            "(launcher names must be unique, ignoring case)"
         )
     return tuple(out)
 
