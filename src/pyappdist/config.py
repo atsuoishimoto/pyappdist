@@ -55,13 +55,13 @@ _IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
 _ENTRY_MODULE_RE = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*)*$")
 _ENTRY_CALLABLE_RE = re.compile(r"^[A-Za-z_]\w*$")
 
-# Characters a launcher name must not contain. Non-ASCII names are supported (the
-# Windows build pipeline renames the final .exe with Python exactly for that), but the
-# name becomes a filename on every OS (Windows forbids <>:"/\|?*), a symlink in
+# Characters a launcher or target name must not contain. Non-ASCII names are supported
+# (the Windows build pipeline renames the final .exe with Python exactly for that), but
+# the name becomes a filename on every OS (Windows forbids <>:"/\|?*), a symlink in
 # <prefix>/bin, and a field in the .run installer's whitespace/colon-delimited
 # launcher records — so path separators, those Windows-reserved characters,
 # whitespace, and control characters are all rejected.
-_LAUNCHER_NAME_BAD_CHARS = set('<>:"/\\|?*')
+_NAME_BAD_CHARS = set('<>:"/\\|?*')
 
 # MSI ProductVersion (and the MSIX Identity Version derived from it) must be a dotted
 # numeric version; anything else (e.g. "1.0.0rc1") fails at package build time with an
@@ -330,6 +330,7 @@ def _parse_targets(
         if not name:
             raise ConfigError(f"targets[{i}].name is required")
         target_name = str(name)
+        _validate_target_name(target_name, i)
         fmt = item.get("format")
         if fmt is None:
             raise ConfigError(f"targets[{i}].format is required (one of {_FORMATS})")
@@ -463,11 +464,30 @@ def _opt_str(raw: dict, key: str) -> str | None:
 def _validate_launcher_name(name: str, i: int) -> None:
     """Reject launcher names that would break filenames or the installer's records."""
     if any(
-        c in _LAUNCHER_NAME_BAD_CHARS or c.isspace() or ord(c) < 32 for c in name
+        c in _NAME_BAD_CHARS or c.isspace() or ord(c) < 32 for c in name
     ):
         raise ConfigError(
             "launchers[{}].name must not contain whitespace, control characters, "
             'or any of <>:"/\\|?* : {!r}'.format(i, name)
+        )
+
+
+def _validate_target_name(name: str, i: int) -> None:
+    """Reject target names that would escape or break the output directory layout.
+
+    The name becomes a path component under ``appdist/`` and ``.appdist-build/``
+    (which ``pyappdist build`` deletes before rebuilding), so path separators,
+    ``.``/``..``, and Windows-reserved characters must never get through.
+    """
+    if (
+        any(c in _NAME_BAD_CHARS or c.isspace() or ord(c) < 32 for c in name)
+        or name in (".", "..")
+        or name.endswith(".")
+    ):
+        raise ConfigError(
+            "targets[{}].name must not contain whitespace, control characters, "
+            'or any of <>:"/\\|?*, and must not be "." or ".." or end with ".": '
+            "{!r}".format(i, name)
         )
 
 

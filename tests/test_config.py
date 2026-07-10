@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -115,6 +116,41 @@ def test_target_name_required(tmp_path: Path):
     )
     with pytest.raises(ConfigError, match="name is required"):
         load_configs(_write_text(tmp_path, text))
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "..",
+        ".",
+        "trailing.",
+        "a/b",
+        "a\\b",
+        "/tmp/evil",
+        "C:\\evil",
+        "has space",
+        "has\ttab",
+        "ctrl\x01char",
+        "win?",
+    ],
+)
+def test_target_name_invalid(tmp_path: Path, bad: str):
+    # json.dumps escapes backslashes and control characters the same way a TOML
+    # basic string does, so the name survives the round-trip verbatim.
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'name = "win"', f"name = {json.dumps(bad)}"
+    )
+    with pytest.raises(ConfigError, match=r"targets\[0\].name"):
+        load_configs(_write_text(tmp_path, text))
+
+
+@pytest.mark.parametrize("good", ["win", "helloworld-win64", "app_1.2", "日本語"])
+def test_target_name_valid(tmp_path: Path, good: str):
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'name = "win"', f"name = {json.dumps(good)}"
+    )
+    cfgs = load_configs(_write_text(tmp_path, text))
+    assert cfgs[0].target_name == good
 
 
 def test_unknown_platform(tmp_path: Path):
