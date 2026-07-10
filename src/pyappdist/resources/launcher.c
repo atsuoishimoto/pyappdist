@@ -10,6 +10,11 @@
  * python child -- and its whole descendant tree -- is torn down instead of
  * being orphaned. Job setup is best-effort: any failure falls back to launching
  * the child unmanaged rather than failing the launch.
+ *
+ * Ctrl+C / Ctrl+Break: the console delivers these to every process attached to
+ * it, so the python child receives them directly. The launcher ignores them
+ * and keeps waiting -- like CPython's py.exe launcher -- so python alone
+ * decides how to shut down and the child's real exit code is propagated.
  */
 
 #include <windows.h>
@@ -103,6 +108,16 @@ static void append_quoted(WCHAR *buf, size_t *pos, const WCHAR *arg) {
     append_ch(buf, pos, L'"');
 }
 
+/* The console delivers Ctrl+C / Ctrl+Break to the python child too; python
+   alone decides how to shut down. Returning TRUE stops the default handler
+   from exiting the launcher, which would close the kill-on-close job and
+   terminate the child mid-cleanup. Other events (e.g. CTRL_CLOSE_EVENT when
+   the console window is closed) fall through to the default handler, whose
+   exit tears the child down via the job -- the desired behavior there. */
+static BOOL WINAPI ctrl_handler(DWORD type) {
+    return type == CTRL_C_EVENT || type == CTRL_BREAK_EVENT;
+}
+
 static int run(void) {
     WCHAR self[MAX_PATH];
     DWORD n = GetModuleFileNameW(NULL, self, MAX_PATH);
@@ -142,6 +157,11 @@ static int run(void) {
                  CMD_MAX);
         return 124;
     }
+
+    /* Install before creating the child so there is no window where Ctrl+C
+       still kills the launcher (and, via the job, the child). Harmless no-op
+       for the GUI launcher, which has no console. */
+    SetConsoleCtrlHandler(ctrl_handler, TRUE);
 
     LPWSTR env = build_clean_env();
 
