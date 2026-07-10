@@ -178,11 +178,17 @@ def _build_one(
     # file itself stays pure ASCII even when the VS install path contains non-ASCII
     # (cmd.exe receives argv as Unicode through interop; batch file bytes are read in
     # an unpredictable console codepage).
+    # Remove any launcher.res left by a previous run: the gen dir is reused across
+    # incremental builds, and a stale .res would let cl link successfully even if
+    # rc failed, shipping the previous icon/VERSIONINFO.
+    (gen / "launcher.res").unlink(missing_ok=True)
+
     bat = gen / "build.bat"
     lines = [
         "@echo off",
         'call %1 >nul',
         'rc /nologo /fo "launcher.res" "launcher.rc"',
+        "if errorlevel 1 exit /b 1",
         (
             'cl /nologo /O2 /W3 /utf-8 /I"." '
             '"launcher.c" '

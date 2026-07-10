@@ -91,7 +91,10 @@ int main(int argc, char **argv) {
     int nfixed = 0;
     while (FIXED[nfixed])
         ++nfixed;
-    int total = 4 + nfixed + (argc - 1) + 1;
+    /* argc == 0 is legal on macOS (execve with an empty argv); clamp so the
+       NULL terminator below stays within the allocation. */
+    int nuser = argc > 1 ? argc - 1 : 0;
+    int total = 4 + nfixed + nuser + 1;
     char **args = (char **)malloc((size_t)total * sizeof(char *));
     if (!args) {
         fprintf(stderr, "pyappdist launcher: out of memory\n");
