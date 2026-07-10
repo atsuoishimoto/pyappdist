@@ -38,9 +38,30 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+# Canonicalize PREFIX to an absolute path before deriving any paths from it:
+# symlink targets resolve relative to the symlink's own directory, and the
+# .desktop Exec= lines and the generated uninstall.sh bake the paths in
+# verbatim, so a relative prefix would produce dangling links and an
+# uninstaller that only works from the original directory.
+if [ "$DO_UNINSTALL" = "0" ]; then
+    mkdir -p "$PREFIX"
+fi
+if _abs_prefix=$(CDPATH= cd -- "$PREFIX" 2>/dev/null && pwd); then
+    PREFIX=$_abs_prefix
+else
+    echo "error: cannot resolve install prefix: $PREFIX" >&2
+    exit 1
+fi
+
 LIBDIR="$PREFIX/lib/$DIST_NAME"
 BINDIR="$PREFIX/bin"
 APPDIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+
+# Single-quote a value for safe embedding in the generated uninstall.sh, so
+# $, backticks, or quotes in the install paths stay literal at uninstall time.
+sq() {
+    printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
 
 refresh_desktop_db() {
     if command -v update-desktop-database >/dev/null 2>&1; then
@@ -183,16 +204,16 @@ done
         _name=${_entry%%:*}
         _rest=${_entry#*:}
         _icon=${_rest#*:}
-        echo "rm -f \"$BINDIR/$_name\""
+        echo "rm -f $(sq "$BINDIR/$_name")"
         if [ "$DESKTOP" = "1" ] && [ -n "$_icon" ]; then
-            echo "rm -f \"$APPDIR/$DIST_NAME-$_name.desktop\""
+            echo "rm -f $(sq "$APPDIR/$DIST_NAME-$_name.desktop")"
         fi
     done
-    echo "rm -rf \"$LIBDIR\""
+    echo "rm -rf $(sq "$LIBDIR")"
     if [ "$DESKTOP" = "1" ]; then
-        echo "if command -v update-desktop-database >/dev/null 2>&1; then update-desktop-database \"$APPDIR\" >/dev/null 2>&1 || true; fi"
+        echo "if command -v update-desktop-database >/dev/null 2>&1; then update-desktop-database $(sq "$APPDIR") >/dev/null 2>&1 || true; fi"
     fi
-    echo "echo \"Uninstalled $APP_NAME\""
+    echo "echo $(sq "Uninstalled $APP_NAME")"
 } > "$LIBDIR/uninstall.sh"
 chmod +x "$LIBDIR/uninstall.sh"
 
