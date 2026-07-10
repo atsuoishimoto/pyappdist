@@ -111,8 +111,11 @@ one or more ``[project.optional-dependencies]`` extras, list them per target wit
    extras = ["gui", "pdf"]
 
 Each name is passed through to the manager's own extra selector, repeated once per
-extra — ``--extra`` for uv, ``--extras`` for poetry, ``--group`` for PDM, and
-``--categories`` for pipenv. ``extras`` is ignored (with a warning) in
+extra — ``--extra`` for uv, ``--extras`` for poetry, and ``--group`` for PDM.
+pipenv is the exception: its ``--categories`` option takes a single
+comma-separated list and *replaces* the default ``packages`` category, so
+pyappdist emits one ``--categories packages,<extra>,...`` flag to keep the
+production dependencies included. ``extras`` is ignored (with a warning) in
 ``requirements.txt`` mode, since that file is used verbatim.
 
 Overriding the manager

@@ -78,12 +78,25 @@ def test_export_cmd_no_extras_is_nodev_default():
 
 @pytest.mark.parametrize(
     "manager,flag",
-    [("uv", "--extra"), ("poetry", "--extras"), ("pipenv", "--categories"), ("pdm", "--group")],
+    [("uv", "--extra"), ("poetry", "--extras"), ("pdm", "--group")],
 )
 def test_export_cmd_appends_extra_flags(manager: str, flag: str):
     cmd = _export_cmd(manager, ("gui", "extra"))
     # Each extra becomes a repeated selector flag, in order, after the base command.
     assert cmd[-4:] == [flag, "gui", flag, "extra"]
+
+
+def test_export_cmd_pipenv_joins_categories():
+    # pipenv's --categories is a single comma-separated option, and naming any
+    # category replaces the default "packages" — so it must appear exactly once,
+    # with "packages" listed first to keep production deps in the export.
+    cmd = _export_cmd("pipenv", ("gui", "extra"))
+    assert cmd == ["pipenv", "requirements", "--hash", "--categories", "packages,gui,extra"]
+
+
+def test_export_cmd_pipenv_no_extras_has_no_categories_flag():
+    # Without extras the default export (packages only) is already correct.
+    assert _export_cmd("pipenv", ()) == ["pipenv", "requirements", "--hash"]
 
 
 def test_add_encoded_artifact_names_adds_decoded_name():
