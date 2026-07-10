@@ -611,3 +611,53 @@ def test_posix_allows_non_numeric_version(tmp_path: Path):
     text = _linux_pyproject("").replace('version = "0.1.0"', 'version = "0.1.0a1"')
     cfg = load_configs(_write_text(tmp_path, text))[0]
     assert cfg.version == "0.1.0a1"
+
+
+# An msi target and a linux target side by side, so select-scoped validation can be
+# exercised: the msi-only version check must not fire when only "lin" is selected.
+_MSI_PLUS_LINUX = """
+[project]
+name = "helloworld"
+version = "0.1.0a1"
+
+[tool.pyappdist]
+python = "3.12"
+launchers = [ { name = "helloworld", entry = "helloworld:main" } ]
+
+[[tool.pyappdist.targets]]
+name = "win"
+platform = "windows-x86_64"
+format = "msi"
+
+[[tool.pyappdist.targets]]
+name = "lin"
+platform = "linux-x86_64"
+format = "linux"
+"""
+
+
+def test_msi_version_check_skipped_for_unselected_target(tmp_path: Path):
+    # A declared-but-unselected msi target must not block a posix build (issue #61).
+    cfgs = load_configs(_write_text(tmp_path, _MSI_PLUS_LINUX), select=["lin"])
+    assert [c.target_name for c in cfgs] == ["lin"]
+    assert cfgs[0].version == "0.1.0a1"
+
+
+def test_msi_version_check_applies_to_selected_target(tmp_path: Path):
+    with pytest.raises(ConfigError, match="numeric version"):
+        load_configs(_write_text(tmp_path, _MSI_PLUS_LINUX), select=["win"])
+
+
+def test_identifier_not_required_for_unselected_app_target(tmp_path: Path):
+    # A declared-but-unselected macapp target must not force identifier (issue #61).
+    text = _macos_app_pyproject("macapp").replace('name = "win"', 'name = "app"') + (
+        '\n[[tool.pyappdist.targets]]\n'
+        'name = "run"\n'
+        'platform = "macos-aarch64"\n'
+        'format = "macos"\n'
+    )
+    cfgs = load_configs(_write_text(tmp_path, text), select=["run"])
+    assert [c.target_name for c in cfgs] == ["run"]
+    assert cfgs[0].identifier is None
+    with pytest.raises(ConfigError, match="identifier is required"):
+        load_configs(_write_text(tmp_path, text), select=["app"])
