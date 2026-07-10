@@ -61,8 +61,14 @@ sha256_of_stdin() {
     fi
 }
 
-# Remove a previous install. Placement is deterministic, so no manifest is needed.
+# Remove a previous install. The previous version's uninstall.sh records the
+# launcher set that was actually installed — which can differ from this
+# package's $LAUNCHERS after a rename or removal — so run it first when
+# present; the loop below then covers installs that have no uninstall.sh.
 remove_install() {
+    if [ -f "$LIBDIR/uninstall.sh" ]; then
+        sh "$LIBDIR/uninstall.sh" >/dev/null 2>&1 || true
+    fi
     for _entry in $LAUNCHERS; do
         _name=${_entry%%:*}
         _rest=${_entry#*:}
@@ -124,6 +130,18 @@ if ! tail -n +"$_payload_line" "$SELF" | $DECOMPRESS | tar xf - -C "$LIBDIR"; th
     exit 1
 fi
 
+# Count the launchers that get a .desktop entry; with more than one, each
+# entry's Name is suffixed with the launcher name so the menu entries are
+# distinguishable (mirrors the MSIX manifest's DisplayName handling).
+_desktop_entries=0
+if [ "$DESKTOP" = "1" ]; then
+    for _entry in $LAUNCHERS; do
+        _icon=${_entry#*:}
+        _icon=${_icon#*:}
+        if [ -n "$_icon" ]; then _desktop_entries=$((_desktop_entries + 1)); fi
+    done
+fi
+
 # Symlink each launcher onto PATH and (on Linux, when it has an icon) register a .desktop.
 _installed_cmds=""
 for _entry in $LAUNCHERS; do
@@ -136,11 +154,16 @@ for _entry in $LAUNCHERS; do
     if [ "$DESKTOP" = "1" ] && [ -n "$_icon" ]; then
         mkdir -p "$APPDIR"
         if [ "$_gui" = "1" ]; then _term=false; else _term=true; fi
+        if [ "$_desktop_entries" -gt 1 ]; then
+            _entry_name="$APP_NAME - $_name"
+        else
+            _entry_name="$APP_NAME"
+        fi
         cat > "$APPDIR/$DIST_NAME-$_name.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Version=1.0
-Name=$APP_NAME
+Name=$_entry_name
 Exec="$LIBDIR/$_name" %U
 Icon=$LIBDIR/$_icon
 Terminal=$_term

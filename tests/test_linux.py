@@ -253,6 +253,94 @@ def test_run_detects_corrupt_payload(tmp_path, sample_config):
     assert not (prefix / "lib" / "helloworld").exists()  # nothing was extracted
 
 
+def _build_gui_run(tmp_path, sample_config, workdir, launcher_names, version="1.0"):
+    """Build a gzip .run in its own workdir with GUI+icon launchers named as given."""
+    workdir.mkdir()
+    layout = _make_image(workdir)
+    launchers = tuple(
+        LauncherConfig(
+            name=name, entry="helloworld:main", gui=True, icons=(("linux", "app.png"),)
+        )
+        for name in launcher_names
+    )
+    config = dataclasses.replace(
+        sample_config,
+        project_dir=tmp_path,
+        version=version,
+        target=get_target("linux-x86_64"),
+        target_name="linux-x86_64",
+        format="linux",
+        launchers=launchers,
+        linux=LinuxConfig(compression="gzip"),
+    )
+    arts = build_linux(config, layout, workdir / "dist", log=lambda *a: None)
+    return next(p for p in arts if p.suffix == ".run")
+
+
+def _desktop_env(tmp_path: Path) -> tuple[dict[str, str], Path]:
+    """Installer env with XDG_DATA_HOME pinned; returns (env, applications dir)."""
+    appdir = tmp_path / "home" / ".local" / "share" / "applications"
+    env = {**_installer_env(tmp_path), "XDG_DATA_HOME": str(appdir.parent)}
+    return env, appdir
+
+
+@pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
+def test_upgrade_removes_renamed_launcher_artifacts(tmp_path, sample_config):
+    """Installing v2 over v1 removes v1's launchers even after a rename (#64).
+
+    The previous version's uninstall.sh records the launcher set that was actually
+    installed, so the installer runs it before extracting rather than trusting the
+    new package's launcher list.
+    """
+    if shutil.which("gzip") is None:
+        pytest.skip("gzip not installed")
+    (tmp_path / "app.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    v1 = _build_gui_run(tmp_path, sample_config, tmp_path / "v1", ["foo"], version="1.0")
+    v2 = _build_gui_run(tmp_path, sample_config, tmp_path / "v2", ["bar"], version="2.0")
+
+    prefix = tmp_path / "prefix"
+    env, appdir = _desktop_env(tmp_path)
+    res = subprocess.run(
+        ["/bin/sh", str(v1), "--prefix", str(prefix)],
+        capture_output=True, text=True, env=env,
+    )
+    assert res.returncode == 0, res.stderr
+    assert (prefix / "bin" / "foo").is_symlink()
+    # A single menu entry keeps the plain app name.
+    assert "Name=Hello World\n" in (appdir / "helloworld-foo.desktop").read_text()
+
+    res = subprocess.run(
+        ["/bin/sh", str(v2), "--prefix", str(prefix)],
+        capture_output=True, text=True, env=env,
+    )
+    assert res.returncode == 0, res.stderr
+    # v2's launcher is installed...
+    assert (prefix / "bin" / "bar").is_symlink()
+    assert (appdir / "helloworld-bar.desktop").exists()
+    # ...and v1's renamed launcher left no dangling symlink or dead menu entry.
+    assert not (prefix / "bin" / "foo").is_symlink()
+    assert not (appdir / "helloworld-foo.desktop").exists()
+
+
+@pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
+def test_multi_launcher_desktop_names_are_disambiguated(tmp_path, sample_config):
+    """With two menu entries, each .desktop Name carries the launcher name."""
+    if shutil.which("gzip") is None:
+        pytest.skip("gzip not installed")
+    (tmp_path / "app.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    run = _build_gui_run(tmp_path, sample_config, tmp_path / "build", ["foo", "bar"])
+
+    prefix = tmp_path / "prefix"
+    env, appdir = _desktop_env(tmp_path)
+    res = subprocess.run(
+        ["/bin/sh", str(run), "--prefix", str(prefix)],
+        capture_output=True, text=True, env=env,
+    )
+    assert res.returncode == 0, res.stderr
+    assert "Name=Hello World - foo\n" in (appdir / "helloworld-foo.desktop").read_text()
+    assert "Name=Hello World - bar\n" in (appdir / "helloworld-bar.desktop").read_text()
+
+
 @pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
 @pytest.mark.parametrize("compression", ["gzip", "bzip2", "xz"])
 def test_run_installs_and_uninstalls(tmp_path, sample_config, compression):
