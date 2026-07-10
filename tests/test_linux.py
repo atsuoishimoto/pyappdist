@@ -118,6 +118,20 @@ def test_run_payload_is_the_image_tree(tmp_path, sample_config):
     assert "helloworld" in members
 
 
+def test_run_payload_ownership_is_normalized(tmp_path, sample_config):
+    """No build-user uid/gid in the payload — root installs must not hand the
+    tree to whatever install-machine user shares the build user's uid."""
+    layout = _make_image(tmp_path)
+    config = _linux_config(sample_config, tmp_path)
+    arts = build_linux(config, layout, tmp_path / "dist", log=lambda *a: None)
+    run = next(p for p in arts if p.suffix == ".run")
+
+    _, payload = _split_run(run)
+    with tarfile.open(fileobj=io.BytesIO(payload), mode="r:xz") as tf:
+        for m in tf.getmembers():
+            assert (m.uid, m.gid, m.uname, m.gname) == (0, 0, "", "")
+
+
 def test_icon_triggers_desktop_record(tmp_path, sample_config):
     (tmp_path / "app.png").write_bytes(b"\x89PNG\r\n\x1a\n")
     layout = _make_image(tmp_path)

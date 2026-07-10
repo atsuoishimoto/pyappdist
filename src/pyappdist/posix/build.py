@@ -246,4 +246,14 @@ def _targz_bytes(src_dir: Path, *, mode: str, log=print) -> bytes:
 
 def _add_tree(tf: tarfile.TarFile, src_dir: Path) -> None:
     for child in sorted(src_dir.iterdir()):
-        tf.add(child, arcname=child.name)
+        tf.add(child, arcname=child.name, filter=_normalize_owner)
+
+
+def _normalize_owner(ti: tarfile.TarInfo) -> tarfile.TarInfo:
+    # Strip the build user's uid/gid: tar running as root restores archive
+    # ownership by default, so a root install would hand the tree to whatever
+    # local user happens to have the build machine's uid. Root-owned entries
+    # also make the payload reproducible across build users.
+    ti.uid = ti.gid = 0
+    ti.uname = ti.gname = ""
+    return ti
