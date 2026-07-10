@@ -212,14 +212,20 @@ def resolve_requirements(config: Config, wheelhouse: Path, *, log=print) -> Path
     cmd = _export_cmd(manager, config.extras)
     extras_note = f" with extras {list(config.extras)}" if config.extras else ""
     log(f"deps: exporting {out.name} from {manager} lock{extras_note}")
-    proc = subprocess.run(
-        cmd,
-        cwd=str(config.project_dir),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(config.project_dir),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except FileNotFoundError:
+        raise BuildError(
+            f"{manager} not found on PATH (required to export the dependency "
+            f"lockfile); install {manager} or set [tool.pyappdist].manager"
+        ) from None
     if proc.returncode != 0:
         raise BuildError(
             f"dependency export failed ({proc.returncode}): {' '.join(cmd)}\n"

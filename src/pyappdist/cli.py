@@ -133,6 +133,13 @@ def _write_wxs(ctx: BuildContext) -> Path:
 
 def cmd_gen_wix(args: argparse.Namespace) -> int:
     for ctx in _contexts(args):
+        # Only MSI uses a .wxs; running on other formats would emit a meaningless
+        # file and, worse, persist an MSI-only upgrade-code into their pyproject.toml
+        # entry (via ensure_upgrade_code in _write_wxs).
+        if ctx.config.format != "msi":
+            print(f"skip [{_tag(ctx)}]: gen-wix applies to msi targets only "
+                  f"(format is {ctx.config.format!r})")
+            continue
         if not ctx.image_dir.is_dir():
             raise BuildError(f"image is missing: {ctx.image_dir} (run build-image first)")
         wxs = _write_wxs(ctx)

@@ -175,6 +175,24 @@ def test_resolve_requirements_uv_writes_pylock(tmp_path: Path, sample_config, mo
     assert out.read_text(encoding="utf-8") == 'lock-version = "1.0"\npackages = []\n'
 
 
+def test_resolve_requirements_manager_binary_missing(tmp_path: Path, sample_config, monkeypatch):
+    # A missing manager executable must surface as a BuildError (cli prints
+    # "error: ..."), not a raw FileNotFoundError traceback.
+    project = tmp_path / "proj"
+    project.mkdir()
+    _touch(project, "uv.lock")
+    wheelhouse = tmp_path / "wh"
+    wheelhouse.mkdir()
+    cfg = dataclasses.replace(sample_config, project_dir=project, manager=None)
+
+    def raise_missing(cmd, **_kwargs):
+        raise FileNotFoundError(2, "No such file or directory", cmd[0])
+
+    monkeypatch.setattr("pyappdist.deps.subprocess.run", raise_missing)
+    with pytest.raises(BuildError, match="uv not found on PATH"):
+        resolve_requirements(cfg, wheelhouse, log=lambda _m: None)
+
+
 def test_resolve_requirements_poetry_writes_requirements_txt(tmp_path: Path, sample_config, monkeypatch):
     # Non-uv managers keep the requirements.txt export.
     project = tmp_path / "proj"

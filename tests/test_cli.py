@@ -70,3 +70,30 @@ def test_appdist_and_build_dir_options_override(tmp_path: Path):
     (ctx,) = _contexts(args)
     assert ctx.out_dir == tmp_path / "art" / "win-user"
     assert ctx.build_dir == tmp_path / "bld" / "win-user"
+
+
+_LINUX_ONLY = """
+[project]
+name = "helloworld"
+version = "0.1.0"
+
+[tool.pyappdist]
+python = "3.12"
+launchers = [ { name = "helloworld", entry = "helloworld:main" } ]
+
+[[tool.pyappdist.targets]]
+name = "lin"
+platform = "linux-x86_64"
+format = "linux"
+"""
+
+
+def test_gen_wix_skips_non_msi_targets(tmp_path: Path, capsys):
+    # gen-wix on a linux target must be a no-op: no .wxs, and crucially no
+    # MSI-only upgrade-code persisted into the target's pyproject.toml entry.
+    (tmp_path / "pyproject.toml").write_text(_LINUX_ONLY, encoding="utf-8")
+    args = build_parser().parse_args(["gen-wix", "-C", str(tmp_path)])
+    assert args.func(args) == 0
+    assert "skip" in capsys.readouterr().out
+    assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == _LINUX_ONLY
+    assert not list(tmp_path.rglob("*.wxs"))

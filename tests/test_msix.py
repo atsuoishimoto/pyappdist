@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import dataclasses
 
-from pyappdist.config import MsixConfig
+from pyappdist.config import MsixConfig, WixConfig
 from pyappdist.msix.build import _solid_png
-from pyappdist.msix.manifest import _app_id, _version4, generate_manifest
+from pyappdist.msix.manifest import _app_id, _rdn_escape, _version4, generate_manifest
 
 
 def _msix(sample_config, **msix_kwargs):
@@ -39,6 +39,33 @@ def test_manifest_overrides(sample_config):
     assert 'Name="Contoso.App"' in xml
     assert 'Publisher="CN=Contoso"' in xml
     assert "<DisplayName>My App</DisplayName>" in xml
+
+
+def test_manifest_default_publisher_escapes_rdn(sample_config):
+    # "Acme, Inc." must become one escaped RDN value, not parse as two RDNs.
+    cfg = dataclasses.replace(
+        sample_config,
+        wix=WixConfig(manufacturer="Acme, Inc.", upgrade_code=sample_config.wix.upgrade_code),
+    )
+    xml = generate_manifest(_msix(cfg))
+    assert 'Publisher="CN=Acme\\, Inc."' in xml
+
+
+def test_manifest_explicit_publisher_taken_verbatim(sample_config):
+    # A user-supplied publisher is a complete DN (already escaped to match the
+    # signing cert subject) and must not be escaped again.
+    xml = generate_manifest(
+        _msix(sample_config, publisher="CN=Acme\\, Inc., O=Acme")
+    )
+    assert 'Publisher="CN=Acme\\, Inc., O=Acme"' in xml
+
+
+def test_rdn_escape():
+    assert _rdn_escape("Example Inc.") == "Example Inc."
+    assert _rdn_escape("Acme, Inc.") == "Acme\\, Inc."
+    assert _rdn_escape('A+B"C<D>E;F=G\\H') == 'A\\+B\\"C\\<D\\>E\\;F\\=G\\\\H'
+    assert _rdn_escape("#leading") == "\\#leading"
+    assert _rdn_escape(" spaces ") == "\\ spaces\\ "
 
 
 def test_version4():
