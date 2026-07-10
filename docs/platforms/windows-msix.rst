@@ -80,5 +80,5 @@ certificate's subject must match the manifest ``Publisher``.
 
 MSIX is **not** covered by the MSI ``code-sign`` key: the package is signed only
 when the ``PYAPPDIST_SIGN_CMD`` environment variable is set. The command receives
-the artifact path via the ``{file}`` token, exactly as described in
-:ref:`msi-code-signing`.
+the artifact's file name via the ``{file}`` token and runs from the artifact's
+directory, exactly as described in :ref:`msi-code-signing`.
