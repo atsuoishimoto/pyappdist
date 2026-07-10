@@ -45,7 +45,8 @@ Build intermediates and final artifacts go to separate trees.
 Intermediates land under ``.appdist-build/<target>/``:
 
 ``wheelhouse/``
-   The app wheel + dependency wheels (and ``requirements.txt``).
+   The app wheel + dependency wheels (and the exported dependency file —
+   ``pylock.toml`` for the uv manager, ``requirements.txt`` for the others).
 
 ``runtime/``
    The extracted python-build-standalone runtime.
@@ -122,8 +123,9 @@ Examples
 
 .. code-block:: bash
 
-   # Full build of a sample (all its targets)
-   uv run pyappdist build -C samples/pandascli
+   # Build one target of a sample (the samples define several targets, so
+   # ``build`` requires naming the one(s) to build)
+   uv run pyappdist build win32-msi -C samples/pandascli
 
    # Build only specific targets by name
    uv run pyappdist build win-user win-machine

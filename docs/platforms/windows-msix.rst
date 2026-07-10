@@ -30,7 +30,8 @@ Configuration
 
 ``manufacturer``
    Vendor name; used as the launcher's version-resource company name and as the
-   default publisher (``CN=<manufacturer>``).
+   default publisher (``CN=<manufacturer>``; when unset, the app ``name`` is
+   used instead).
 
 ``identity-name``
    Package Identity Name (for the Store, the reserved ``Publisher.AppName``).
@@ -38,7 +39,8 @@ Configuration
 
 ``publisher``
    Package Identity Publisher DN (e.g. ``"CN=Contoso"``). For the Store or
-   signing it must match. Defaults to ``CN=<manufacturer>``.
+   signing it must match. Defaults to ``CN=<manufacturer>``, or
+   ``CN=<app name>`` when ``manufacturer`` is also unset.
 
 ``display-name``
    App display name. Defaults to ``[tool.pyappdist].name``.

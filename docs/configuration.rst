@@ -60,6 +60,9 @@ All keys at a glance
 
 ``version``
    Product version. Defaults to ``[project].version`` (then ``"0.0.0"``).
+   When any target uses ``format = "msi"`` or ``"msix"``, the version must be
+   dotted numeric (e.g. ``"1.2.3"``) — MSI's ProductVersion cannot express
+   pre-releases, so e.g. ``"1.0.0rc1"`` is rejected at load time.
 
 ``manager``
    Package manager used to pin dependencies: ``"uv"``, ``"poetry"``,
@@ -91,7 +94,8 @@ shell wrapper on Linux/macOS).
 
 ``name`` (required)
    Output executable name without extension (``"myapp"`` → ``myapp.exe`` on
-   Windows).
+   Windows). Because the name becomes a filename and an installer record, it
+   must not contain whitespace, control characters, or any of ``<>:"/\|?*``.
 
 ``entry`` (required)
    Entry point, in one of two forms:
@@ -104,8 +108,10 @@ shell wrapper on Linux/macOS).
 
 ``gui``
    ``true`` builds a windowed launcher using ``pythonw.exe`` (no console) on
-   Windows. Defaults to ``false`` (console, ``python.exe``). Ignored on
-   Linux/macOS.
+   Windows. Defaults to ``false`` (console, ``python.exe``). On Linux it only
+   affects launchers that also set an ``icon``: the generated ``.desktop``
+   entry gets ``Terminal=false`` when ``true`` (``Terminal=true`` otherwise).
+   Ignored by the macOS ``.run``.
 
 ``icon``
    A **per-OS table** of icon paths (relative to the project directory); each key is
@@ -162,7 +168,10 @@ These keys are common to every format; the format-specific keys live on the
 ``name`` (required)
    Label used to select this target on the command line and as its output
    subdirectory — artifacts in ``appdist/<name>/``, intermediates in
-   ``.appdist-build/<name>/``. Must be unique across targets.
+   ``.appdist-build/<name>/``. Must be unique across targets. Because it
+   becomes a path component, it must not contain whitespace, control
+   characters, or any of ``<>:"/\|?*``, must not be ``.`` or ``..``, and must
+   not end with ``.``.
 
 ``extras`` (optional)
    A list of ``[project.optional-dependencies]`` extras to bundle for this target,

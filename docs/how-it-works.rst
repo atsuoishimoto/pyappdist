@@ -47,9 +47,11 @@ the launcher's :ref:`entry <config-launchers>`:
 
 * ``python -m <module>`` — used when ``entry`` has **no** colon (``"myapp.cli"``).
   ``python -m <module>`` must work once the wheel is installed.
-* ``python -c "from <module> import <callable>; <callable>()"`` — used when
-  ``entry`` is ``"module:callable"`` (``"myapp:main"``). The callable must be
-  importable from the installed package and callable with no arguments.
+* ``python -c "import sys; from <module> import <callable>; sys.exit(<callable>())"``
+  — used when ``entry`` is ``"module:callable"`` (``"myapp:main"``). The callable
+  must be importable from the installed package and callable with no arguments;
+  the ``sys.exit`` makes its return value the process exit code. (The launcher
+  additionally passes ``-I`` to isolate the app from the user's environment.)
 
 The easiest way to confirm both conditions is to reproduce what pyappdist does, in
 a throwaway virtualenv:
@@ -94,7 +96,8 @@ The pipeline
    bundled interpreter and runs your entry point.
 
 #. **Packaging.** The image is turned into the target's package: an ``.msi`` or
-   ``.msix`` on Windows, or a self-extracting ``.run`` on Linux/macOS. See the
+   ``.msix`` on Windows, a self-extracting ``.run`` on Linux/macOS, or a
+   ``.app`` bundle (optionally wrapped in a ``.dmg``) on macOS. See the
    per-format pages under :ref:`Output formats <config-formats>`.
 
 The launcher

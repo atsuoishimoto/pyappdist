@@ -92,8 +92,10 @@ into global options, which cannot pin an index per package.
 .. note::
 
    pip's ``pylock.toml`` support is recent (and marked experimental by pip), so
-   the bundled runtime needs a reasonably new pip. Current
-   python-build-standalone runtimes bundle one that qualifies.
+   the bundled runtime needs a reasonably new pip. pyappdist guarantees this
+   itself: after extracting the runtime it upgrades the bundled pip in place
+   whenever it is older than pip 26.1, so pylock support is present even when
+   the python-build-standalone build ships an older pip.
 
 Including optional-dependency extras
 ------------------------------------
