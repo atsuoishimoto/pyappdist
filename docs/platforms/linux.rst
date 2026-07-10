@@ -49,10 +49,12 @@ for launchers that set an ``icon`` — writes a ``.desktop`` entry. It also drop
 
 .. code-block:: console
 
-   $ ./myapp-1.0-linux-x86_64.run            # install into ~/.local
-   $ ./myapp-1.0-linux-x86_64.run --prefix ~/opt
-   $ ./myapp-1.0-linux-x86_64.run --uninstall
+   $ ./myapp-1.0-linux.run            # install into ~/.local
+   $ ./myapp-1.0-linux.run --prefix ~/opt
+   $ ./myapp-1.0-linux.run --uninstall
 
 Each launcher becomes a small relocatable shell wrapper that runs the entry point
-with the bundled interpreter (``gui`` has no effect on Linux). Application updates
+with the bundled interpreter. On Linux the launcher ``gui`` key only affects the
+``.desktop`` entry of a launcher with an ``icon`` — ``gui = true`` sets
+``Terminal=false`` so the app opens without a terminal window. Application updates
 are the app's own responsibility — pyappdist provides no auto-update mechanism.

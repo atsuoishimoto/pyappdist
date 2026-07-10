@@ -50,8 +50,8 @@ each launcher into ``<prefix>/bin``, drops an ``uninstall.sh``, and supports
 
 .. code-block:: console
 
-   $ ./myapp-1.0-macos-aarch64.run            # install into ~/.local
-   $ ./myapp-1.0-macos-aarch64.run --uninstall
+   $ ./myapp-1.0-macos-arm.run            # install into ~/.local
+   $ ./myapp-1.0-macos-arm.run --uninstall
 
 macOS has no freedesktop equivalent, so launcher ``icon`` and ``gui`` are ignored —
 the installer creates the ``<prefix>/bin`` symlinks only. This format produces no

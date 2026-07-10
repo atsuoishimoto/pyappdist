@@ -5,8 +5,8 @@
 pyappdist packages your Python application into a native installer:
 
 - Windows: MSI / MSIX
-- macOS: DMG(notarization supported)
-- Linux: Self-extracting installers
+- macOS: `.app` bundle / DMG (notarization supported), or a self-extracting `.run` installer
+- Linux: Self-extracting `.run` installer
 
 pyappdist does **not** freeze your code. Instead of bundling Python and your app into a
 single executable (and fighting hidden imports, data files, and plugins along the way),
@@ -36,12 +36,12 @@ One `pyproject.toml` can describe several output packages — each is a
 
 | `format` | Platform | Output |
 | --- | --- | --- |
-| `msi`   | `windows-x86_64`                | `.msi` installer (per-user or machine-wide) + portable `.zip` |
+| `msi`   | `windows-x86_64`                | `.msi` installer (per-user or machine-wide) |
 | `msix`  | `windows-x86_64`                | `.msix` package for the Microsoft Store / sideloading |
-| `linux` | `linux-x86_64`                  | `.tar.gz` + self-extracting `.run` installer (per-user, no root) |
-| `macos` | `macos-aarch64` | `.tar.gz` + self-extracting `.run` installer (per-user, no root) |
-| `dmg`   | `macos-aarch64`  | `.dmg` disk image (code-signing / notarization supported) |
-| `macapp` | `macos-aarch64`  | `.app` bundle (code-signing / notarization supported) |
+| `linux` | `linux-x86_64`                  | self-extracting `.run` installer (per-user, no root) |
+| `macos` | `macos-aarch64` / `macos-x86_64` | self-extracting `.run` installer (per-user, no root) |
+| `dmg`   | `macos-aarch64` / `macos-x86_64` | `.dmg` disk image (code-signing / notarization supported) |
+| `macapp` | `macos-aarch64` / `macos-x86_64` | `.app` bundle (code-signing / notarization supported) |
 
 ## Quick start
 
@@ -56,7 +56,7 @@ python = "3.12"
 name = "myapp"              # produces myapp.exe (or a shell wrapper on Linux/macOS)
 entry = "myapp:main"        # module:callable
 # gui = true                # use pythonw.exe (no console window) on Windows
-# icon = "assets/app.ico"   # launcher icon
+# icon = { windows = "assets/app.ico" }   # per-OS launcher icon table
 # args = "--serve"          # fixed leading arguments
 
 [[tool.pyappdist.targets]]
@@ -103,7 +103,7 @@ doesn't build them all at once); the individual pipeline stages default to all t
 
 ```bash
 uv run pyappdist build linux           # build just the "linux" target
-uv run pyappdist build windows-x86_64  # build the Windows MSI
+uv run pyappdist build windows         # build the Windows MSI
 ```
 
 ## Samples

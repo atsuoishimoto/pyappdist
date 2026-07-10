@@ -114,10 +114,12 @@ The **second requirement** is that the launcher's entry point runs against the
 *installed* package — not a source file on disk. The launcher will invoke your
 ``"hellotk:main"`` entry in this exact form::
 
-   python -c "from hellotk import main; main()"
+   python -I -c "import sys; from hellotk import main; sys.exit(main())"
 
-Verify it the same way pyappdist will, in a throwaway environment built from the
-wheel:
+(``-I`` isolates the app from the user's environment, and the ``sys.exit`` is
+what turns ``main()``'s return value into the process exit code.) Verify the
+essential part — that the callable imports and runs from the installed wheel —
+the same way pyappdist will, in a throwaway environment built from the wheel:
 
 .. code-block:: bash
 
@@ -270,9 +272,9 @@ app under ``~/.local``, symlinks the launcher into ``~/.local/bin`` (so typing
    $ hellotk                                 # run it
    $ ./hellotk-0.1.0-linux.run --uninstall   # remove it
 
-(``gui = true`` has no effect on Linux — there is no console-window concept to
-suppress.) A ``.desktop`` menu entry is written only for launchers that define
-an ``icon``; this tutorial's launcher has none, so the app is started from the
+A ``.desktop`` menu entry is written only for launchers that define an ``icon``
+(there, ``gui = true`` sets ``Terminal=false`` so the app opens without a
+terminal); this tutorial's launcher has none, so the app is started from the
 terminal. See :doc:`platforms/linux` for ``--prefix``, the ``compression``
 choices, and the ``categories`` key.
 

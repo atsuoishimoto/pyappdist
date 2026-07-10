@@ -13,7 +13,7 @@ To build one, run ``pyappdist build`` (or a specific target) from its directory:
 .. code-block:: bash
 
    cd samples/helloworld
-   uv run pyappdist build windows      # build just the Windows MSI target
+   uv run pyappdist build win32-msi    # build just the Windows MSI target
 
 The shippable installer lands under
 ``samples/<name>/appdist/<target>/``; build intermediates (runtime, wheelhouse,

@@ -10,7 +10,9 @@ macOS — .app / .dmg (GUI apps)
 
 ``format = "macapp"`` and ``format = "dmg"`` build a native macOS ``.app`` bundle:
 
-* ``macapp`` assembles one ``<name>.app`` per launcher into ``appdist/<name>/dist/``.
+* ``macapp`` assembles one ``.app`` per launcher into ``appdist/<target>/dist/``.
+  With a single launcher the bundle is named after the app-level ``name``;
+  with several, each bundle is named after its launcher.
 * ``dmg`` does the same, then wraps the bundle(s) in a compressed ``<name>-<version>.dmg``
   disk image with the classic drag-to-``/Applications`` layout.
 

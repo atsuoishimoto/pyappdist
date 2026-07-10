@@ -106,7 +106,7 @@ Status
 config schema, CLI, and output layout as it matures.
 
 Targets today are Windows x64 (``msi``, ``msix``), Linux x64 (``linux``), and
-macOS arm64/x64 (``macos``). Auto-update and code-signing certificates are out of
-scope for now; optional :ref:`code signing <msi-code-signing>` of the Windows
+macOS arm64/x64 (``macos``, ``macapp``, ``dmg``). Auto-update and code-signing
+certificates are out of scope for now; optional :ref:`code signing <msi-code-signing>` of the Windows
 artifacts is available. Distributed apps are not obfuscated, and unsigned Windows
 installers will trigger a SmartScreen warning.

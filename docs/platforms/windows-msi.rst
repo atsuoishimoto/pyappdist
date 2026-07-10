@@ -5,7 +5,10 @@ Windows — MSI installer
 
 * ``appdist/<target>/dist/<name>-<version>.msi`` — the installer.
 
-Only ``platform = "windows-x86_64"`` may use this format.
+Only ``platform = "windows-x86_64"`` may use this format. The app ``version``
+must be dotted numeric (e.g. ``"1.2.3"``) — MSI's ProductVersion cannot express
+pre-releases such as ``"1.0.0rc1"``, so those are rejected at load time (same
+for ``msix``).
 
 Build requirements
 ------------------
