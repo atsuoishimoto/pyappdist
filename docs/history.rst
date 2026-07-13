@@ -1,6 +1,43 @@
 Release history
 ===============
 
+0.9.0
+-----
+
+2026/07/13
+
+**uv projects now export PEP 751** ``pylock.toml`` **instead of**
+``requirements.txt``. Per-package index pins in ``uv.lock`` (e.g. a PyTorch
+CUDA index) survive the export — pip fetches the recorded URLs directly. The
+runtime's bundled pip is upgraded in place when it is too old to understand
+pylock files.
+
+**pipenv extras no longer drop production dependencies.** Extras were passed
+as repeated ``--categories`` flags, which replaced the default ``packages``
+category and shipped an app missing its production dependencies; one combined
+``--categories packages,<extras...>`` flag is emitted now.
+
+**The Windows launcher ignores Ctrl+C/Ctrl+Break.** Python alone decides how
+to shut down (finally blocks, atexit hooks, and buffered output are preserved)
+and its real exit code propagates, as with CPython's ``py.exe`` launcher.
+
+**.pyc files use hash-based invalidation.** Timestamp-based ``.pyc`` went
+stale after MSI packaging (CAB timestamps have 2-second granularity), causing
+recompiles on every cold start; ``--invalidation-mode checked-hash`` makes
+validity independent of timestamps.
+
+**perMachine MSI shortcuts register their keypath under HKLM.** It was
+hardcoded to HKCU, breaking repair and upgrade component-detection for users
+other than the installing admin.
+
+**.run installer fixes.** ``--prefix`` is canonicalized to an absolute path
+(relative prefixes produced dangling symlinks and broken ``uninstall.sh``);
+upgrades run the previous install's ``uninstall.sh`` first so renamed or
+removed launchers don't leave dangling ``bin`` symlinks and ``.desktop``
+entries; payload tar ownership is normalized to root so a root install can't
+hand the tree to an unrelated uid; ``.desktop`` ``Name`` entries are
+disambiguated when an app installs several.
+
 0.8.0
 -----
 
