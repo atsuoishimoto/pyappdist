@@ -1,6 +1,15 @@
 Release history
 ===============
 
+0.9.0 (unreleased)
+------------------
+
+**MSI builds no longer fail on deep install trees (WiX MAX_PATH limit).**
+``wix build`` now receives the image as an extended-length (``\\?\``) bind
+path, working around WiX's cabinet builder crashing with a broken-pipe
+``IOException`` when a source file's absolute path exceeds 260 characters
+(e.g. PyTorch's deeply nested ``dist-info`` license files).
+
 0.8.0
 -----
 
