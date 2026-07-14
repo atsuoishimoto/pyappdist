@@ -122,3 +122,4 @@ jobs:
           name: ${{ matrix.artifact }}
           path: samples/*/appdist/*/dist/*
           if-no-files-found: warn
+          retention-days: 7

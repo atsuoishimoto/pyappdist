@@ -98,6 +98,12 @@ format = "macos"
 extras = ["cpu"]
 
 [[tool.pyappdist.targets]]
+name = "darwin-arm-dmg"
+platform = "macos-aarch64"
+format = "dmg"                        # a signed/notarizable .app inside a .dmg
+extras = ["cpu"]
+
+[[tool.pyappdist.targets]]
 name = "win32-msi-cuda"
 platform = "windows-x86_64"
 format = "msi"
