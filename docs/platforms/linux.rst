@@ -46,6 +46,9 @@ FUSE: it copies the tree into ``<prefix>/lib/<name>`` (``$HOME/.local`` by defau
 override with ``--prefix``), symlinks each launcher into ``<prefix>/bin``, and — only
 for launchers that set an ``icon`` — writes a ``.desktop`` entry. It also drops an
 ``uninstall.sh`` next to the install, and ``./<app>.run --uninstall`` removes it.
+Running a newer ``.run`` replaces an existing install in place — the previous
+install's ``uninstall.sh`` runs first, so files renamed or removed between
+versions don't linger.
 
 .. code-block:: console
 

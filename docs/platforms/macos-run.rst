@@ -46,7 +46,9 @@ Install behavior
 The ``.run`` installer behaves exactly like the Linux one — it verifies the payload
 SHA-256, copies into ``<prefix>/lib/<name>`` (``$HOME/.local`` by default), symlinks
 each launcher into ``<prefix>/bin``, drops an ``uninstall.sh``, and supports
-``--prefix`` / ``--uninstall``. No root is required.
+``--prefix`` / ``--uninstall``. No root is required. Running a newer ``.run``
+replaces an existing install in place; application updates are otherwise the
+app's own responsibility — pyappdist provides no auto-update mechanism.
 
 .. code-block:: console
 
