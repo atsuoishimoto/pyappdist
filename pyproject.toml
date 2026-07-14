@@ -1,6 +1,6 @@
 [project]
 name = "pyappdist"
-version = "0.8.0"
+version = "0.9.0"
 description = "Turn a Python app into a native installer (Windows MSI/MSIX, Linux, macOS)"
 readme = "README.md"
 # 3.11.4+ because tarfile's extractall(filter=...) kwarg (used by runtime
