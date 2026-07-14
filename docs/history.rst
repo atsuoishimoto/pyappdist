@@ -12,6 +12,12 @@ CUDA index) survive the export — pip fetches the recorded URLs directly. The
 runtime's bundled pip is upgraded in place when it is too old to understand
 pylock files.
 
+**MSI builds no longer fail on deep install trees (WiX MAX_PATH limit).**
+``wix build`` now receives the image as an extended-length (``\\?\``) bind
+path, working around WiX's cabinet builder crashing with a broken-pipe
+``IOException`` when a source file's absolute path exceeds 260 characters
+(e.g. PyTorch's deeply nested ``dist-info`` license files).
+
 **pipenv extras no longer drop production dependencies.** Extras were passed
 as repeated ``--categories`` flags, which replaced the default ``packages``
 category and shipped an app missing its production dependencies; one combined

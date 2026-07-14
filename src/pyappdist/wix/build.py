@@ -13,9 +13,10 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from .._hostexec import target_relpath
+from .._hostexec import extended_length_path, target_relpath, windows_abspath
 from ..config import Config
 from ..errors import BuildError
+from ..image import ImageLayout
 from .generate import LICENSE_STAGED_NAME
 
 
@@ -46,6 +47,14 @@ def build_msi(config: Config, image_dir: Path, wxs_path: Path, out_msi: Path, *,
         # WixUILicenseRtf references this by name, resolved relative to cwd=base.
         shutil.copy2(license_src, base / LICENSE_STAGED_NAME)
 
+    # The bind path is passed as an extended-length (\\?\) absolute path, not
+    # relative: WiX's cabinet builder cannot open source files whose absolute
+    # path exceeds MAX_PATH (wixtoolset/issues#9115) and dies with a broken-pipe
+    # IOException. Deep site-packages trees (e.g. PyTorch's dist-info licenses)
+    # exceed the limit even from a shallow project directory.
+    layout = ImageLayout(image_dir=image_dir, target=target, minor=config.python_minor)
+    bind_path = extended_length_path(windows_abspath(image_dir, layout.python_exe))
+
     cmd = [
         wix, "build",
         "-arch", target.wix_arch,  # make it a 64-bit package so it installs into C:\Program Files
@@ -54,7 +63,7 @@ def build_msi(config: Config, image_dir: Path, wxs_path: Path, out_msi: Path, *,
         cmd += ["-ext", "WixToolset.UI.wixext"]
     cmd += [
         target_relpath(target, wxs_path, base),
-        "-b", target_relpath(target, image_dir, base),
+        "-b", bind_path,
         "-o", target_relpath(target, out_msi, base),
     ]
     proc = subprocess.run(cmd, cwd=str(base), capture_output=True, text=True, errors="replace")

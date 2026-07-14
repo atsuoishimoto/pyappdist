@@ -1,11 +1,20 @@
 [project]
 name = "pytorchdemo"
 version = "0.1.0"
-description = "PyTorch CUDA 13 sample for pyappdist"
+description = "PyTorch (CPU / CUDA 13) sample for pyappdist"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=2.4.6",
+]
+
+# torch lives in mutually exclusive extras so each pyappdist target can pick
+# the build it ships: ``cpu`` (small, runs everywhere) or ``cuda`` (CUDA 13).
+[project.optional-dependencies]
+cpu = [
+    "torch>=2.9",
+]
+cuda = [
     "torch>=2.9",
 ]
 
@@ -17,13 +26,29 @@ dev = [
     "pyappdist",
 ]
 
-# Pull torch from the PyTorch CUDA 13.0 (cu130) wheel index on Windows/Linux.
-# The index is marked ``explicit`` so only packages listed in [tool.uv.sources]
-# resolve against it; everything else still comes from PyPI.
+[tool.uv]
+conflicts = [
+    [
+        { extra = "cpu" },
+        { extra = "cuda" },
+    ],
+]
+
+# Pull torch from the matching PyTorch wheel index per extra. The indexes are
+# marked ``explicit`` so only packages listed in [tool.uv.sources] resolve
+# against them; everything else still comes from PyPI. macOS is excluded from
+# the cpu index on purpose: the PyPI wheels for macOS are the CPU (MPS-enabled)
+# build already.
 [tool.uv.sources]
 torch = [
-    { index = "pytorch-cu130", marker = "sys_platform == 'win32' or sys_platform == 'linux'" },
+    { index = "pytorch-cpu", extra = "cpu", marker = "sys_platform != 'darwin'" },
+    { index = "pytorch-cu130", extra = "cuda" },
 ]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [[tool.uv.index]]
 name = "pytorch-cu130"
@@ -31,7 +56,7 @@ url = "https://download.pytorch.org/whl/cu130"
 explicit = true
 
 [tool.pyappdist]
-name = "PyTorch CUDA Demo"
+name = "PyTorch Demo"
 python = "3.12"
 identifier = "com.example.pytorchdemo"
 
@@ -39,8 +64,10 @@ launchers = [
   { name = "pytorchdemo", entry = "pytorchdemo:main", gui = false },
 ]
 
-# CUDA wheels are published only for Windows and Linux, so this sample targets
-# those two platforms. macOS has no CUDA build (it uses Metal/MPS instead).
+# CPU targets ship the small CPU-only build of torch; the ``-cuda`` targets
+# ship the CUDA 13 build instead. CUDA wheels exist only for Windows and
+# Linux; macOS gets the CPU (MPS-enabled) build, and only arm64 — PyTorch no
+# longer publishes Intel macOS wheels.
 [[tool.pyappdist.targets]]
 name = "win32-msi"
 platform = "windows-x86_64"
@@ -49,17 +76,49 @@ format = "msi"
 manufacturer = "Example Inc."
 code-sign = false
 allow-same-version-upgrades = false
+extras = ["cpu"]
 
 [[tool.pyappdist.targets]]
 name = "win32-store"
 platform = "windows-x86_64"
 format = "msix"
 manufacturer = "Example Inc."
+extras = ["cpu"]
 
 [[tool.pyappdist.targets]]
 name = "linux"
 platform = "linux-x86_64"
 format = "linux"
+extras = ["cpu"]
+
+[[tool.pyappdist.targets]]
+name = "darwin-arm"
+platform = "macos-aarch64"
+format = "macos"
+extras = ["cpu"]
+
+[[tool.pyappdist.targets]]
+name = "win32-msi-cuda"
+platform = "windows-x86_64"
+format = "msi"
+# upgrade-code = "..."    # auto-generated and written back if omitted
+manufacturer = "Example Inc."
+code-sign = false
+allow-same-version-upgrades = false
+extras = ["cuda"]
+
+[[tool.pyappdist.targets]]
+name = "win32-store-cuda"
+platform = "windows-x86_64"
+format = "msix"
+manufacturer = "Example Inc."
+extras = ["cuda"]
+
+[[tool.pyappdist.targets]]
+name = "linux-cuda"
+platform = "linux-x86_64"
+format = "linux"
+extras = ["cuda"]
 
 [build-system]
 requires = ["uv_build>=0.11.6,<0.12.0"]
