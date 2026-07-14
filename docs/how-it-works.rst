@@ -136,12 +136,3 @@ otherwise vanish silently. For ``gui = true`` launchers, pyappdist wraps the
 entry-point **import** in ``try/except`` and, on failure, shows the error in a
 message box (via ``ctypes``). Exceptions raised *after* your entry point starts
 running are your app's responsibility.
-
-Upgrades
---------
-
-The MSI recognizes and replaces an installed copy via a stable ``upgrade-code``
-GUID — see :ref:`the MSI upgrade details <platforms/windows-msi:Upgrades>`. The
-``.run`` installers replace any existing install in place; application-level
-updates are otherwise the app's own responsibility — pyappdist provides no
-auto-update mechanism.
