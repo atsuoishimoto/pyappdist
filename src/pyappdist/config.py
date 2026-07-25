@@ -34,9 +34,13 @@ _WIX_SCOPES = ("machine", "user")
 #   macos    - the same POSIX .run installer, for macOS (see MacosConfig)
 #   macapp/dmg - a macOS .app bundle (GUI distribution); dmg additionally wraps it in a
 #              disk image. Both Developer-ID-sign + notarize when configured (see MacosConfig).
-_FORMATS = ("msi", "msix", "linux", "macos", "macapp", "dmg")
+#   image    - no installer: an archive of the run-in-place image tree (.zip on Windows,
+#              .tar.gz on Linux/macOS). Available on every platform.
+_FORMATS = ("msi", "msix", "linux", "macos", "macapp", "dmg", "image")
 
-# Each output format produces a package for exactly one OS; a target's platform must match.
+# Each output format produces a package for exactly one OS; a target's platform must
+# match. "image" is deliberately absent — it archives the image tree as-is, which works
+# for any target OS.
 _FORMAT_OS = {
     "msi": "windows",
     "msix": "windows",
@@ -192,7 +196,7 @@ class Config:
     identifier: str | None  # CFBundleIdentifier (reverse-DNS); required for macapp/dmg targets
     target: Target
     target_name: str    # the [[tool.pyappdist.targets]].name label (required, unique)
-    format: str         # output package: "msi" | "msix" | "linux" | "macos" | "macapp" | "dmg"
+    format: str         # output package: one of _FORMATS
     launchers: tuple[LauncherConfig, ...]
     wix: WixConfig
     msix: MsixConfig
@@ -202,6 +206,9 @@ class Config:
     extras: tuple[str, ...] = ()
     linux: LinuxConfig = LinuxConfig()
     macos: MacosConfig = MacosConfig()
+    # Skip launcher generation entirely (image format only): the archive then contains
+    # just the installed tree, for apps that ship their own entry mechanism.
+    no_launcher: bool = False
 
     @property
     def python_minor(self) -> str:
@@ -329,16 +336,18 @@ def load_configs(
             extras=extras,
             linux=linux,
             macos=macos,
+            no_launcher=no_launcher,
         )
-        for (target_name, target, fmt, wix, msix, extras, linux, macos) in specs
+        for (target_name, target, fmt, wix, msix, extras, linux, macos, no_launcher) in specs
     ]
 
 
-def _parse_targets(
-    raw: object,
-) -> list[
-    tuple[str, Target, str, WixConfig, MsixConfig, tuple[str, ...], LinuxConfig, MacosConfig]
-]:
+_TargetSpec = tuple[
+    str, Target, str, WixConfig, MsixConfig, tuple[str, ...], LinuxConfig, MacosConfig, bool
+]
+
+
+def _parse_targets(raw: object) -> list[_TargetSpec]:
     if not raw:
         raise ConfigError(
             "at least one [[tool.pyappdist.targets]] is required"
@@ -346,9 +355,7 @@ def _parse_targets(
     if not isinstance(raw, list):
         raise ConfigError("[[tool.pyappdist.targets]] must be an array of tables")
 
-    specs: list[
-        tuple[str, Target, str, WixConfig, MsixConfig, tuple[str, ...], LinuxConfig, MacosConfig]
-    ] = []
+    specs: list[_TargetSpec] = []
     for i, item in enumerate(raw):
         if not isinstance(item, dict):
             raise ConfigError(f"targets[{i}] must be a table")
@@ -368,10 +375,22 @@ def _parse_targets(
             raise ConfigError(f"targets[{i}].format is required (one of {_FORMATS})")
         if fmt not in _FORMATS:
             raise ConfigError(f"targets[{i}].format must be one of {_FORMATS}: {fmt!r}")
-        if _FORMAT_OS[fmt] != target.os:
+        if fmt in _FORMAT_OS and _FORMAT_OS[fmt] != target.os:
             raise ConfigError(
                 f"targets[{i}]: format={fmt!r} is for {_FORMAT_OS[fmt]}, but platform "
                 f"{target.name!r} is {target.os}"
+            )
+        no_launcher = item.get("no-launcher", False)
+        if not isinstance(no_launcher, bool):
+            raise ConfigError(
+                f"targets[{i}].no-launcher must be a boolean: {no_launcher!r}"
+            )
+        # The installer formats all need their launchers (shortcuts, .app bundles, bin/
+        # symlinks reference them), so opting out only makes sense for the bare archive.
+        if no_launcher and fmt != "image":
+            raise ConfigError(
+                f"targets[{i}].no-launcher is only supported with format=\"image\" "
+                f"(format is {fmt!r})"
             )
         # allow-same-version-upgrades maps to WiX MajorUpgrade@AllowSameVersionUpgrades,
         # which is MSI-only; MSIX has no manifest equivalent, so it has no effect there.
@@ -385,7 +404,7 @@ def _parse_targets(
             (
                 target_name, target, str(fmt),
                 _parse_wix(item, i), _parse_msix(item, i), _parse_extras(item, i),
-                _parse_linux(item, i), _parse_macos(item, i),
+                _parse_linux(item, i), _parse_macos(item, i), no_launcher,
             )
         )
 

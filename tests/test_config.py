@@ -768,3 +768,32 @@ def test_identifier_not_required_for_unselected_app_target(tmp_path: Path):
     assert cfgs[0].identifier is None
     with pytest.raises(ConfigError, match="identifier is required"):
         load_configs(_write_text(tmp_path, text), select=["app"])
+
+
+@pytest.mark.parametrize(
+    "platform", ["windows-x86_64", "linux-x86_64", "macos-aarch64", "macos-x86_64"]
+)
+def test_format_image_accepted_on_all_platforms(tmp_path: Path, platform: str):
+    text = _BASE.format(fmt="image", app_extra="", target_extra="").replace(
+        '"windows-x86_64"', f'"{platform}"'
+    )
+    cfg = load_configs(_write_text(tmp_path, text))[0]
+    assert cfg.format == "image"
+    assert cfg.no_launcher is False
+
+
+def test_no_launcher_parsed(tmp_path: Path):
+    cfg = load_configs(
+        _write(tmp_path, fmt="image", target_extra="no-launcher = true")
+    )[0]
+    assert cfg.no_launcher is True
+
+
+def test_no_launcher_must_be_bool(tmp_path: Path):
+    with pytest.raises(ConfigError, match="no-launcher"):
+        load_configs(_write(tmp_path, fmt="image", target_extra='no-launcher = "yes"'))
+
+
+def test_no_launcher_rejected_on_non_image_format(tmp_path: Path):
+    with pytest.raises(ConfigError, match="no-launcher"):
+        load_configs(_write(tmp_path, fmt="msi", target_extra="no-launcher = true"))

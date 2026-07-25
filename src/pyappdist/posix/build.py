@@ -77,7 +77,7 @@ def build_posix(
     mode, decompress = _COMPRESSION[compression]
 
     image_dir = layout.image_dir
-    records = _write_launchers(config, image_dir, desktop=desktop, log=log)
+    records = write_launchers(config, image_dir, desktop=desktop, log=log)
     launchers_field = " ".join(
         f"{name}:{1 if gui else 0}:{icon}" for (name, gui, icon) in records
     )
@@ -86,7 +86,7 @@ def build_posix(
     base = f"{config.dist_name}-{config.version}-{config.target_name}"
 
     run = dist_dir / f"{base}.run"
-    payload = _targz_bytes(image_dir, mode=mode, log=log)
+    payload = targz_bytes(image_dir, mode=mode, log=log)
     sha256 = hashlib.sha256(payload).hexdigest()
     header = _render_header(
         config,
@@ -107,10 +107,13 @@ def build_posix(
     return [run]
 
 
-def _write_launchers(
-    config: Config, image_dir: Path, *, desktop: bool, log
+def write_launchers(
+    config: Config, image_dir: Path, *, desktop: bool, log=print
 ) -> list[tuple[str, bool, str]]:
     """Write each launcher's shell wrapper (and, on Linux, stage its icon) into the image.
+
+    Public because the ``image`` format reuses the same wrappers (with ``desktop=False``)
+    when archiving a Linux/macOS image tree.
 
     Returns ``(name, gui, icon_filename)`` per launcher; ``icon_filename`` is empty when the
     launcher has no icon or ``desktop`` is disabled (then the installer writes no .desktop).
@@ -219,8 +222,13 @@ _CODECS = {
 }
 
 
-def _targz_bytes(src_dir: Path, *, mode: str, log=print) -> bytes:
-    """Compressed tar of the directory contents (no top-level dir), preserving symlinks."""
+def targz_bytes(src_dir: Path, *, mode: str, prefix: str = "", log=print) -> bytes:
+    """Compressed tar of the directory contents, preserving symlinks.
+
+    Entries are archived under ``prefix/`` when given, else at the archive root (no
+    top-level dir — the .run installer's payload layout). Public because the ``image``
+    format reuses it for its ``.tar.gz`` deliverable (with a prefix).
+    """
     cmd, fallback_kw = _CODECS[mode]
     if cmd and shutil.which(cmd[0]):
         # The uncompressed tar goes to an anonymous temp file, so the compressor reads
@@ -228,7 +236,7 @@ def _targz_bytes(src_dir: Path, *, mode: str, log=print) -> bytes:
         # (stdin and stdout both as pipes would deadlock once either buffer fills).
         with tempfile.TemporaryFile() as raw:
             with tarfile.open(fileobj=raw, mode="w") as tf:
-                _add_tree(tf, src_dir)
+                _add_tree(tf, src_dir, prefix)
             raw.seek(0)
             proc = subprocess.run(cmd, stdin=raw, capture_output=True)
         if proc.returncode == 0:
@@ -240,13 +248,14 @@ def _targz_bytes(src_dir: Path, *, mode: str, log=print) -> bytes:
         )
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode=f"w:{mode}", **fallback_kw) as tf:
-        _add_tree(tf, src_dir)
+        _add_tree(tf, src_dir, prefix)
     return buf.getvalue()
 
 
-def _add_tree(tf: tarfile.TarFile, src_dir: Path) -> None:
+def _add_tree(tf: tarfile.TarFile, src_dir: Path, prefix: str = "") -> None:
     for child in sorted(src_dir.iterdir()):
-        tf.add(child, arcname=child.name, filter=_normalize_owner)
+        arcname = f"{prefix}/{child.name}" if prefix else child.name
+        tf.add(child, arcname=arcname, filter=_normalize_owner)
 
 
 def _normalize_owner(ti: tarfile.TarInfo) -> tarfile.TarInfo:

@@ -43,6 +43,10 @@ One ``pyproject.toml`` can describe several output packages at once — each is 
    ``macos-aarch64`` → a signed/notarized ``.app`` bundle, optionally
    inside a ``.dmg``, for **GUI apps**.
 
+:doc:`image <platforms/image>`
+   any platform → a ``.zip`` / ``.tar.gz`` of the image tree, with **no
+   installer**.
+
 Why "just works"
 ----------------
 
@@ -88,6 +92,7 @@ use a relocatable shell wrapper. See :doc:`how-it-works`.
    platforms/linux
    platforms/macos-run
    platforms/macos-app
+   platforms/image
 
 .. toctree::
    :maxdepth: 2

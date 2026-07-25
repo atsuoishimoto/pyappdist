@@ -54,11 +54,16 @@ def build_launchers(config: Config, layout: ImageLayout, workdir: Path, *, log=p
 
     The launcher kind is chosen by the *format*, not just the OS: ``macapp``/``dmg`` need a
     Mach-O stub for the ``.app`` bundle (built here with clang), while ``macos``/``linux``
-    use POSIX shell wrappers written by ``posix/build.py`` (so this returns ``[]`` for
-    them). Windows is the MSVC ``launcher.exe`` path.
+    (and ``image`` on a non-Windows target) use POSIX shell wrappers written by
+    ``posix/build.py`` (so this returns ``[]`` for them). Windows — including ``image`` on
+    a Windows target — is the MSVC ``launcher.exe`` path. ``no-launcher`` (image format)
+    skips launcher generation entirely.
     """
     if not config.launchers:
         log("launcher: none defined")
+        return []
+    if config.no_launcher:
+        log("launcher: skipped (no-launcher)")
         return []
     if config.format in ("macapp", "dmg"):
         return build_macos_launchers(config, layout, workdir, log=log)

@@ -98,3 +98,18 @@ format = "dmg"                        # a signed/notarizable .app inside a .dmg
 # signing-identity = "Developer ID Application: Your Name (TEAMID)"
 # notary-profile = "your-notary-profile"  # see docs/signing
 extras = ["gui"]
+
+[[tool.pyappdist.targets]]
+name = "win32-image"
+platform = "windows-x86_64"
+format = "image"
+
+[[tool.pyappdist.targets]]
+name = "linux-image"
+platform = "linux-x86_64"
+format = "image"
+
+[[tool.pyappdist.targets]]
+name = "darwin-arm-image"
+platform = "macos-aarch64"
+format = "image"
