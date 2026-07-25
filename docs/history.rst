@@ -1,6 +1,21 @@
 Release history
 ===============
 
+0.10.0
+------
+
+2026/07/25
+
+**New** ``image`` **output format.** ``format = "image"`` builds no installer:
+the run-in-place image tree is archived into ``dist/`` as
+``<name>-<version>-<target>.zip`` (Windows targets) or ``.tar.gz``
+(Linux/macOS targets), under a single top-level ``<name>-<version>/``
+directory — and unlike the other formats it is valid on every platform.
+Launchers follow the target OS (the MSVC ``.exe`` on Windows, the relocatable
+POSIX shell wrappers on Linux/macOS); a new image-only target key
+``no-launcher = true`` skips them so the archive contains just the installed
+tree.
+
 0.9.0
 -----
 
