@@ -66,8 +66,12 @@ build-backend = "uv_build"
 [tool.uv-matrix.matrix.build-installers]
 project = ["datafiles", "helloworld", "matplotlibdemo", "niceguidemo",
            "pandascli", "pygamedemo", "pyside6demo", "pytorchdemo"]
-target = ["win32-msi", "win32-store", "linux", "darwin-arm", "darwin-arm-dmg"]
-exclude = [{project = "niceguidemo", target = "linux"}]
+target = ["win32-msi", "win32-store", "win32-image", "linux", "linux-image",
+          "darwin-arm", "darwin-arm-dmg", "darwin-arm-image"]
+exclude = [
+    {project = "niceguidemo", target = "linux"},
+    {project = "niceguidemo", target = "linux-image"},
+]
 
 tasks = ["build-installer"]
 
