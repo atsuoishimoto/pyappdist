@@ -28,6 +28,7 @@ from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
 
 from . import image as image_mod
+from .archive import build_archive
 from .config import ensure_upgrade_code, load_configs
 from .context import BuildContext
 from .errors import BuildError, PyappdistError
@@ -156,6 +157,19 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
     info = _do_fetch_runtime(ctx, args)
     build_wheelhouse(ctx.config, info, ctx.wheelhouse)
     layout = image_mod.build_image(ctx, info, compile_pyc=not args.no_compile)
+
+    if ctx.config.format == "image":
+        # No installer: the image tree itself is the artifact. Launchers go into the
+        # image first (MSVC .exe on a Windows target, POSIX shell wrappers otherwise,
+        # nothing with no-launcher), then the tree is archived (.zip / .tar.gz).
+        # The Windows .exe launchers honor PYAPPDIST_SIGN_CMD, like MSIX.
+        exes = build_launchers(ctx.config, layout, ctx.launcher_build_dir)
+        sign_cmd = env_sign_command()
+        for exe in exes:
+            sign_artifact(exe, sign_cmd)
+        arts = build_archive(ctx.config, layout, ctx.dist_dir)
+        print(f"OK [{_tag(ctx)}]: image -> {', '.join(str(a) for a in arts)}")
+        return
 
     if ctx.config.format in ("linux", "macos"):
         # Linux/macOS launchers are shell wrappers (no MSVC); the builder writes them into

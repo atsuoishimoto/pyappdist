@@ -45,6 +45,8 @@ All keys at a glance
    * - targets, ``format = "macapp"`` / ``"dmg"`` — :doc:`platforms/macos-app`
      - ``min-macos`` · ``category`` · ``signing-identity`` · ``team-id`` ·
        ``notary-profile`` · ``entitlements``
+   * - targets, ``format = "image"`` — :doc:`platforms/image`
+     - ``no-launcher``
 
 .. _config-app:
 
@@ -162,8 +164,9 @@ These keys are common to every format; the format-specific keys live on the
    Windows, ``"linux"`` on Linux, and on macOS either ``"macos"`` (a
    ``.run`` installer, like Linux) or ``"macapp"`` / ``"dmg"`` (a ``.app`` bundle,
    optionally inside a ``.dmg``, for GUI distribution). A mismatch (e.g. ``"msi"``
-   with ``linux-x86_64``) is rejected at load. See
-   :ref:`Output formats <config-formats>`.
+   with ``linux-x86_64``) is rejected at load. ``"image"`` — an archive of the
+   image tree with no installer — is the exception: it is valid on every
+   platform. See :ref:`Output formats <config-formats>`.
 
 ``name`` (required)
    Label used to select this target on the command line and as its output
@@ -183,6 +186,8 @@ These keys are common to every format; the format-specific keys live on the
 
 Platform values
 ~~~~~~~~~~~~~~~~
+
+Every platform additionally accepts format ``image``.
 
 ``windows-x86_64``
    Triple ``x86_64-pc-windows-msvc`` · OS windows · format ``msi`` / ``msix``.
@@ -219,6 +224,10 @@ behavior:
 :doc:`macapp / dmg <platforms/macos-app>`
    A macOS ``.app`` bundle (``macapp``), optionally wrapped in a ``.dmg`` (``dmg``),
    for GUI apps; Developer-ID-signed and notarized when configured.
+
+:doc:`image <platforms/image>`
+   No installer — an archive of the image tree (``.zip`` on Windows, ``.tar.gz``
+   on Linux/macOS). Valid on every platform.
 
 A single project can declare several targets and produce all of these at once:
 
