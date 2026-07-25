@@ -42,6 +42,11 @@ One `pyproject.toml` can describe several output packages — each is a
 | `macos` | `macos-aarch64` / `macos-x86_64` | self-extracting `.run` installer (per-user, no root) |
 | `dmg`   | `macos-aarch64` / `macos-x86_64` | `.dmg` disk image (code-signing / notarization supported) |
 | `macapp` | `macos-aarch64` / `macos-x86_64` | `.app` bundle (code-signing / notarization supported) |
+| `image` | any of the above                | plain archive of the install tree — `.zip` (Windows) / `.tar.gz` (Linux, macOS), no installer |
+
+The `image` format skips the installer entirely: the run-in-place tree is archived
+as-is (with launchers, unless `no-launcher = true`), ready to extract and run — useful
+for deploying with your own tooling or unpacking into a container.
 
 ## Quick start
 
