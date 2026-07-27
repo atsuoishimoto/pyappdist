@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import http.client
 import io
@@ -184,28 +185,31 @@ def test_http_get_passes_timeout(monkeypatch):
     assert seen["timeout"] == runtime._HTTP_TIMEOUT
 
 
-def test_download_verified_ok(monkeypatch, tmp_path):
+def test_open_verified_ok(monkeypatch, tmp_path):
     data = b"runtime archive bytes"
     _fake_urlopen(monkeypatch, lambda url: io.BytesIO(data))
     dest = tmp_path / "cpython.tar.gz"
-    runtime._download_verified(
+    with runtime._open_verified(
         "http://x/a.tar.gz", dest, hashlib.sha256(data).hexdigest(), lambda m: None
-    )
+    ) as f:
+        # The yielded handle serves the verified bytes from position 0.
+        assert f.read() == data
+    # The consumed temp file was promoted into the cache, nothing lingers.
     assert dest.read_bytes() == data
-    # No temp files linger next to the cached archive.
     assert list(tmp_path.iterdir()) == [dest]
 
 
-def test_download_verified_sha_mismatch(monkeypatch, tmp_path):
+def test_open_verified_sha_mismatch(monkeypatch, tmp_path):
     _fake_urlopen(monkeypatch, lambda url: io.BytesIO(b"corrupted"))
     dest = tmp_path / "cpython.tar.gz"
     with pytest.raises(BuildError, match="sha256 mismatch"):
-        runtime._download_verified("http://x/a.tar.gz", dest, "0" * 64, lambda m: None)
+        with runtime._open_verified("http://x/a.tar.gz", dest, "0" * 64, lambda m: None):
+            raise AssertionError("body must not run")  # pragma: no cover
     assert not dest.exists()
     assert list(tmp_path.iterdir()) == []
 
 
-def test_download_verified_dropped_connection(monkeypatch, tmp_path):
+def test_open_verified_dropped_connection(monkeypatch, tmp_path):
     class _Broken(io.BytesIO):
         def read(self, *args):
             raise http.client.IncompleteRead(b"")
@@ -213,12 +217,13 @@ def test_download_verified_dropped_connection(monkeypatch, tmp_path):
     _fake_urlopen(monkeypatch, lambda url: _Broken())
     dest = tmp_path / "cpython.tar.gz"
     with pytest.raises(BuildError, match="download failed"):
-        runtime._download_verified("http://x/a.tar.gz", dest, "0" * 64, lambda m: None)
+        with runtime._open_verified("http://x/a.tar.gz", dest, "0" * 64, lambda m: None):
+            raise AssertionError("body must not run")  # pragma: no cover
     assert not dest.exists()
     assert list(tmp_path.iterdir()) == []
 
 
-def test_download_verified_cache_hit(monkeypatch, tmp_path):
+def test_open_verified_cache_hit(monkeypatch, tmp_path):
     data = b"cached"
     dest = tmp_path / "cpython.tar.gz"
     dest.write_bytes(data)
@@ -227,9 +232,42 @@ def test_download_verified_cache_hit(monkeypatch, tmp_path):
         raise AssertionError("network hit despite cache")
 
     _fake_urlopen(monkeypatch, factory)
-    runtime._download_verified(
+    with runtime._open_verified(
         "http://x/a.tar.gz", dest, hashlib.sha256(data).hexdigest(), lambda m: None
-    )
+    ) as f:
+        assert f.read() == data
+
+
+def test_open_verified_corrupt_cache_refetches(monkeypatch, tmp_path):
+    data = b"good bytes"
+    _fake_urlopen(monkeypatch, lambda url: io.BytesIO(data))
+    dest = tmp_path / "cpython.tar.gz"
+    dest.write_bytes(b"stale or truncated")
+    with runtime._open_verified(
+        "http://x/a.tar.gz", dest, hashlib.sha256(data).hexdigest(), lambda m: None
+    ) as f:
+        assert f.read() == data
+    assert dest.read_bytes() == data
+    assert list(tmp_path.iterdir()) == [dest]
+
+
+def test_open_verified_survives_lost_cache_rename(monkeypatch, tmp_path):
+    # If promoting the temp file into the shared cache fails (e.g. Windows
+    # denies replacing a file another build holds open), the build continues:
+    # extraction already consumed verified bytes. A directory at dest makes
+    # the rename fail portably.
+    data = b"runtime archive bytes"
+    _fake_urlopen(monkeypatch, lambda url: io.BytesIO(data))
+    dest = tmp_path / "cpython.tar.gz"
+    dest.mkdir()
+    logs = []
+    with runtime._open_verified(
+        "http://x/a.tar.gz", dest, hashlib.sha256(data).hexdigest(), logs.append
+    ) as f:
+        assert f.read() == data
+    assert any("could not cache" in m for m in logs)
+    # The temp file is cleaned up even though the promotion failed.
+    assert list(tmp_path.iterdir()) == [dest]
 
 
 # --- fetch_runtime reuse / self-heal ---------------------------------------
@@ -274,11 +312,15 @@ def test_fetch_runtime_refetches_damaged_tree(monkeypatch, tmp_path):
         runtime, "_select_asset", lambda *a: ("a.tar.gz", "0" * 64, "3.12.11")
     )
     downloaded = []
+
+    @contextlib.contextmanager
+    def fake_open_verified(url, dest, sha256, log):
+        downloaded.append(url)
+        yield io.BytesIO(b"")
+
+    monkeypatch.setattr(runtime, "_open_verified", fake_open_verified)
     monkeypatch.setattr(
-        runtime, "_download_verified", lambda *a: downloaded.append(a[0])
-    )
-    monkeypatch.setattr(
-        runtime, "_extract_install_only", lambda archive, d, log: _write_valid_tree(d)
+        runtime, "_extract_install_only", lambda f, name, d, log: _write_valid_tree(d)
     )
     monkeypatch.setattr(runtime, "ensure_pip", lambda info, log: None)
     info = runtime.fetch_runtime(

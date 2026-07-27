@@ -6,6 +6,7 @@ spec. The resolution procedure corresponds to PLAN.md "runtime fetch (fetch-runt
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import http.client
 import json
@@ -106,14 +107,13 @@ def fetch_runtime(
     # 2. resolve full version and sha256 from SHA256SUMS
     filename, sha256, version = _select_asset(prefix, target.triple, minor, exact, log)
 
-    # 3. download + verify (cache)
+    # 3. download + verify (cache), 4. extract — hashing and extraction share a
+    #    single handle, so the bytes extracted are exactly the bytes verified.
     cache_dir.mkdir(parents=True, exist_ok=True)
     archive = cache_dir / filename
     url = f"{prefix}/{filename}"
-    _download_verified(url, archive, sha256, log)
-
-    # 4. extract
-    _extract_install_only(archive, dest, log)
+    with _open_verified(url, archive, sha256, log) as f:
+        _extract_install_only(f, filename, dest, log)
 
     # 5. verify + marker
     info = RuntimeInfo(version=version, minor=minor, tag=tag, triple=target.triple, root=dest)
@@ -234,13 +234,19 @@ def _select_asset(
     return name, sha, ver
 
 
-def _extract_install_only(archive: Path, dest: Path, log) -> None:
-    """Strip the leading ``python/`` and extract directly under dest."""
-    log(f"runtime: extracting {archive.name} -> {dest}")
+def _extract_install_only(f, name: str, dest: Path, log) -> None:
+    """Strip the leading ``python/`` and extract directly under dest.
+
+    ``f`` is the verified archive handle yielded by :func:`_open_verified`;
+    extracting from it (rather than reopening the cache file by name) leaves no
+    window in which a concurrent build could swap the file between hashing and
+    extraction.
+    """
+    log(f"runtime: extracting {name} -> {dest}")
     dest.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=dest.parent) as tmp:
         tmp_path = Path(tmp)
-        with tarfile.open(archive, "r:*") as tf:
+        with tarfile.open(fileobj=f, mode="r:*") as tf:
             # The archive is a sha256-verified official python-build-standalone build, so
             # the "tar" filter is the right trust level: it applies path-traversal safety
             # and strips setuid/setgid/sticky + group/other-write bits, while preserving
@@ -254,7 +260,7 @@ def _extract_install_only(archive: Path, dest: Path, log) -> None:
             tf.extractall(tmp_path, filter="tar")
         inner = tmp_path / "python"
         if not inner.is_dir():
-            raise BuildError(f"unexpected archive layout (no python/): {archive}")
+            raise BuildError(f"unexpected archive layout (no python/): {name}")
         shutil.move(str(inner), str(dest))
 
 
@@ -306,30 +312,50 @@ def _info_from_marker(dest: Path, m: dict) -> RuntimeInfo:
     )
 
 
-def _download_verified(url: str, dest: Path, sha256: str, log) -> None:
-    if dest.is_file() and _sha256(dest) == sha256:
-        log(f"runtime: cache hit {dest.name}")
-        return
+@contextlib.contextmanager
+def _open_verified(url: str, dest: Path, sha256: str, log):
+    """Yield a read handle on the sha256-verified archive, positioned at 0.
+
+    The caller consumes the same handle that was hashed, so the bytes it reads
+    are exactly the bytes that were verified. On a cache miss the archive is
+    downloaded to a unique temp file, verified and consumed there, and only
+    afterwards promoted into the shared cache; failing that rename is harmless
+    (the build already extracted verified bytes), which makes concurrent builds
+    safe on Windows, where replacing a file another process holds open is
+    denied (WinError 5).
+    """
+    if dest.is_file():
+        with open(dest, "rb") as f:
+            if _sha256(f) == sha256:
+                log(f"runtime: cache hit {dest.name}")
+                f.seek(0)
+                yield f
+                return
     log(f"runtime: download {url}")
     # The cache dir is shared (~/.cache/pyappdist), so concurrent builds may fetch
-    # the same asset: each writes its own unique temp file and atomically renames
-    # the verified result into place; a fixed temp name would interleave writes.
+    # the same asset: each writes its own unique temp file; a fixed temp name
+    # would interleave writes.
     fd, tmp_name = tempfile.mkstemp(dir=dest.parent, prefix=dest.name + ".", suffix=".part")
-    os.close(fd)
     tmp = Path(tmp_name)
     try:
-        try:
-            with urllib.request.urlopen(url, timeout=_HTTP_TIMEOUT) as r:  # noqa: S310
-                with open(tmp, "wb") as f:
+        with os.fdopen(fd, "w+b") as f:
+            try:
+                with urllib.request.urlopen(url, timeout=_HTTP_TIMEOUT) as r:  # noqa: S310
                     shutil.copyfileobj(r, f)
-        except _HTTP_ERRORS as exc:
-            raise BuildError(f"download failed: {url}\n  {exc}") from exc
-        actual = _sha256(tmp)
-        if actual != sha256:
-            raise BuildError(
-                f"sha256 mismatch: {url}\n  expected {sha256}\n  actual   {actual}"
-            )
-        tmp.replace(dest)
+            except _HTTP_ERRORS as exc:
+                raise BuildError(f"download failed: {url}\n  {exc}") from exc
+            f.seek(0)
+            actual = _sha256(f)
+            if actual != sha256:
+                raise BuildError(
+                    f"sha256 mismatch: {url}\n  expected {sha256}\n  actual   {actual}"
+                )
+            f.seek(0)
+            yield f
+        try:
+            tmp.replace(dest)
+        except OSError as exc:
+            log(f"runtime: could not cache {dest.name} ({exc}); continuing")
     finally:
         tmp.unlink(missing_ok=True)
 
@@ -342,9 +368,8 @@ def _http_get(url: str) -> bytes:
         raise BuildError(f"download failed: {url}\n  {exc}") from exc
 
 
-def _sha256(path: Path) -> str:
+def _sha256(f) -> str:
     h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
+    for chunk in iter(lambda: f.read(1 << 20), b""):
+        h.update(chunk)
     return h.hexdigest()
