@@ -113,7 +113,7 @@ jobs:
           # and when unset (dmg/macapp then fall back to ad-hoc, unnotarized).
           PYAPPDIST_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
           PYAPPDIST_NOTARY_PROFILE: pyappdist-notary
-        run: uv run uv-matrix run --matrix build-installers
+        run: uv run uv-matrix run --max-jobs 4 --matrix build-installers
 
       - name: Upload installers
         if: always()      # upload whatever built even if some cells failed
