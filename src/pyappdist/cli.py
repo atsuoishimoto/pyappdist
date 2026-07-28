@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import os
 import platform
 import shutil
 import sys
@@ -31,7 +32,7 @@ from . import image as image_mod
 from .archive import build_archive
 from .config import ensure_upgrade_code, load_configs
 from .context import BuildContext
-from .errors import BuildError, PyappdistError
+from .errors import BuildError, ConfigError, PyappdistError
 from .launcher import build_launchers
 from .launcher.build import macos_arch
 from .linux import build_linux
@@ -47,12 +48,33 @@ from .wheels import build_wheelhouse
 from .wix import build_msi, generate_wxs, scan_image
 
 
+def _check_common_root(appdist_base: Path, build_base: Path) -> None:
+    """Fail early when the artifact and intermediates trees have no common root.
+
+    The Windows packagers run their tool from the common ancestor of their inputs and
+    outputs and pass relative paths (the cwd + relative-path rule for WSL interop), so
+    the two trees must share a root. On a native Windows host with them on different
+    drives ``os.path.commonpath`` raises ``ValueError``, which is not a
+    ``PyappdistError`` and would escape ``main`` as a traceback midway through a build —
+    so check it up front, for every subcommand.
+    """
+    try:
+        os.path.commonpath([str(appdist_base), str(build_base)])
+    except ValueError:
+        raise ConfigError(
+            "the artifacts and build directories must share a common root, but they "
+            f"have none: --appdist-dir {appdist_base} / --build-dir {build_base} "
+            "(on Windows, put both on the same drive)"
+        ) from None
+
+
 def _contexts(args: argparse.Namespace) -> list[BuildContext]:
     """Resolve the selected targets into one BuildContext each (own output subdir)."""
     project_dir = Path(args.project).resolve()
     configs = load_configs(project_dir, select=args.targets or None)
     appdist_base = Path(args.appdist_dir).resolve() if args.appdist_dir else project_dir / "appdist"
     build_base = Path(args.build_dir).resolve() if args.build_dir else project_dir / ".appdist-build"
+    _check_common_root(appdist_base, build_base)
     return [
         BuildContext(
             config=c,
