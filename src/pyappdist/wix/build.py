@@ -21,7 +21,11 @@ from .generate import LICENSE_STAGED_NAME
 
 
 def build_msi(config: Config, image_dir: Path, wxs_path: Path, out_msi: Path, *, log=print) -> Path | None:
-    """Generate an MSI via ``wix build``. Returns None for non-Windows targets."""
+    """Generate an MSI via ``wix build``. Returns None for non-Windows targets.
+
+    Config loading rejects ``format = "msi"`` on a non-Windows platform, so the skip
+    is a guard for direct API use rather than something the CLI can reach.
+    """
     target = config.target
     if target.os != "windows":
         log("msi: skipping because the target is not Windows")

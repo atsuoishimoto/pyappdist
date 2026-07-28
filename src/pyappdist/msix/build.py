@@ -26,7 +26,11 @@ _LOGO_FILES = ("StoreLogo.png", "Square150x150Logo.png", "Square44x44Logo.png")
 
 
 def build_msix(config: Config, image_dir: Path, out_msix: Path, *, log=print) -> Path | None:
-    """Build an MSIX from the image. Returns None for non-Windows targets."""
+    """Build an MSIX from the image. Returns None for non-Windows targets.
+
+    Config loading rejects ``format = "msix"`` on a non-Windows platform, so the skip
+    is a guard for direct API use rather than something the CLI can reach.
+    """
     target = config.target
     if target.os != "windows":
         log("msix: skipping because the target is not Windows")

@@ -67,8 +67,10 @@ def build_posix(
     """Build the .run installer from the image. Returns None for a mismatched target.
 
     ``os_kind`` is the OS this builder targets (``"linux"`` / ``"macos"``); a target whose
-    ``os`` differs is skipped (returns ``None``) so a cross-OS config is a no-op. ``desktop``
-    enables freedesktop ``.desktop`` generation and icon staging (Linux only).
+    ``os`` differs is skipped (returns ``None``) so a cross-OS config is a no-op. Config
+    loading already rejects those formats on a mismatched platform, so the skip is a guard
+    for direct API use rather than something the CLI can reach. ``desktop`` enables
+    freedesktop ``.desktop`` generation and icon staging (Linux only).
     """
     if config.target.os != os_kind:
         log(f"{os_kind}: skipping because the target is not {os_kind}")
