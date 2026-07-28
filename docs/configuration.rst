@@ -66,6 +66,13 @@ All keys at a glance
    dotted numeric (e.g. ``"1.2.3"``) — MSI's ProductVersion cannot express
    pre-releases, so e.g. ``"1.0.0rc1"`` is rejected at load time.
 
+   Up to four fields are accepted, but Windows Installer compares only the
+   **first three** when deciding whether an install is an upgrade. Two MSI
+   releases differing solely in the fourth field (``1.2.3.4`` → ``1.2.3.5``)
+   are the same version to it, so ``MajorUpgrade`` does not fire; pyappdist
+   warns when an msi target is built from such a version. (MSIX is unaffected —
+   its Identity Version uses all four fields.)
+
 ``manager``
    Package manager used to pin dependencies: ``"uv"``, ``"poetry"``,
    ``"pipenv"``, ``"pdm"``, or ``"requirements.txt"``. Auto-detected from the
