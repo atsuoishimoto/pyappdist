@@ -66,6 +66,11 @@ All keys at a glance
    dotted numeric (e.g. ``"1.2.3"``) — MSI's ProductVersion cannot express
    pre-releases, so e.g. ``"1.0.0rc1"`` is rejected at load time.
 
+   If the project declares ``dynamic = ["version"]`` (hatch-vcs,
+   setuptools-scm, …), the version is computed by the build backend and is not
+   readable from ``pyproject.toml``, so this key is **required** — pyappdist
+   reports an error instead of silently labelling every artifact ``0.0.0``.
+
 ``manager``
    Package manager used to pin dependencies: ``"uv"``, ``"poetry"``,
    ``"pipenv"``, ``"pdm"``, or ``"requirements.txt"``. Auto-detected from the

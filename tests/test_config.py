@@ -195,6 +195,34 @@ def test_unquoted_project_version_rejected(tmp_path: Path):
         load_configs(_write_text(tmp_path, text))
 
 
+def test_dynamic_version_rejected(tmp_path: Path):
+    # A version computed by the build backend is absent from pyproject.toml; the
+    # silent "0.0.0" fallback would mislabel every artifact.
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'version = "0.1.0"', 'dynamic = ["version"]'
+    )
+    with pytest.raises(ConfigError, match="dynamic"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_dynamic_version_with_explicit_tool_version(tmp_path: Path):
+    # An explicit [tool.pyappdist].version resolves the ambiguity.
+    text = _BASE.format(
+        fmt="msi", app_extra='version = "2.0.0"', target_extra=""
+    ).replace('version = "0.1.0"', 'dynamic = ["version"]')
+    (cfg,) = load_configs(_write_text(tmp_path, text))
+    assert cfg.version == "2.0.0"
+
+
+def test_missing_version_still_defaults(tmp_path: Path):
+    # Only a *dynamic* version is an error; a plain omission keeps the fallback.
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'version = "0.1.0"', ""
+    )
+    (cfg,) = load_configs(_write_text(tmp_path, text))
+    assert cfg.version == "0.0.0"
+
+
 @pytest.mark.parametrize("bad", ['":main"', '"helloworld:"', '"bad name"', '"a..b"'])
 def test_launcher_entry_invalid(tmp_path: Path, bad: str):
     proj = _write(tmp_path)

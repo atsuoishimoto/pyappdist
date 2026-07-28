@@ -240,7 +240,21 @@ def load_configs(
         raise ConfigError("[project].name is required")
     name = tool.get("name") or dist_name
 
-    version = tool.get("version") or project.get("version") or "0.0.0"
+    version = tool.get("version") or project.get("version")
+    if version is None:
+        # A dynamic version is computed by the build backend (hatch-vcs,
+        # setuptools-scm, ...), so it is absent from pyproject.toml and we cannot
+        # resolve it here. Falling back to "0.0.0" would silently stamp every
+        # artifact — MSI ProductVersion, MSIX Identity, .run/archive filenames,
+        # VERSIONINFO — with a version the app wheel itself does not carry.
+        dynamic = project.get("dynamic")
+        if isinstance(dynamic, list) and "version" in dynamic:
+            raise ConfigError(
+                '[project].version is dynamic, so pyappdist cannot determine the '
+                "version of the package it builds; set [tool.pyappdist].version "
+                'explicitly (e.g. version = "1.2.3")'
+            )
+        version = "0.0.0"
     # An unquoted TOML number silently drops trailing zeros (1.10 parses as the
     # float 1.1), so reject non-strings before they mangle the version.
     if not isinstance(version, str):
