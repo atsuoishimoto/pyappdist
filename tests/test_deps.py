@@ -209,6 +209,63 @@ def test_resolve_requirements_poetry_writes_requirements_txt(tmp_path: Path, sam
     assert out.read_text(encoding="utf-8") == "requests==2.0\n"
 
 
+def _failing_export(monkeypatch, stderr: str, returncode: int = 1):
+    import subprocess as _subprocess
+
+    def fake_run(cmd, **_kwargs):
+        return _subprocess.CompletedProcess(cmd, returncode, stdout="", stderr=stderr)
+
+    monkeypatch.setattr("pyappdist.deps.subprocess.run", fake_run)
+
+
+def _poetry_config(tmp_path: Path, sample_config):
+    project = tmp_path / "proj"
+    project.mkdir()
+    _touch(project, "poetry.lock")
+    wheelhouse = tmp_path / "wh"
+    wheelhouse.mkdir()
+    return dataclasses.replace(sample_config, project_dir=project, manager=None), wheelhouse
+
+
+@pytest.mark.parametrize(
+    "stderr",
+    [
+        'The command "export" does not exist.',
+        'Command "export" is not defined.',
+    ],
+)
+def test_poetry_missing_export_plugin_hint(tmp_path: Path, sample_config, monkeypatch, stderr):
+    # Poetry 2.x ships without the export command; the generic "dependency export
+    # failed" gives the user nothing to act on.
+    cfg, wheelhouse = _poetry_config(tmp_path, sample_config)
+    _failing_export(monkeypatch, stderr)
+    with pytest.raises(BuildError, match="poetry-plugin-export") as exc:
+        resolve_requirements(cfg, wheelhouse, log=lambda _m: None)
+    assert stderr in str(exc.value)  # poetry's own message is kept
+
+
+def test_poetry_other_failure_has_no_plugin_hint(tmp_path: Path, sample_config, monkeypatch):
+    cfg, wheelhouse = _poetry_config(tmp_path, sample_config)
+    _failing_export(monkeypatch, "Could not parse poetry.lock")
+    with pytest.raises(BuildError, match="Could not parse") as exc:
+        resolve_requirements(cfg, wheelhouse, log=lambda _m: None)
+    assert "poetry-plugin-export" not in str(exc.value)
+
+
+def test_non_poetry_failure_has_no_plugin_hint(tmp_path: Path, sample_config, monkeypatch):
+    # The hint is poetry-specific even if another manager echoes a similar message.
+    project = tmp_path / "proj"
+    project.mkdir()
+    _touch(project, "uv.lock")
+    wheelhouse = tmp_path / "wh"
+    wheelhouse.mkdir()
+    cfg = dataclasses.replace(sample_config, project_dir=project, manager=None)
+    _failing_export(monkeypatch, 'The command "export" does not exist.')
+    with pytest.raises(BuildError) as exc:
+        resolve_requirements(cfg, wheelhouse, log=lambda _m: None)
+    assert "poetry-plugin-export" not in str(exc.value)
+
+
 def test_resolve_requirements_extras_ignored_for_requirements_txt(tmp_path: Path, sample_config):
     project = tmp_path / "proj"
     project.mkdir()

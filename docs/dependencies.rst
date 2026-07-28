@@ -42,6 +42,13 @@ uv exports a PEP 751 ``pylock.toml`` instead of a requirements.txt; see
 
    poetry export -f requirements.txt --without dev
 
+.. note::
+
+   Poetry 2.0 moved ``export`` out of Poetry itself into the separate
+   `poetry-plugin-export <https://github.com/python-poetry/poetry-plugin-export>`_.
+   On Poetry 2.x install it once with ``poetry self add poetry-plugin-export``
+   (or ``pipx inject poetry poetry-plugin-export``).
+
 **pipenv** — lockfile ``Pipfile.lock``::
 
    pipenv requirements --hash
