@@ -98,6 +98,16 @@ def fetch_runtime(
                 ensure_pip(info, log=log)
                 return info
 
+    # The destination is ours to replace, but only when it is a real directory:
+    # shutil.rmtree on a regular file raises NotADirectoryError (and on a symlink,
+    # OSError), neither of which is a PyappdistError, so they would escape as a
+    # traceback. Anything else in the way is likely a leftover from an interrupted
+    # or manual operation — say so and let the user decide what to remove.
+    if dest.is_symlink() or (dest.exists() and not dest.is_dir()):
+        raise BuildError(
+            f"the runtime destination is not a directory: {dest} "
+            "(remove it and run the build again)"
+        )
     if dest.exists():
         shutil.rmtree(dest)
 
