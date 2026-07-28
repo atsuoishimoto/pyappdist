@@ -372,6 +372,13 @@ def main(argv: list[str] | None = None) -> int:
     except PyappdistError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
+    except KeyboardInterrupt:
+        # Stages are long (runtime download, pip wheel, wix build, notarization's
+        # --wait), so Ctrl+C is a normal way to stop a build; report it as one
+        # rather than dumping a traceback. 130 is the conventional status for
+        # "terminated by SIGINT".
+        print("interrupted", file=sys.stderr)
+        return 130
 
 
 if __name__ == "__main__":
