@@ -25,6 +25,10 @@ _LAUNCHER_MAC_C = _RESOURCES / "launcher_mac.c"
 # Path to the bundled interpreter relative to a .app's Contents/MacOS/<name>.
 _MACOS_PYREL = "../Resources/python/bin/python3"
 
+# build.bat's exit code when vcvars itself fails, distinct from the codes rc and cl
+# produce (cl exits 2 on compile errors), so the failing step is unambiguous.
+_VCVARS_EXIT = 97
+
 
 def _vswhere_path() -> Path:
     """Location of vswhere.exe (supports both native Windows and WSL)."""
@@ -191,7 +195,13 @@ def _build_one(
     bat = gen / "build.bat"
     lines = [
         "@echo off",
+        # Only vcvars' stdout is silenced; its diagnostics still reach stderr and end
+        # up in the BuildError below. Without the errorlevel check a failed vcvars
+        # (a broken VS install, say) went unnoticed and surfaced one step later as
+        # "'rc' is not recognized", pointing at the wrong cause. The distinct exit
+        # code lets the Python side name the real one.
         'call %1 >nul',
+        f"if errorlevel 1 exit /b {_VCVARS_EXIT}",
         'rc /nologo /fo "launcher.res" "launcher.rc"',
         "if errorlevel 1 exit /b 1",
         (
@@ -216,6 +226,13 @@ def _build_one(
         capture_output=True, text=True, errors="replace",
     )
     built = gen / "launcher_out.exe"
+    if proc.returncode == _VCVARS_EXIT:
+        raise BuildError(
+            f"the Visual Studio environment script failed: {vcvars}\n"
+            "(the MSVC toolchain was never set up, so cl/rc could not run; "
+            "check the Visual Studio installation)\n"
+            f"{proc.stdout}\n{proc.stderr}"
+        )
     if proc.returncode != 0 or not built.exists():
         raise BuildError(
             f"launcher build failed ({spec.name}):\n{proc.stdout}\n{proc.stderr}"
