@@ -93,24 +93,24 @@ def build_posix(
     base = f"{config.dist_name}-{config.version}-{config.target_name}"
 
     run = dist_dir / f"{base}.run"
-    # The header carries the payload's SHA-256, but the payload is streamed after it
-    # (a multi-GB image must not be buffered whole). The digest field has a fixed
-    # length, so write a placeholder, stream and hash the payload straight into the
-    # file, then seek back and overwrite the placeholder with the real digest.
     header = _render_header(
         config,
         launchers_field,
         decompress=decompress,
-        sha256=_SHA_PLACEHOLDER,
         desktop=desktop,
         categories=categories,
     ).encode("utf-8")
-    # The digest is the last thing in the header, so the final occurrence of the
-    # placeholder is the field itself — never a lookalike in an app name above it.
-    sha_offset = header.rindex(_SHA_PLACEHOLDER.encode("ascii"))
 
     with run.open("wb") as fp:
         fp.write(header)
+        # The header carries the payload's SHA-256, but the payload is streamed after
+        # it (a multi-GB image must not be buffered whole). The digest field is
+        # appended right after the rendered header so its offset is known exactly:
+        # write a fixed-length placeholder, stream and hash the payload straight into
+        # the file, then seek back and overwrite the placeholder with the real digest.
+        fp.write(b"PAYLOAD_SHA256='")
+        sha_offset = fp.tell()
+        fp.write(_SHA_PLACEHOLDER.encode("ascii") + b"'\n")
         fp.write(_INSTALLER_BODY.encode("utf-8"))
         fp.write(_PAYLOAD_MARKER)
         sha256 = write_targz(fp, image_dir, mode=mode, log=log)
@@ -187,7 +187,6 @@ def _render_header(
     launchers_field: str,
     *,
     decompress: str,
-    sha256: str,
     desktop: bool,
     categories: str,
 ) -> str:
@@ -210,7 +209,6 @@ def _render_header(
         f"CATEGORIES={_sq(categories)}\n"
         f"LAUNCHERS={_sq(launchers_field)}\n"
         f"DECOMPRESS={_sq(decompress)}\n"
-        f"PAYLOAD_SHA256={_sq(sha256)}\n"
     )
 
 
