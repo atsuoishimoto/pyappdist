@@ -38,6 +38,9 @@
 
 #define CMD_MAX 32768
 
+/* Ceiling on a \\?\ path, and so on any path we build. */
+#define PATH_MAX_EXTENDED 32767
+
 /* Build an environment block with PYTHON* removed (for CREATE_UNICODE_ENVIRONMENT). */
 static LPWSTR build_clean_env(void) {
     LPWCH all = GetEnvironmentStringsW();
@@ -118,18 +121,76 @@ static BOOL WINAPI ctrl_handler(DWORD type) {
     return type == CTRL_C_EVENT || type == CTRL_BREAK_EVENT;
 }
 
-static int run(void) {
-    WCHAR self[MAX_PATH];
-    DWORD n = GetModuleFileNameW(NULL, self, MAX_PATH);
-    if (n == 0 || n >= MAX_PATH) return 125;
-    for (DWORD i = n; i > 0; --i) {
-        if (self[i - 1] == L'\\' || self[i - 1] == L'/') { self[i - 1] = L'\0'; break; }
+/* Directory this executable lives in, as a heap string the caller frees.
+   The buffer grows until the path fits: MAX_PATH is only the *traditional*
+   limit, and the image format's .zip can be extracted anywhere, including
+   below a deeper tree than that. NULL on failure. */
+static WCHAR *module_dir(void) {
+    DWORD size = MAX_PATH;
+    for (;;) {
+        WCHAR *buf = (WCHAR *)malloc(size * sizeof(WCHAR));
+        if (!buf) return NULL;
+        DWORD n = GetModuleFileNameW(NULL, buf, size);
+        /* Truncation is reported by filling the buffer exactly (and, since
+           Windows XP, by ERROR_INSUFFICIENT_BUFFER); anything shorter fit. */
+        if (n != 0 && n < size) {
+            for (DWORD i = n; i > 0; --i) {
+                if (buf[i - 1] == L'\\' || buf[i - 1] == L'/') { buf[i - 1] = L'\0'; break; }
+            }
+            return buf;
+        }
+        free(buf);
+        if (n == 0 || size >= PATH_MAX_EXTENDED) return NULL;
+        size *= 2;
     }
+}
 
-    static WCHAR pyexe[MAX_PATH * 2];
+/* "<dir>\<PYAPPDIST_PYEXE>", as a heap string the caller frees.
+
+   Beyond MAX_PATH the result is returned in extended-length form: CreateProcessW
+   applies the traditional limit to its application name, so a deep install would
+   otherwise fail to start with no way to say why. \\?\ needs a fully-qualified
+   path, which GetModuleFileNameW always returns; a UNC path takes the \\?\UNC\
+   spelling instead. NULL if the path cannot be represented at all. */
+static WCHAR *interpreter_path(const WCHAR *dir) {
+    const WCHAR *prefix = L"";
+    const WCHAR *body = dir;
+    size_t len = wcslen(dir) + 1 + wcslen(PYAPPDIST_PYEXE);  /* + separator */
+
+    if (len >= MAX_PATH && wcsncmp(dir, L"\\\\?\\", 4) != 0) {
+        if (dir[0] == L'\\' && dir[1] == L'\\') {
+            prefix = L"\\\\?\\UNC";  /* \\server\share -> \\?\UNC\server\share */
+            body = dir + 1;
+            len -= 1;
+        } else {
+            prefix = L"\\\\?\\";
+        }
+        len += wcslen(prefix);
+    }
+    if (len >= PATH_MAX_EXTENDED) return NULL;
+
+    size_t size = len + 1;
+    WCHAR *out = (WCHAR *)malloc(size * sizeof(WCHAR));
+    if (!out) return NULL;
     /* _snwprintf_s with _TRUNCATE guarantees null-termination on truncation
        (plain _snwprintf does not, hence the C4996 deprecation warning). */
-    _snwprintf_s(pyexe, MAX_PATH * 2, _TRUNCATE, L"%s\\%s", self, PYAPPDIST_PYEXE);
+    _snwprintf_s(out, size, _TRUNCATE, L"%ls%ls\\%ls", prefix, body, PYAPPDIST_PYEXE);
+    return out;
+}
+
+static int run(void) {
+    WCHAR *self = module_dir();
+    if (!self) {
+        fwprintf(stderr, L"error: cannot determine the launcher's own location\n");
+        return 125;
+    }
+
+    WCHAR *pyexe = interpreter_path(self);
+    free(self);
+    if (!pyexe) {
+        fwprintf(stderr, L"error: the path to the bundled interpreter is too long\n");
+        return 125;
+    }
 
     static WCHAR cmd[CMD_MAX];
     size_t pos = 0;
@@ -155,6 +216,7 @@ static int run(void) {
         /* Console launchers surface this; gui ones at least exit non-zero. */
         fwprintf(stderr, L"error: command line exceeds the %d-character limit\n",
                  CMD_MAX);
+        free(pyexe);
         return 124;
     }
 
@@ -193,7 +255,14 @@ static int run(void) {
     BOOL ok = CreateProcessW(pyexe, cmd, NULL, NULL, TRUE,
                              flags, env, NULL, &si, &pi);
     if (env) free(env);
-    if (!ok) { if (job) CloseHandle(job); return 126; }
+    if (!ok) {
+        fwprintf(stderr, L"error: cannot start the bundled interpreter (%lu): %ls\n",
+                 GetLastError(), pyexe);
+        free(pyexe);
+        if (job) CloseHandle(job);
+        return 126;
+    }
+    free(pyexe);
 
     if (job) {
         /* If assignment fails (e.g. nested-job restrictions on old Windows),
