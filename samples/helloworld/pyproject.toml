@@ -75,6 +75,35 @@ name = "darwin-arm-image"
 platform = "macos-aarch64"
 format = "image"
 
+[[tool.pyappdist.targets]]
+name = "win32-arm-msi"
+platform = "windows-arm64"
+format = "msi"
+manufacturer = "Example Inc."
+code-sign = false
+allow-same-version-upgrades = false
+
+[[tool.pyappdist.targets]]
+name = "win32-arm-store"
+platform = "windows-arm64"
+format = "msix"
+manufacturer = "Example Inc."
+
+[[tool.pyappdist.targets]]
+name = "win32-arm-image"
+platform = "windows-arm64"
+format = "image"
+
+[[tool.pyappdist.targets]]
+name = "linux-arm"
+platform = "linux-aarch64"
+format = "linux"
+
+[[tool.pyappdist.targets]]
+name = "linux-arm-image"
+platform = "linux-aarch64"
+format = "image"
+
 [build-system]
 requires = ["uv_build>=0.11.6,<0.12.0"]
 build-backend = "uv_build"

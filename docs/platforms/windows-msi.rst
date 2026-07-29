@@ -5,7 +5,10 @@ Windows — MSI installer
 
 * ``appdist/<target>/dist/<name>-<version>.msi`` — the installer.
 
-Only ``platform = "windows-x86_64"`` may use this format. The app ``version``
+Only ``platform = "windows-x86_64"`` or ``"windows-arm64"`` may use this
+format. Building the ``windows-arm64`` variant requires an ARM64 Windows host
+(with the "MSVC C++ ARM64 build tools" component installed); x64 Windows cannot
+run the target runtime's ``python.exe``. The app ``version``
 must be dotted numeric (e.g. ``"1.2.3"``) — MSI's ProductVersion cannot express
 pre-releases such as ``"1.0.0rc1"``, so those are rejected at load time (same
 for ``msix``).

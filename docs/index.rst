@@ -27,13 +27,13 @@ One ``pyproject.toml`` can describe several output packages at once — each is 
 :ref:`target <config-targets>` with its own platform and format:
 
 :doc:`msi <platforms/windows-msi>`
-   ``windows-x86_64`` → ``.msi`` installer.
+   ``windows-x86_64`` / ``windows-arm64`` → ``.msi`` installer.
 
 :doc:`msix <platforms/windows-msix>`
-   ``windows-x86_64`` → ``.msix`` (Store / sideloading).
+   ``windows-x86_64`` / ``windows-arm64`` → ``.msix`` (Store / sideloading).
 
 :doc:`linux <platforms/linux>`
-   ``linux-x86_64`` → ``.run`` installer.
+   ``linux-x86_64`` / ``linux-aarch64`` → ``.run`` installer.
 
 :doc:`macos <platforms/macos-run>`
    ``macos-aarch64`` → ``.run`` installer, for
@@ -110,7 +110,8 @@ Status
 **Alpha** — the pipeline works end-to-end, but expect breaking changes to the
 config schema, CLI, and output layout as it matures.
 
-Targets today are Windows x64 (``msi``, ``msix``), Linux x64 (``linux``), and
+Targets today are Windows x64/arm64 (``msi``, ``msix``), Linux x64/aarch64
+(``linux``), and
 macOS arm64/x64 (``macos``, ``macapp``, ``dmg``). Auto-update and code-signing
 certificates are out of scope for now; optional :ref:`code signing <msi-code-signing>` of the Windows
 artifacts is available. Distributed apps are not obfuscated, and unsigned Windows
