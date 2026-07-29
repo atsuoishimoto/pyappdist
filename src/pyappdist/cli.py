@@ -12,15 +12,16 @@ Subcommands:
   build-wheels    app + dependency wheels into <target>/wheelhouse
   fetch-runtime   python-build-standalone runtime into <target>/runtime
   build-image     runtime + install + compileall + launcher into <target>/image
-  build-launchers build launcher.exe inside the image (Windows, MSVC)
-  gen-wix         scan the image and generate WiX XML (.wxs)
-  build           run wheels->runtime->image->launcher->wix->MSI in one go
+  build-launchers build the launchers inside the image (kind follows the format)
+  gen-wix         scan the image and generate WiX XML (.wxs) — msi targets only
+  build           run the full pipeline and package the selected target(s)
 """
 
 from __future__ import annotations
 
 import argparse
 import dataclasses
+import os
 import platform
 import shutil
 import sys
@@ -31,7 +32,7 @@ from . import image as image_mod
 from .archive import build_archive
 from .config import ensure_upgrade_code, load_configs
 from .context import BuildContext
-from .errors import BuildError, PyappdistError
+from .errors import BuildError, ConfigError, PyappdistError
 from .launcher import build_launchers
 from .launcher.build import macos_arch
 from .linux import build_linux
@@ -47,12 +48,33 @@ from .wheels import build_wheelhouse
 from .wix import build_msi, generate_wxs, scan_image
 
 
+def _check_common_root(appdist_base: Path, build_base: Path) -> None:
+    """Fail early when the artifact and intermediates trees have no common root.
+
+    The Windows packagers run their tool from the common ancestor of their inputs and
+    outputs and pass relative paths (the cwd + relative-path rule for WSL interop), so
+    the two trees must share a root. On a native Windows host with them on different
+    drives ``os.path.commonpath`` raises ``ValueError``, which is not a
+    ``PyappdistError`` and would escape ``main`` as a traceback midway through a build —
+    so check it up front, for every subcommand.
+    """
+    try:
+        os.path.commonpath([str(appdist_base), str(build_base)])
+    except ValueError:
+        raise ConfigError(
+            "the artifacts and build directories must share a common root, but they "
+            f"have none: --appdist-dir {appdist_base} / --build-dir {build_base} "
+            "(on Windows, put both on the same drive)"
+        ) from None
+
+
 def _contexts(args: argparse.Namespace) -> list[BuildContext]:
     """Resolve the selected targets into one BuildContext each (own output subdir)."""
     project_dir = Path(args.project).resolve()
     configs = load_configs(project_dir, select=args.targets or None)
     appdist_base = Path(args.appdist_dir).resolve() if args.appdist_dir else project_dir / "appdist"
     build_base = Path(args.build_dir).resolve() if args.build_dir else project_dir / ".appdist-build"
+    _check_common_root(appdist_base, build_base)
     return [
         BuildContext(
             config=c,
@@ -176,12 +198,11 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
         # the image and produces the self-extracting .run installer.
         fmt = ctx.config.format
         build = build_linux if fmt == "linux" else build_macos
+        # The builders return None for a target whose OS doesn't match the format —
+        # a guard for direct API use that config loading (_FORMAT_OS) already rules
+        # out for anything reaching the CLI, so no skip case is handled here.
         arts = build(ctx.config, layout, ctx.dist_dir)
-        if arts is not None:
-            print(f"OK [{_tag(ctx)}]: {fmt} -> {', '.join(str(a) for a in arts)}")
-        else:
-            os_name = "Linux" if fmt == "linux" else "macOS"
-            print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} ({fmt} skipped on non-{os_name})")
+        print(f"OK [{_tag(ctx)}]: {fmt} -> {', '.join(str(a) for a in arts)}")
         return
 
     if ctx.config.format in ("macapp", "dmg"):
@@ -204,22 +225,18 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
     if ctx.config.format == "msix":
         # MSIX packs the image directly; no portable zip (the .msix is the deliverable).
         msix_name = f"{ctx.config.dist_name}-{ctx.config.version}.msix"
+        # As above: a non-Windows target cannot carry format="msix", so the packager's
+        # None return is unreachable from here.
         pkg = build_msix(ctx.config, ctx.image_dir, ctx.dist_dir / msix_name)
-        if pkg is not None:
-            sign_artifact(pkg, sign_cmd)
-            print(f"OK [{_tag(ctx)}]: msix -> {pkg} ({len(exes)} launcher)")
-        else:
-            print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} (msix skipped on non-Windows)")
+        sign_artifact(pkg, sign_cmd)
+        print(f"OK [{_tag(ctx)}]: msix -> {pkg} ({len(exes)} launcher)")
         return
 
     wxs = _write_wxs(ctx)
     msi_name = f"{ctx.config.dist_name}-{ctx.config.version}.msi"
     msi = build_msi(ctx.config, ctx.image_dir, wxs, ctx.dist_dir / msi_name)
-    if msi is not None:
-        sign_artifact(msi, sign_cmd)
-        print(f"OK [{_tag(ctx)}]: msi -> {msi} ({len(exes)} launcher)")
-    else:
-        print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} (msi skipped on non-Windows)")
+    sign_artifact(msi, sign_cmd)
+    print(f"OK [{_tag(ctx)}]: msi -> {msi} ({len(exes)} launcher)")
 
 
 def _build_macos_bundle(ctx: BuildContext, layout: image_mod.ImageLayout) -> None:
@@ -282,7 +299,10 @@ def _build_macos_bundle(ctx: BuildContext, layout: image_mod.ImageLayout) -> Non
 
 
 def cmd_build(args: argparse.Namespace) -> int:
-    """Run wheelhouse -> runtime -> image -> launcher -> wix -> MSI for each target."""
+    """Run runtime -> wheelhouse -> image -> launcher -> package for each target.
+
+    The packaging step depends on the target's format (see ``_build_one``).
+    """
     contexts = _contexts(args)
     # Unlike the individual pipeline stages, build doesn't fan out over every target by
     # default: with several defined, an explicit selection is required so we don't build
@@ -328,7 +348,11 @@ def _version() -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="pyappdist", description="Create a Windows distribution of a Python app")
+    parser = argparse.ArgumentParser(
+        prog="pyappdist",
+        description="Build a native package of a Python app "
+                    "(Windows .msi/.msix, Linux/macOS .run, macOS .app/.dmg, or a portable archive)",
+    )
     parser.add_argument("--version", action="version", version=f"%(prog)s {_version()}")
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -348,15 +372,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-compile", action="store_true", help="skip compileall")
     p.set_defaults(func=cmd_build_image)
 
-    p = sub.add_parser("build-launchers", help="build launcher.exe into the image (Windows)")
+    p = sub.add_parser("build-launchers", help="build the launchers into the image")
     _add_common(p)
     p.set_defaults(func=cmd_build_launchers)
 
-    p = sub.add_parser("gen-wix", help="generate WiX XML (.wxs) from the image")
+    p = sub.add_parser("gen-wix", help="generate WiX XML (.wxs) from the image (msi targets)")
     _add_common(p)
     p.set_defaults(func=cmd_gen_wix)
 
-    p = sub.add_parser("build", help="run wheels->runtime->image->launcher->wix->MSI in one go")
+    p = sub.add_parser("build", help="run the full pipeline and package the target(s)")
     _add_common(p)
     _add_runtime_opts(p)
     p.add_argument("--no-compile", action="store_true")
@@ -372,6 +396,13 @@ def main(argv: list[str] | None = None) -> int:
     except PyappdistError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
+    except KeyboardInterrupt:
+        # Stages are long (runtime download, pip wheel, wix build, notarization's
+        # --wait), so Ctrl+C is a normal way to stop a build; report it as one
+        # rather than dumping a traceback. 130 is the conventional status for
+        # "terminated by SIGINT".
+        print("interrupted", file=sys.stderr)
+        return 130
 
 
 if __name__ == "__main__":

@@ -12,12 +12,11 @@ from __future__ import annotations
 
 import glob
 import os
-import struct
 import subprocess
-import zlib
 from pathlib import Path
 
 from .._hostexec import target_relpath
+from .._png import solid_png
 from ..config import Config
 from ..errors import BuildError
 from .manifest import generate_manifest
@@ -26,7 +25,11 @@ _LOGO_FILES = ("StoreLogo.png", "Square150x150Logo.png", "Square44x44Logo.png")
 
 
 def build_msix(config: Config, image_dir: Path, out_msix: Path, *, log=print) -> Path | None:
-    """Build an MSIX from the image. Returns None for non-Windows targets."""
+    """Build an MSIX from the image. Returns None for non-Windows targets.
+
+    Config loading rejects ``format = "msix"`` on a non-Windows platform, so the skip
+    is a guard for direct API use rather than something the CLI can reach.
+    """
     target = config.target
     if target.os != "windows":
         log("msix: skipping because the target is not Windows")
@@ -69,27 +72,10 @@ def _stage_logos(config: Config, image_dir: Path, *, log) -> None:
             )
         data = src.read_bytes()
     else:
-        data = _solid_png(256, 256, (0, 120, 212))
+        data = solid_png(256, 256)
         log("msix: no logo set; using a generated placeholder (supply 'logo' for real art)")
     for name in _LOGO_FILES:
         (assets / name).write_bytes(data)
-
-
-def _solid_png(width: int, height: int, rgb: tuple[int, int, int]) -> bytes:
-    """Minimal solid-colour RGB PNG encoder (avoids a Pillow dependency)."""
-    def chunk(typ: bytes, data: bytes) -> bytes:
-        body = typ + data
-        return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
-
-    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)  # 8-bit, colour type 2 (RGB)
-    row = b"\x00" + bytes(rgb) * width  # filter byte 0 + pixels
-    idat = zlib.compress(row * height, 9)
-    return (
-        b"\x89PNG\r\n\x1a\n"
-        + chunk(b"IHDR", ihdr)
-        + chunk(b"IDAT", idat)
-        + chunk(b"IEND", b"")
-    )
 
 
 def _find_makeappx(target) -> str:

@@ -4,8 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from pyappdist.cli import _contexts, build_parser
-from pyappdist.errors import BuildError
+from pyappdist import cli
+from pyappdist.cli import _check_common_root, _contexts, build_parser
+from pyappdist.errors import BuildError, ConfigError
 
 _MULTI = """
 [project]
@@ -72,6 +73,26 @@ def test_appdist_and_build_dir_options_override(tmp_path: Path):
     assert ctx.build_dir == tmp_path / "bld" / "win-user"
 
 
+def test_split_drive_dirs_rejected_at_startup(tmp_path: Path, monkeypatch):
+    # On a native Windows host, --appdist-dir and --build-dir on different drives make
+    # os.path.commonpath raise ValueError deep inside the packagers. Simulate the
+    # Windows path semantics on any host and check the failure surfaces as a
+    # ConfigError before any building starts.
+    import ntpath
+    import os as _os
+
+    monkeypatch.setattr(_os.path, "commonpath", ntpath.commonpath)
+    with pytest.raises(ConfigError, match="common root"):
+        _check_common_root(Path("C:/artifacts"), Path("D:/build"))
+
+
+def test_common_root_accepted(tmp_path: Path):
+    # The default layout (both under the project dir) always shares a root.
+    (tmp_path / "pyproject.toml").write_text(_MULTI, encoding="utf-8")
+    args = build_parser().parse_args(["build", "-C", str(tmp_path), "win-user"])
+    assert len(_contexts(args)) == 1
+
+
 _LINUX_ONLY = """
 [project]
 name = "helloworld"
@@ -97,3 +118,22 @@ def test_gen_wix_skips_non_msi_targets(tmp_path: Path, capsys):
     assert "skip" in capsys.readouterr().out
     assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == _LINUX_ONLY
     assert not list(tmp_path.rglob("*.wxs"))
+
+
+def test_main_reports_interrupt(monkeypatch, capsys):
+    # Ctrl+C during a long stage must not dump a traceback.
+    def interrupted(args):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(cli, "cmd_build", interrupted)
+    assert cli.main(["build", "-C", "."]) == 130
+    assert capsys.readouterr().err.strip() == "interrupted"
+
+
+def test_main_reports_pyappdist_error(monkeypatch, capsys):
+    def failing(args):
+        raise BuildError("boom")
+
+    monkeypatch.setattr(cli, "cmd_build", failing)
+    assert cli.main(["build", "-C", "."]) == 1
+    assert "error: boom" in capsys.readouterr().err

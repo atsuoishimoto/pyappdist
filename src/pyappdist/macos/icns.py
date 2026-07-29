@@ -7,12 +7,11 @@ configured a solid-colour placeholder PNG is synthesized so the build always suc
 
 from __future__ import annotations
 
-import struct
 import subprocess
 import tempfile
-import zlib
 from pathlib import Path
 
+from .._png import solid_png
 from ..errors import BuildError
 
 # (pixel size, iconset member name). The names are fixed by iconutil.
@@ -41,7 +40,7 @@ def make_icns(source_png: Path | None, dest_icns: Path, *, log=print) -> Path:
             src = source_png
         else:
             src = tmp_path / "placeholder.png"
-            src.write_bytes(_solid_png(1024, 1024, (0, 120, 212)))
+            src.write_bytes(solid_png(1024, 1024))
             log("macos: no icon set; using a generated placeholder (supply 'icon' for real art)")
 
         iconset = tmp_path / "AppIcon.iconset"
@@ -60,20 +59,3 @@ def _run(cmd: list[str]) -> None:
     proc = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
     if proc.returncode != 0:
         raise BuildError(f"{cmd[0]} failed ({proc.returncode}): {' '.join(cmd)}\n{proc.stderr.strip()}")
-
-
-def _solid_png(width: int, height: int, rgb: tuple[int, int, int]) -> bytes:
-    """Minimal solid-colour RGB PNG encoder (avoids a Pillow dependency)."""
-    def chunk(typ: bytes, data: bytes) -> bytes:
-        body = typ + data
-        return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
-
-    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)  # 8-bit, colour type 2 (RGB)
-    row = b"\x00" + bytes(rgb) * width  # filter byte 0 + pixels
-    idat = zlib.compress(row * height, 9)
-    return (
-        b"\x89PNG\r\n\x1a\n"
-        + chunk(b"IHDR", ihdr)
-        + chunk(b"IDAT", idat)
-        + chunk(b"IEND", b"")
-    )

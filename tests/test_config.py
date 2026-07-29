@@ -232,6 +232,54 @@ def test_launcher_entry_invalid(tmp_path: Path, bad: str):
         load_configs(proj)
 
 
+def test_launcher_args_unparsable(tmp_path: Path):
+    # args is split with POSIX quoting rules; an unbalanced quote is rejected at load
+    # time rather than surfacing as a shlex traceback mid-build.
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'entry = "helloworld:main"', "entry = \"helloworld:main\", args = \"--path 'a\""
+    )
+    with pytest.raises(ConfigError, match=r"launchers\[0\].args"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_launcher_args_split(tmp_path: Path):
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'entry = "helloworld:main"',
+        "entry = \"helloworld:main\", args = \"--path 'a b' -x\"",
+    )
+    (cfg,) = load_configs(_write_text(tmp_path, text))
+    assert cfg.launchers[0].argv == ("--path", "a b", "-x")
+
+
+def test_launcher_args_exec_form(tmp_path: Path):
+    # Exec form: an array is the argument list verbatim — no splitting, quoting,
+    # or glob expansion, so spaces and shell metacharacters pass through as-is.
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'entry = "helloworld:main"',
+        'entry = "helloworld:main", args = ["--path", "a b", "*"]',
+    )
+    (cfg,) = load_configs(_write_text(tmp_path, text))
+    assert cfg.launchers[0].argv == ("--path", "a b", "*")
+
+
+def test_launcher_args_exec_form_non_string(tmp_path: Path):
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'entry = "helloworld:main"',
+        'entry = "helloworld:main", args = ["-n", 1]',
+    )
+    with pytest.raises(ConfigError, match=r"launchers\[0\].args\[1\] must be a string"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_launcher_args_wrong_type(tmp_path: Path):
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'entry = "helloworld:main"',
+        'entry = "helloworld:main", args = true',
+    )
+    with pytest.raises(ConfigError, match=r"launchers\[0\].args must be a string"):
+        load_configs(_write_text(tmp_path, text))
+
+
 def _bootstrap_for(tmp_path: Path, entry: str) -> str:
     proj = _write(tmp_path)
     text = (proj / "pyproject.toml").read_text().replace('"helloworld:main"', f'"{entry}"')
@@ -746,6 +794,31 @@ def test_posix_allows_non_numeric_version(tmp_path: Path):
     text = _linux_pyproject("").replace('version = "0.1.0"', 'version = "0.1.0a1"')
     cfg = load_configs(_write_text(tmp_path, text))[0]
     assert cfg.version == "0.1.0a1"
+
+
+def test_msi_four_field_version_warns(tmp_path: Path, capsys):
+    # Accepted, but MSI compares only the first three fields for upgrades.
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'version = "0.1.0"', 'version = "1.2.3.4"'
+    )
+    cfg = load_configs(_write_text(tmp_path, text))[0]
+    assert cfg.version == "1.2.3.4"
+    err = capsys.readouterr().err
+    assert "four fields" in err and "1.2.3.4" in err
+
+
+def test_msi_three_field_version_does_not_warn(tmp_path: Path, capsys):
+    load_configs(_write(tmp_path))
+    assert capsys.readouterr().err == ""
+
+
+def test_msix_four_field_version_does_not_warn(tmp_path: Path, capsys):
+    # MSIX's Identity Version legitimately uses all four fields.
+    text = _BASE.format(fmt="msix", app_extra="", target_extra="").replace(
+        'version = "0.1.0"', 'version = "1.2.3.4"'
+    )
+    load_configs(_write_text(tmp_path, text))
+    assert capsys.readouterr().err == ""
 
 
 # An msi target and a linux target side by side, so select-scoped validation can be

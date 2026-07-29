@@ -145,6 +145,28 @@ def _export_cmd(manager: str, extras: tuple[str, ...]) -> list[str]:
     return cmd
 
 
+# Poetry dropped the bundled ``export`` command in 2.0 (it moved to the separate
+# poetry-plugin-export). Cleo reports the missing command with one of these phrasings,
+# so a failed poetry export that mentions "export" alongside one of them is almost
+# certainly the missing plugin rather than a real export error.
+_MISSING_COMMAND = re.compile(
+    r'"?export"?[^\n]*(does not exist|is not defined|not defined|is not a)', re.IGNORECASE
+)
+
+_POETRY_EXPORT_HINT = (
+    "\nhint: Poetry 2.0 moved `poetry export` into a separate plugin; install it with "
+    "`poetry self add poetry-plugin-export` (or `pipx inject poetry "
+    "poetry-plugin-export`), or set [tool.pyappdist].manager to another manager."
+)
+
+
+def _export_hint(manager: str, stderr: str) -> str:
+    """An actionable hint for a known export failure, or an empty string."""
+    if manager == "poetry" and _MISSING_COMMAND.search(stderr):
+        return _POETRY_EXPORT_HINT
+    return ""
+
+
 def _auto_detect(project_dir: Path) -> str | None:
     """Detect the manager from the presence of a lockfile (None if absent)."""
     for manager, lockfile in _LOCKFILES:
@@ -229,7 +251,7 @@ def resolve_requirements(config: Config, wheelhouse: Path, *, log=print) -> Path
     if proc.returncode != 0:
         raise BuildError(
             f"dependency export failed ({proc.returncode}): {' '.join(cmd)}\n"
-            f"{proc.stderr.strip()}"
+            f"{proc.stderr.strip()}{_export_hint(manager, proc.stderr)}"
         )
     text = proc.stdout
     if manager == "uv":
