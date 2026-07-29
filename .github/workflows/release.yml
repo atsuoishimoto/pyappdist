@@ -21,10 +21,11 @@ jobs:
 
       - name: Build (wheels -> runtime -> image -> launcher -> wix -> MSI)
         env:
-          # Set this secret only to sign; unset means ship unsigned.
+          # Set this secret only to sign; unset means ship unsigned (signing is
+          # enabled with --code-sign below only when the secret is present).
           # e.g. 'signtool.exe sign /fd SHA256 /tr <ts-url> /td SHA256 /f cert.pfx /p $PWD "{file}"'
-          PYAPPDIST_SIGN_CMD: ${{ secrets.PYAPPDIST_SIGN_CMD }}
-        run: uv run pyappdist build sample/helloworld
+          PYAPPDIST_WIN_SIGN_CMD: ${{ secrets.PYAPPDIST_SIGN_CMD }}
+        run: uv run pyappdist build sample/helloworld ${{ secrets.PYAPPDIST_SIGN_CMD != '' && '--code-sign' || '' }}
 
       - name: Smoke test (install -> run -> uninstall)
         shell: pwsh

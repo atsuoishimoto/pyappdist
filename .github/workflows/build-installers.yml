@@ -118,8 +118,10 @@ jobs:
 
       - name: Build installers (${{ matrix.matrix }} matrix)
         env:
-          # Set this secret only to sign; unset means ship unsigned.
-          PYAPPDIST_SIGN_CMD: ${{ secrets.PYAPPDIST_SIGN_CMD }}
+          # Windows signing command; it takes effect only for targets that enable
+          # signing (a code-sign key or --code-sign). The sample targets ship
+          # unsigned, so this is a hook for a fork that flips code-sign on.
+          PYAPPDIST_WIN_SIGN_CMD: ${{ secrets.PYAPPDIST_SIGN_CMD }}
           # macOS: the Developer ID identity to sign with + the notarytool
           # profile created in the step above. Ignored on Windows/Linux runners
           # and when unset (dmg/macapp then fall back to ad-hoc, unnotarized).

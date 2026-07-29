@@ -366,8 +366,8 @@ def test_license_must_be_rtf(tmp_path: Path):
 
 def test_code_sign_default_off(tmp_path: Path):
     cfg = load_configs(_write(tmp_path))[0]
-    assert cfg.wix.code_sign is False
-    assert cfg.wix.code_sign_command is None
+    assert cfg.code_sign is False
+    assert cfg.code_sign_command is None
 
 
 def test_code_sign_parsed(tmp_path: Path):
@@ -377,13 +377,82 @@ def test_code_sign_parsed(tmp_path: Path):
             target_extra='code-sign = true\ncode-sign-command = "mysign \\"{file}\\""',
         )
     )[0]
-    assert cfg.wix.code_sign is True
-    assert cfg.wix.code_sign_command == 'mysign "{file}"'
+    assert cfg.code_sign is True
+    assert cfg.code_sign_command == 'mysign "{file}"'
 
 
 def test_code_sign_must_be_bool(tmp_path: Path):
     with pytest.raises(ConfigError, match="code-sign"):
         load_configs(_write(tmp_path, target_extra='code-sign = "yes"'))
+
+
+def test_code_sign_on_signable_formats(tmp_path: Path):
+    # msix and a Windows image target accept code-sign like msi does.
+    for fmt in ("msix", "image"):
+        cfg = load_configs(_write(tmp_path, fmt=fmt, target_extra="code-sign = true"))[0]
+        assert cfg.code_sign is True
+
+
+def test_code_sign_on_dmg(tmp_path: Path):
+    text = """
+[project]
+name = "helloworld"
+version = "0.1.0"
+
+[tool.pyappdist]
+python = "3.12"
+identifier = "com.example.helloworld"
+launchers = [ { name = "helloworld", entry = "helloworld:main" } ]
+
+[[tool.pyappdist.targets]]
+name = "mac"
+platform = "macos-aarch64"
+format = "dmg"
+code-sign = true
+"""
+    cfg = load_configs(_write_text(tmp_path, text))[0]
+    assert cfg.code_sign is True
+
+
+@pytest.mark.parametrize(
+    "platform, fmt",
+    [
+        ("linux-x86_64", "linux"),
+        ("linux-x86_64", "image"),  # non-Windows image: shell wrappers, nothing to sign
+        ("macos-aarch64", "macos"),
+        ("macos-aarch64", "macapp"),  # the .app has its own codesign flow
+    ],
+)
+def test_code_sign_rejected_without_signable_artifact(
+    tmp_path: Path, platform: str, fmt: str
+):
+    text = f"""
+[project]
+name = "helloworld"
+version = "0.1.0"
+
+[tool.pyappdist]
+python = "3.12"
+identifier = "com.example.helloworld"
+launchers = [ {{ name = "helloworld", entry = "helloworld:main" }} ]
+
+[[tool.pyappdist.targets]]
+name = "t"
+platform = "{platform}"
+format = "{fmt}"
+code-sign = true
+"""
+    with pytest.raises(ConfigError, match="code-sign is not supported"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_code_sign_command_alone_is_inert(tmp_path: Path):
+    # Without code-sign (or --code-sign) the command is stored but signing stays off.
+    cfg = load_configs(
+        _write(tmp_path, target_extra='code-sign-command = "mysign {file}"')
+    )[0]
+    assert cfg.code_sign is False
+    assert cfg.code_sign_command == "mysign {file}"
 
 
 def test_allow_same_version_upgrades_default_false(tmp_path: Path):

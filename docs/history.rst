@@ -1,6 +1,22 @@
 Release history
 ===============
 
+0.11.0
+------
+
+unreleased
+
+**Breaking: one code-signing interface for every format.** The ``code-sign`` /
+``code-sign-command`` target keys (previously MSI-only) now also govern
+``msix``, Windows ``image``, and ``dmg`` targets, and a new
+``pyappdist build --code-sign`` / ``--no-code-sign`` overrides them from the
+command line. The ``PYAPPDIST_SIGN_CMD`` environment variable is retired
+(ignored with a warning): it no longer enables signing by itself, and the
+command override is split per OS into ``PYAPPDIST_WIN_SIGN_CMD`` and
+``PYAPPDIST_MAC_SIGN_CMD``. Workflows that signed MSIX/image/dmg artifacts by
+setting ``PYAPPDIST_SIGN_CMD`` alone must now enable signing via ``code-sign``
+or ``--code-sign`` and use the new variable names.
+
 0.10.0
 ------
 
