@@ -135,13 +135,9 @@ the ticket so it validates offline. Verify the result::
 Notarization runs only when **both** a Developer ID identity and a notary profile are
 set; an ad-hoc build skips it.
 
-On a ``dmg`` target, ``code-sign = true`` (or ``pyappdist build --code-sign``) runs an
-**extra** signing command over the finished disk image, on top of the ``codesign``
-flow above. The command comes from ``PYAPPDIST_MAC_SIGN_CMD`` or the target's
-``code-sign-command`` (there is no built-in default on macOS — enabling signing
-without a command is an error) and is invoked as described in
-:ref:`msi-code-signing`. A ``macapp`` target has no such pass — the ``.app`` is
-already signed by the ``codesign`` flow.
+The Windows-oriented ``code-sign`` key (:ref:`msi-code-signing`) does not apply to
+``macapp``/``dmg`` targets — the ``codesign`` flow above is the whole macOS signing
+story.
 
 Install behavior
 ----------------

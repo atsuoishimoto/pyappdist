@@ -1,24 +1,18 @@
 """Code-signing hook (Phase 5).
 
-Signing is opt-in and configured the same way for every format that has a signable
-artifact: the target's ``code-sign`` (bool) / ``code-sign-command`` keys, overridable
-from the ``pyappdist build`` command line with ``--code-sign`` / ``--no-code-sign``.
+Signing is opt-in and configured the same way for every Windows format: the target's
+``code-sign`` (bool) / ``code-sign-command`` keys, overridable from the
+``pyappdist build`` command line with ``--code-sign`` / ``--no-code-sign``.
 :func:`resolve_sign_command` turns that into the command to run against each artifact
-(launcher ``.exe`` / ``.msi`` / ``.msix`` / ``.dmg``); ``{file}`` is replaced with the
-target file path (appended at the end if absent). Certificates are assumed to be
-provided to the command out of band (the Windows certificate store, a token, or CI
-secrets); pyappdist does not handle certificates.
+(launcher ``.exe`` / ``.msi`` / ``.msix``): ``PYAPPDIST_WIN_SIGN_CMD`` (env) >
+``code-sign-command`` (config) > a built-in ``signtool`` default. ``{file}`` is
+replaced with the target file path (appended at the end if absent). Certificates are
+assumed to be provided to the command out of band (the Windows certificate store, a
+token, or CI secrets); pyappdist does not handle certificates. macOS signing is a
+separate flow (``macos/sign.py`` — ``codesign`` driven by ``signing-identity``).
 
-When signing is enabled, the command is resolved per target OS:
-
-- Windows targets (``msi``/``msix``/``image``): ``PYAPPDIST_WIN_SIGN_CMD`` (env) >
-  ``code-sign-command`` (config) > a built-in ``signtool`` default.
-- macOS ``dmg`` (the extra pass on the disk image, on top of the ``codesign``-based
-  ``signing-identity`` flow): ``PYAPPDIST_MAC_SIGN_CMD`` (env) > ``code-sign-command``
-  (config); there is no built-in default, so a missing command is a ``ConfigError``.
-
-The environment variables only supply the *command*; they never turn signing on by
-themselves. The retired ``PYAPPDIST_SIGN_CMD`` variable is ignored with a warning.
+The environment variable only supplies the *command*; it never turns signing on by
+itself. The retired ``PYAPPDIST_SIGN_CMD`` variable is ignored with a warning.
 
 The command runs through the platform's shell (cmd.exe on Windows) with the
 artifact's directory as the working directory, and ``{file}`` is replaced with the
@@ -41,19 +35,19 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .errors import BuildError, ConfigError
+from .errors import BuildError
 
 if TYPE_CHECKING:
     from .config import Config
 
-# The command environment variable per target OS. Split by purpose: one project can
-# build Windows and macOS targets from the same pyproject.toml, and a single ambient
-# command (a signtool invocation, say) must never leak onto the other OS's artifacts.
-_ENV_BY_OS = {"windows": "PYAPPDIST_WIN_SIGN_CMD", "macos": "PYAPPDIST_MAC_SIGN_CMD"}
+# Named for its purpose (WIN): the same project may also build macOS targets, whose
+# signing is the separate codesign flow — an OS-agnostic name would invite pointing
+# a signtool command at them.
+_ENV = "PYAPPDIST_WIN_SIGN_CMD"
 
 # Retired: the pre-0.11 single variable that both enabled signing and supplied the
-# command for MSIX/image/dmg. Ignored now, with a one-time warning pointing at the
-# replacements.
+# command for MSIX/image and an extra pass on the macOS .dmg (also removed). Ignored
+# now, with a one-time warning pointing at the replacement.
 _LEGACY_ENV = "PYAPPDIST_SIGN_CMD"
 _legacy_warned = False
 
@@ -72,8 +66,8 @@ def _warn_legacy_env() -> None:
     _legacy_warned = True
     print(
         f"warning: {_LEGACY_ENV} is no longer used and was ignored; set "
-        f"{_ENV_BY_OS['windows']} or {_ENV_BY_OS['macos']} instead, and enable "
-        "signing with the target's code-sign key or --code-sign",
+        f"{_ENV} instead, and enable signing with the target's code-sign key "
+        "or --code-sign",
         file=sys.stderr,
     )
 
@@ -83,24 +77,15 @@ def resolve_sign_command(config: Config, cli_override: bool | None) -> str | Non
 
     ``cli_override`` is the tri-state ``--code-sign`` / ``--no-code-sign`` value:
     ``True`` forces signing on, ``False`` forces it off, and ``None`` follows the
-    target's ``code-sign`` key. When signing is on, the command comes from the
-    OS-specific environment variable, then ``code-sign-command``, then (Windows only)
-    the built-in signtool default.
+    target's ``code-sign`` key. When signing is on, precedence is
+    ``PYAPPDIST_WIN_SIGN_CMD`` (env) > ``code-sign-command`` (config) > the signtool
+    default.
     """
     _warn_legacy_env()
     enabled = config.code_sign if cli_override is None else cli_override
     if not enabled:
         return None
-    command = os.environ.get(_ENV_BY_OS[config.target.os]) or config.code_sign_command
-    if command:
-        return command
-    if config.target.os == "windows":
-        return DEFAULT_WIN_SIGN_CMD
-    raise ConfigError(
-        f"signing is enabled for target {config.target_name!r} but no command is "
-        f"configured: set {_ENV_BY_OS[config.target.os]} or the target's "
-        "code-sign-command (there is no built-in default on macOS)"
-    )
+    return os.environ.get(_ENV) or config.code_sign_command or DEFAULT_WIN_SIGN_CMD
 
 
 def sign_artifact(path: Path, command: str | None, *, log=print) -> bool:

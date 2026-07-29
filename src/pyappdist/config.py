@@ -225,12 +225,11 @@ class Config:
     extras: tuple[str, ...] = ()
     linux: LinuxConfig = LinuxConfig()
     macos: MacosConfig = MacosConfig()
-    # Code-sign the target's signable artifacts (off by default): the launcher .exes and
-    # the package for msi/msix, the launcher .exes for a Windows image target, and the
-    # disk image for dmg (an extra pass on top of the signing-identity codesign flow).
-    # Only valid on those formats. The command is resolved by sign.resolve_sign_command:
-    # PYAPPDIST_WIN_SIGN_CMD / PYAPPDIST_MAC_SIGN_CMD (env) > code-sign-command >
-    # a built-in signtool default (Windows only; on macOS a missing command is an error).
+    # Code-sign the target's Windows artifacts (off by default): the launcher .exes and
+    # the package for msi/msix, the launcher .exes for a Windows image target. Only
+    # valid on those formats — macOS signing is the separate signing-identity codesign
+    # flow. The command is resolved by sign.resolve_sign_command:
+    # PYAPPDIST_WIN_SIGN_CMD (env) > code-sign-command > a built-in signtool default.
     # `pyappdist build --code-sign` / `--no-code-sign` overrides the code-sign key.
     code_sign: bool = False
     code_sign_command: str | None = None
@@ -420,11 +419,11 @@ _TargetSpec = tuple[
 ]
 
 # Formats whose build produces an artifact the code-sign pass can act on: the launcher
-# .exes + package for msi/msix, the launcher .exes for a Windows image target, and the
-# disk image for dmg. Everything else (the POSIX .run installers, the .app bundle —
-# which has its own codesign flow — and a non-Windows image of shell wrappers) has
-# nothing for the pass to sign.
-_CODE_SIGN_FORMATS = ("msi", "msix", "dmg")
+# .exes + package for msi/msix, the launcher .exes for a Windows image target.
+# Everything else (the POSIX .run installers, the .app bundle and .dmg — signed by
+# their own codesign flow — and a non-Windows image of shell wrappers) has nothing
+# for the pass to sign.
+_CODE_SIGN_FORMATS = ("msi", "msix")
 
 
 def _code_signable(fmt: str, target: Target) -> bool:

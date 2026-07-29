@@ -204,9 +204,9 @@ def _note_unsignable(ctx: BuildContext) -> None:
 
     A skip rather than an error: ``--code-sign`` applies to every selected target, and
     a multi-target build must not die because one target's format (a POSIX ``.run``, a
-    ``.app`` with its own codesign flow, a non-Windows image of shell wrappers) has
-    nothing for the signing pass. Enabling it per target in config is different — a
-    ``code-sign = true`` there is rejected at load time.
+    ``.app``/``.dmg`` with their own codesign flow, a non-Windows image of shell
+    wrappers) has nothing for the signing pass. Enabling it per target in config is
+    different — a ``code-sign = true`` there is rejected at load time.
     """
     print(f"note [{_tag(ctx)}]: --code-sign ignored (format "
           f"{ctx.config.format!r} has no artifact for the signing pass)")
@@ -294,9 +294,9 @@ def _build_macos_bundle(
     """
     cfg = ctx.config
     tag = _tag(ctx)
-    if cfg.format == "macapp" and cli_code_sign:
-        # The .app is signed by the codesign-based signing-identity flow; the code-sign
-        # pass only has an artifact on dmg (the disk image).
+    if cli_code_sign:
+        # The .app (and the .dmg wrapping it) are signed by the codesign-based
+        # signing-identity flow; the code-sign pass is Windows-only.
         _note_unsignable(ctx)
     if sys.platform != "darwin":
         print(f"OK [{tag}]: image -> {layout.image_dir} ({cfg.format} skipped on non-macOS)")
@@ -342,8 +342,6 @@ def _build_macos_bundle(
     dmg = build_dmg(cfg, apps, ctx.dist_dir / f"{cfg.dist_name}-{cfg.version}.dmg")
     if not sign_opts.adhoc:
         sign_file(dmg, sign_opts)  # sign the disk image itself with the Developer ID
-    # Optional extra signing pass on the disk image (code-sign / --code-sign).
-    sign_artifact(dmg, resolve_sign_command(cfg, cli_code_sign))
     if notarize:
         notarize_and_staple(dmg, profile)
     print(f"OK [{tag}]: dmg -> {dmg} ({len(apps)} app)")

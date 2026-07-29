@@ -8,7 +8,7 @@ import pytest
 
 from pyappdist import sign as sign_mod
 from pyappdist.config import Config, MsixConfig, WixConfig
-from pyappdist.errors import BuildError, ConfigError
+from pyappdist.errors import BuildError
 from pyappdist.sign import (
     DEFAULT_WIN_SIGN_CMD,
     resolve_sign_command,
@@ -17,7 +17,6 @@ from pyappdist.sign import (
 from pyappdist.targets import get_target
 
 _WIN_ENV = "PYAPPDIST_WIN_SIGN_CMD"
-_MAC_ENV = "PYAPPDIST_MAC_SIGN_CMD"
 _LEGACY_ENV = "PYAPPDIST_SIGN_CMD"
 
 
@@ -41,15 +40,9 @@ def _config(**kwargs) -> Config:
     return Config(**defaults)
 
 
-def _mac_config(**kwargs) -> Config:
-    return _config(
-        target=get_target("macos-aarch64"), target_name="mac", format="dmg", **kwargs
-    )
-
-
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch: pytest.MonkeyPatch):
-    for env in (_WIN_ENV, _MAC_ENV, _LEGACY_ENV):
+    for env in (_WIN_ENV, _LEGACY_ENV):
         monkeypatch.delenv(env, raising=False)
 
 
@@ -84,23 +77,6 @@ def test_resolve_cli_forces_off(monkeypatch: pytest.MonkeyPatch):
     assert resolve_sign_command(_config(code_sign=True), False) is None
 
 
-def test_resolve_mac_uses_mac_env(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv(_WIN_ENV, "winsign {file}")  # must not leak onto a macOS target
-    monkeypatch.setenv(_MAC_ENV, "macsign {file}")
-    assert resolve_sign_command(_mac_config(code_sign=True), None) == "macsign {file}"
-
-
-def test_resolve_mac_config_command():
-    cfg = _mac_config(code_sign=True, code_sign_command="macsign {file}")
-    assert resolve_sign_command(cfg, None) == "macsign {file}"
-
-
-def test_resolve_mac_without_command_errors():
-    # No built-in default on macOS: enabled signing without a command is a ConfigError.
-    with pytest.raises(ConfigError, match="no command"):
-        resolve_sign_command(_mac_config(code_sign=True), None)
-
-
 def test_legacy_env_is_ignored_with_warning(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
 ):
@@ -111,7 +87,7 @@ def test_legacy_env_is_ignored_with_warning(
     assert resolve_sign_command(_config(code_sign=True), None) == DEFAULT_WIN_SIGN_CMD
     err = capsys.readouterr().err
     assert err.count(_LEGACY_ENV) == 1  # warned once, not per resolution
-    assert _WIN_ENV in err and _MAC_ENV in err
+    assert _WIN_ENV in err
 
 
 def test_no_warning_without_legacy_env(capsys: pytest.CaptureFixture, monkeypatch):

@@ -393,34 +393,14 @@ def test_code_sign_on_signable_formats(tmp_path: Path):
         assert cfg.code_sign is True
 
 
-def test_code_sign_on_dmg(tmp_path: Path):
-    text = """
-[project]
-name = "helloworld"
-version = "0.1.0"
-
-[tool.pyappdist]
-python = "3.12"
-identifier = "com.example.helloworld"
-launchers = [ { name = "helloworld", entry = "helloworld:main" } ]
-
-[[tool.pyappdist.targets]]
-name = "mac"
-platform = "macos-aarch64"
-format = "dmg"
-code-sign = true
-"""
-    cfg = load_configs(_write_text(tmp_path, text))[0]
-    assert cfg.code_sign is True
-
-
 @pytest.mark.parametrize(
     "platform, fmt",
     [
         ("linux-x86_64", "linux"),
         ("linux-x86_64", "image"),  # non-Windows image: shell wrappers, nothing to sign
         ("macos-aarch64", "macos"),
-        ("macos-aarch64", "macapp"),  # the .app has its own codesign flow
+        ("macos-aarch64", "macapp"),  # .app/.dmg are signed by their own codesign flow
+        ("macos-aarch64", "dmg"),
     ],
 )
 def test_code_sign_rejected_without_signable_artifact(

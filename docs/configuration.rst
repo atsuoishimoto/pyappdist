@@ -32,7 +32,7 @@ All keys at a glance
      - ``name`` · ``entry`` · ``gui`` · ``icon`` · ``args``
    * - :ref:`[[tool.pyappdist.targets]] <config-targets>` (all formats)
      - ``name`` · ``platform`` · ``format`` · ``extras``
-   * - targets with a signable artifact (``msi`` / ``msix`` / ``dmg``, and
+   * - targets with a signable Windows artifact (``msi`` / ``msix``, and
        ``image`` on Windows platforms) — :ref:`msi-code-signing`
      - ``code-sign`` · ``code-sign-command``
    * - targets, ``format = "msi"`` — :doc:`platforms/windows-msi`
