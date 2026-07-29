@@ -19,20 +19,24 @@ jobs:
       - name: Install WiX (v5, no OSMF fee)
         run: dotnet tool install --global wix --version 5.0.2
 
-      - name: Build (wheels -> runtime -> image -> launcher -> wix -> MSI)
+      - name: Build (wheels -> runtime -> image -> launcher -> wix -> MSI + zip)
         env:
           # Set this secret only to sign; unset means ship unsigned (signing is
           # enabled with --code-sign below only when the secret is present).
           # e.g. 'signtool.exe sign /fd SHA256 /tr <ts-url> /td SHA256 /f cert.pfx /p $PWD "{file}"'
           PYAPPDIST_WIN_SIGN_CMD: ${{ secrets.PYAPPDIST_SIGN_CMD }}
-        run: uv run pyappdist build sample/helloworld ${{ secrets.PYAPPDIST_SIGN_CMD != '' && '--code-sign' || '' }}
+        run: >
+          uv run pyappdist build win32-msi win32-image -C samples/helloworld
+          ${{ secrets.PYAPPDIST_SIGN_CMD != '' && '--code-sign' || '' }}
 
       - name: Smoke test (install -> run -> uninstall)
         shell: pwsh
         run: |
-          $msi = "sample/helloworld/appdist/dist/helloworld.msi"
+          $msi = (Get-Item samples/helloworld/appdist/win32-msi/dist/*.msi).FullName
           Start-Process msiexec -ArgumentList "/i `"$msi`" /qn" -Wait
-          $exe = Join-Path $env:ProgramFiles "Hello World/helloworld.exe"
+          # win32-msi is a per-user package (scope = "user"), so it lands under
+          # %LocalAppData%\Programs\<display name>.
+          $exe = Join-Path $env:LOCALAPPDATA "Programs/Hello World/helloworld.exe"
           $out = & $exe
           if ($LASTEXITCODE -ne 0) { throw "exe exit code $LASTEXITCODE" }
           if ($out -notmatch "Hello from helloworld!") { throw "unexpected output: $out" }
@@ -42,4 +46,5 @@ jobs:
         with:
           name: helloworld-windows
           path: |
-            sample/helloworld/appdist/dist/*.msi
+            samples/helloworld/appdist/win32-msi/dist/*.msi
+            samples/helloworld/appdist/win32-image/dist/*.zip
