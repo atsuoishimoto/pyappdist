@@ -27,6 +27,28 @@ WIX_UI_NS = "http://wixtoolset.org/schemas/v4/wxs/ui"
 # from WixUILicenseRtf so it resolves relative to the wix build working directory.
 LICENSE_STAGED_NAME = "pyappdist_license.rtf"
 
+# Same staging trick for the product icon: the source .ico is copied here by
+# wix/build.py and referenced by name from Icon/@SourceFile.
+ICON_STAGED_NAME = "pyappdist_product.ico"
+
+# Icon table entry id referenced by ARPPRODUCTICON. Windows Installer keys the Icon
+# table by this name, so it carries the .ico extension by convention.
+_PRODUCT_ICON_ID = "pyappdist_product.ico"
+
+
+def product_icon(config: Config) -> str | None:
+    """The launcher icon to use as the product icon, or None.
+
+    Add/Remove Programs shows a single icon per product, so the first launcher that
+    declares a Windows icon supplies it — matching what the user sees on the shortcut
+    of the app's main entry point.
+    """
+    for spec in config.launchers:
+        icon = spec.icon_for("windows")
+        if icon:
+            return icon
+    return None
+
 
 def generate_wxs(config: Config, tree: DirNode) -> str:
     """Return the WiX XML string from ``config`` and the scanned ``tree``."""
@@ -65,6 +87,14 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
         major_upgrade_attrs["AllowSameVersionUpgrades"] = "yes"
     _sub(pkg, "MajorUpgrade", **major_upgrade_attrs)
     _sub(pkg, "MediaTemplate", EmbedCab="yes")
+
+    # Without ARPPRODUCTICON the product shows the generic Windows Installer icon in
+    # Add/Remove Programs. The .ico is staged next to the .wxs by wix/build.py, so the
+    # SourceFile is a bare name resolved from the wix build working directory (same
+    # approach as the license RTF).
+    if product_icon(config):
+        _sub(pkg, "Icon", Id=_PRODUCT_ICON_ID, SourceFile=ICON_STAGED_NAME)
+        _sub(pkg, "Property", Id="ARPPRODUCTICON", Value=_PRODUCT_ICON_ID)
 
     # An optional license shows a one-page EULA via the stock WixUI_Minimal set; the RTF
     # is staged next to the .wxs by wix/build.py under LICENSE_STAGED_NAME.

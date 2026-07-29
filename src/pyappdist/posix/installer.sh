@@ -57,10 +57,48 @@ LIBDIR="$PREFIX/lib/$DIST_NAME"
 BINDIR="$PREFIX/bin"
 APPDIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 
+# Count the launchers that get a .desktop entry; with more than one, each entry's
+# Name is suffixed with the launcher name so the menu entries are distinguishable
+# (mirrors the MSIX manifest's DisplayName handling).
+_desktop_entries=0
+if [ "$DESKTOP" = "1" ]; then
+    for _entry in $LAUNCHERS; do
+        _icon=${_entry#*:}
+        _icon=${_icon#*:}
+        if [ -n "$_icon" ]; then _desktop_entries=$((_desktop_entries + 1)); fi
+    done
+fi
+
+# A Desktop Entry value ends at the newline, and a tab cannot appear literally
+# either, so a prefix containing one cannot be represented — refuse up front
+# rather than write a corrupt entry. Everything else is escaped (see below).
+# Checked only when an entry will actually be written, and never on uninstall.
+if [ "$DO_UNINSTALL" = "0" ] && [ "$_desktop_entries" -gt 0 ] &&
+   [ "$(printf '%s' "$PREFIX" | tr -d '\n\t')" != "$PREFIX" ]; then
+    echo "error: the install prefix contains a tab or newline, which cannot be" >&2
+    echo "       written to a .desktop entry: $PREFIX" >&2
+    exit 1
+fi
+
 # Single-quote a value for safe embedding in the generated uninstall.sh, so
 # $, backticks, or quotes in the install paths stay literal at uninstall time.
 sq() {
     printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
+# Escape a value for a Desktop Entry field of type "string": the spec reserves
+# the backslash, so a literal one must be doubled. Applied to every generated
+# value, since the install prefix is arbitrary user input.
+desktop_string() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g'
+}
+
+# Escape a path as one quoted argument of an Exec= value. Two passes, because
+# Exec values are escaped twice by the spec: inside the quotes a literal ", `,
+# $ or \ takes a backslash (the Exec reserved characters), and the resulting
+# value then goes through the string escaping above.
+desktop_exec_arg() {
+    printf '"%s"' "$(printf '%s' "$1" | sed -e 's/[\\`$"]/\\&/g' -e 's/\\/\\\\/g')"
 }
 
 refresh_desktop_db() {
@@ -151,18 +189,6 @@ if ! tail -n +"$_payload_line" "$SELF" | $DECOMPRESS | tar xf - -C "$LIBDIR"; th
     exit 1
 fi
 
-# Count the launchers that get a .desktop entry; with more than one, each
-# entry's Name is suffixed with the launcher name so the menu entries are
-# distinguishable (mirrors the MSIX manifest's DisplayName handling).
-_desktop_entries=0
-if [ "$DESKTOP" = "1" ]; then
-    for _entry in $LAUNCHERS; do
-        _icon=${_entry#*:}
-        _icon=${_icon#*:}
-        if [ -n "$_icon" ]; then _desktop_entries=$((_desktop_entries + 1)); fi
-    done
-fi
-
 # Symlink each launcher onto PATH and (on Linux, when it has an icon) register a .desktop.
 _installed_cmds=""
 for _entry in $LAUNCHERS; do
@@ -180,13 +206,20 @@ for _entry in $LAUNCHERS; do
         else
             _entry_name="$APP_NAME"
         fi
+        # Escape before interpolating: the prefix is arbitrary user input, so a
+        # $, backtick, quote, or backslash in it would otherwise produce a
+        # broken or misparsed entry (and an unquoted Icon path with spaces
+        # misbehaves in some desktops).
+        _d_name=$(desktop_string "$_entry_name")
+        _d_exec=$(desktop_exec_arg "$LIBDIR/$_name")
+        _d_icon=$(desktop_string "$LIBDIR/$_icon")
         cat > "$APPDIR/$DIST_NAME-$_name.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Version=1.0
-Name=$_entry_name
-Exec="$LIBDIR/$_name" %U
-Icon=$LIBDIR/$_icon
+Name=$_d_name
+Exec=$_d_exec %U
+Icon=$_d_icon
 Terminal=$_term
 Categories=$CATEGORIES
 EOF

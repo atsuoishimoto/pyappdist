@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from pyappdist import cli
 from pyappdist.cli import _check_common_root, _contexts, build_parser
 from pyappdist.errors import BuildError, ConfigError
 
@@ -117,3 +118,22 @@ def test_gen_wix_skips_non_msi_targets(tmp_path: Path, capsys):
     assert "skip" in capsys.readouterr().out
     assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == _LINUX_ONLY
     assert not list(tmp_path.rglob("*.wxs"))
+
+
+def test_main_reports_interrupt(monkeypatch, capsys):
+    # Ctrl+C during a long stage must not dump a traceback.
+    def interrupted(args):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(cli, "cmd_build", interrupted)
+    assert cli.main(["build", "-C", "."]) == 130
+    assert capsys.readouterr().err.strip() == "interrupted"
+
+
+def test_main_reports_pyappdist_error(monkeypatch, capsys):
+    def failing(args):
+        raise BuildError("boom")
+
+    monkeypatch.setattr(cli, "cmd_build", failing)
+    assert cli.main(["build", "-C", "."]) == 1
+    assert "error: boom" in capsys.readouterr().err

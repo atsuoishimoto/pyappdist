@@ -66,6 +66,13 @@ All keys at a glance
    dotted numeric (e.g. ``"1.2.3"``) — MSI's ProductVersion cannot express
    pre-releases, so e.g. ``"1.0.0rc1"`` is rejected at load time.
 
+   Up to four fields are accepted, but Windows Installer compares only the
+   **first three** when deciding whether an install is an upgrade. Two MSI
+   releases differing solely in the fourth field (``1.2.3.4`` → ``1.2.3.5``)
+   are the same version to it, so ``MajorUpgrade`` does not fire; pyappdist
+   warns when an msi target is built from such a version. (MSIX is unaffected —
+   its Identity Version uses all four fields.)
+
 ``manager``
    Package manager used to pin dependencies: ``"uv"``, ``"poetry"``,
    ``"pipenv"``, ``"pdm"``, or ``"requirements.txt"``. Auto-detected from the
@@ -127,7 +134,19 @@ shell wrapper on Linux/macOS).
    key means that platform gets no icon (macOS falls back to a generated placeholder).
 
 ``args``
-   Fixed arguments as a single string, prepended to the program's argv.
+   Fixed arguments, prepended to the program's argv. Two forms:
+
+   * **Shell form** — a single string, split into individual arguments with
+     **POSIX shell quoting rules**, at build time, on every platform — so
+     ``args = "--path 'a b'"`` is always the two arguments ``--path`` and
+     ``a b``. A string that cannot be parsed (an unbalanced quote, say) is
+     rejected at load time.
+   * **Exec form** — an array of strings, used verbatim as the argument list
+     with no splitting at all: ``args = ["--path", "a b"]`` is exactly those
+     two arguments, with no quoting to get right.
+
+   Either way, each launcher embeds the resulting argument list in the form its
+   own OS needs, and nothing is glob-expanded or re-split when the app runs.
 
 .. code-block:: toml
 

@@ -17,11 +17,15 @@ from .._hostexec import extended_length_path, target_relpath, windows_abspath
 from ..config import Config
 from ..errors import BuildError
 from ..image import ImageLayout
-from .generate import LICENSE_STAGED_NAME
+from .generate import ICON_STAGED_NAME, LICENSE_STAGED_NAME, product_icon
 
 
 def build_msi(config: Config, image_dir: Path, wxs_path: Path, out_msi: Path, *, log=print) -> Path | None:
-    """Generate an MSI via ``wix build``. Returns None for non-Windows targets."""
+    """Generate an MSI via ``wix build``. Returns None for non-Windows targets.
+
+    Config loading rejects ``format = "msi"`` on a non-Windows platform, so the skip
+    is a guard for direct API use rather than something the CLI can reach.
+    """
     target = config.target
     if target.os != "windows":
         log("msi: skipping because the target is not Windows")
@@ -46,6 +50,14 @@ def build_msi(config: Config, image_dir: Path, wxs_path: Path, out_msi: Path, *,
             )
         # WixUILicenseRtf references this by name, resolved relative to cwd=base.
         shutil.copy2(license_src, base / LICENSE_STAGED_NAME)
+
+    icon_rel = product_icon(config)
+    if icon_rel:
+        icon_src = (config.project_dir / icon_rel).resolve()
+        if not icon_src.is_file():
+            raise BuildError(f"product icon not found (launcher icon.windows): {icon_src}")
+        # Icon/@SourceFile references this by name, resolved relative to cwd=base.
+        shutil.copy2(icon_src, base / ICON_STAGED_NAME)
 
     # The bind path is passed as an extended-length (\\?\) absolute path, not
     # relative: WiX's cabinet builder cannot open source files whose absolute

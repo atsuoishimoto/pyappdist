@@ -6,6 +6,7 @@ import dataclasses
 import hashlib
 import io
 import os
+import re
 import shutil
 import subprocess
 import tarfile
@@ -179,6 +180,24 @@ def test_sq_escapes_single_quotes():
     assert _sq("a'b") == "'a'\\''b'"
 
 
+@pytest.mark.parametrize(
+    "args,expected",
+    [
+        ("", ""),
+        ("--verbose", " '--verbose'"),
+        ("--path 'a b'", " '--path' 'a b'"),  # one argument, not two
+        ("-x *", " '-x' '*'"),                # quoted, so the shell never globs it
+    ],
+)
+def test_wrapper_quotes_each_fixed_arg(args, expected):
+    # The wrapper used to append args verbatim, leaving them to the shell's word
+    # splitting and glob expansion — a different meaning from the other launchers.
+    spec = LauncherConfig(name="app", entry="pkg.mod:main", args=args)
+    w = _wrapper(spec)
+    exec_line = next(ln for ln in w.splitlines() if ln.startswith("exec "))
+    assert exec_line.endswith(f'{expected} "$@"')
+
+
 @pytest.mark.parametrize("compression", ["gzip", "bzip2", "xz"])
 def test_compression_option(tmp_path, sample_config, compression):
     """Each compression sets the payload format, decompressor and sha256."""
@@ -194,6 +213,35 @@ def test_compression_option(tmp_path, sample_config, compression):
         assert tf.getnames()
     assert f"PAYLOAD_SHA256='{hashlib.sha256(payload).hexdigest()}'" in script
     assert f"DECOMPRESS='{_DECOMP_TOOL[compression]} -dc'" in script
+
+
+def test_write_targz_digests_exactly_what_it_wrote(tmp_path):
+    """The payload is hashed as it streams out, from wherever the file is positioned."""
+    from pyappdist.posix.build import write_targz
+
+    layout = _make_image(tmp_path)
+    out = tmp_path / "payload"
+    with out.open("wb") as fp:
+        fp.write(b"header bytes")  # the .run writes the payload after its header
+        digest = write_targz(fp, layout.image_dir, mode="gz", log=lambda *a: None)
+
+    payload = out.read_bytes()[len(b"header bytes"):]
+    assert hashlib.sha256(payload).hexdigest() == digest
+    with tarfile.open(fileobj=io.BytesIO(payload), mode="r:gz") as tf:
+        assert "python/bin/python3" in tf.getnames()
+
+
+def test_run_header_digest_placeholder_is_patched(tmp_path, sample_config):
+    """The digest is written last, over its placeholder — none may survive."""
+    from pyappdist.posix.build import _SHA_PLACEHOLDER
+
+    layout = _make_image(tmp_path)
+    config = _linux_config(sample_config, tmp_path)
+    arts = build_linux(config, layout, tmp_path / "dist", log=lambda *a: None)
+    script, payload = _split_run(next(p for p in arts if p.suffix == ".run"))
+
+    assert _SHA_PLACEHOLDER not in script
+    assert f"PAYLOAD_SHA256='{hashlib.sha256(payload).hexdigest()}'" in script
 
 
 @pytest.mark.parametrize("compression", ["gzip", "xz"])
@@ -224,10 +272,20 @@ def test_falls_back_when_the_command_fails(tmp_path, sample_config, monkeypatch,
 
     tool = _DECOMP_TOOL[compression]
 
-    def failing_run(cmd, **kwargs):
-        return subprocess.CompletedProcess(cmd, 1, stdout=b"", stderr=b"out of memory")
+    class _FailingPopen:
+        """A compressor that emits some output, then fails partway through."""
 
-    monkeypatch.setattr(posix_build.subprocess, "run", failing_run)
+        returncode = 1
+
+        def __init__(self, cmd, stdin=None, stdout=None, stderr=None, **kwargs):
+            # Partial output the caller must discard before falling back.
+            self.stdout = io.BytesIO(b"truncated garbage")
+            stderr.write(b"out of memory")
+
+        def wait(self):
+            return self.returncode
+
+    monkeypatch.setattr(posix_build.subprocess, "Popen", _FailingPopen)
     magic, read_mode = _COMPRESSION[compression]
     layout = _make_image(tmp_path)
     config = _linux_config(sample_config, tmp_path, compression=compression)
@@ -353,6 +411,125 @@ def test_multi_launcher_desktop_names_are_disambiguated(tmp_path, sample_config)
     assert res.returncode == 0, res.stderr
     assert "Name=Hello World - foo\n" in (appdir / "helloworld-foo.desktop").read_text()
     assert "Name=Hello World - bar\n" in (appdir / "helloworld-bar.desktop").read_text()
+
+
+# Desktop Entry escaping, applied when a path is interpolated into an entry.
+# A string value only reserves the backslash; an Exec argument additionally
+# backslash-escapes ", ` and $ inside the quotes, and that escaping is then
+# itself string-escaped — so every added backslash appears doubled.
+_STRING_ESCAPES = {"\\": "\\" * 2}
+_EXEC_ESCAPES = {
+    "\\": "\\" * 4,
+    '"': "\\" * 2 + '"',
+    "`": "\\" * 2 + "`",
+    "$": "\\" * 2 + "$",
+}
+
+
+def _escape(path: str, table: dict[str, str]) -> str:
+    return "".join(table.get(c, c) for c in path)
+
+
+_INSTALLER_SH = (
+    Path(__file__).resolve().parents[1]
+    / "src" / "pyappdist" / "posix" / "installer.sh"
+)
+
+
+def _shell_escape(func: str, value: str) -> str:
+    """Call one of installer.sh's escaping helpers with ``value``.
+
+    The helpers are lifted out of the installer verbatim (they are top-level
+    definitions with no nested braces at column 0), so the rules are tested where
+    they are written rather than restated here.
+    """
+    body = _INSTALLER_SH.read_text(encoding="utf-8")
+    match = re.search(rf"^{func}\(\) \{{.*?^\}}", body, re.DOTALL | re.MULTILINE)
+    assert match, f"{func} not found in installer.sh"
+    res = subprocess.run(
+        ["/bin/sh", "-c", f'{match.group(0)}\n{func} "$1"', "_", value],
+        capture_output=True, text=True,
+    )
+    assert res.returncode == 0, res.stderr
+    return res.stdout
+
+
+@pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("/plain/path", "/plain/path"),
+        ("/with space/x", "/with space/x"),
+        ("/a\\b", "/a" + "\\" * 2 + "b"),     # only the backslash is reserved
+        ('/a"b', '/a"b'),
+        ("/a$b", "/a$b"),
+    ],
+)
+def test_desktop_string_escaping(value, expected):
+    assert _shell_escape("desktop_string", value) == expected
+
+
+@pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("/plain/path", '"/plain/path"'),
+        ("/with space/x", '"/with space/x"'),
+        ("/a\\b", '"/a' + "\\" * 4 + 'b"'),   # Exec escape, then string escape
+        ('/a"b', '"/a' + "\\" * 2 + '"b"'),
+        ("/a$b", '"/a' + "\\" * 2 + '$b"'),
+        ("/a`b", '"/a' + "\\" * 2 + '`b"'),
+    ],
+)
+def test_desktop_exec_arg_escaping(value, expected):
+    assert _shell_escape("desktop_exec_arg", value) == expected
+
+
+@pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
+def test_desktop_entry_escapes_special_characters(tmp_path, sample_config):
+    """A prefix with Desktop-Entry-reserved characters produces a valid entry."""
+    if shutil.which("gzip") is None:
+        pytest.skip("gzip not installed")
+    (tmp_path / "app.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    run = _build_gui_run(tmp_path, sample_config, tmp_path / "build", ["foo"])
+
+    # Reserved characters that survive an install end to end. A backslash is
+    # escaped correctly too (see the unit tests above), but GNU tar rejects a
+    # -C directory containing one, so it cannot be exercised here.
+    prefix = tmp_path / 'we$ird `sub` "q" dir'
+    env, appdir = _desktop_env(tmp_path)
+    res = subprocess.run(
+        ["/bin/sh", str(run), "--prefix", str(prefix)],
+        capture_output=True, text=True, env=env,
+    )
+    assert res.returncode == 0, res.stderr
+
+    libdir = prefix / "lib" / "helloworld"
+    text = (appdir / "helloworld-foo.desktop").read_text()
+    assert f'Exec="{_escape(str(libdir / "foo"), _EXEC_ESCAPES)}" %U\n' in text
+    assert f"Icon={_escape(str(libdir / 'foo.png'), _STRING_ESCAPES)}\n" in text
+    # Nothing leaked onto extra lines: the entry keeps its fixed shape.
+    assert len([ln for ln in text.splitlines() if ln]) == 8  # header + 7 keys
+
+
+@pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
+def test_desktop_entry_refuses_unrepresentable_prefix(tmp_path, sample_config):
+    """A newline in the prefix cannot be written to an entry, so the install stops."""
+    if shutil.which("gzip") is None:
+        pytest.skip("gzip not installed")
+    (tmp_path / "app.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    run = _build_gui_run(tmp_path, sample_config, tmp_path / "build", ["foo"])
+
+    prefix = tmp_path / "two\nlines"
+    env, _appdir = _desktop_env(tmp_path)
+    res = subprocess.run(
+        ["/bin/sh", str(run), "--prefix", str(prefix)],
+        capture_output=True, text=True, env=env,
+    )
+    assert res.returncode != 0
+    assert "tab or newline" in res.stderr
+    # It fails before extracting, so no half-install is left behind.
+    assert not (prefix / "lib" / "helloworld").exists()
 
 
 @pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
