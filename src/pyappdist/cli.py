@@ -30,7 +30,7 @@ from pathlib import Path
 
 from . import image as image_mod
 from .archive import build_archive
-from .config import ensure_upgrade_code, load_configs
+from .config import check_msi_version, ensure_upgrade_code, load_configs
 from .context import BuildContext
 from .errors import BuildError, ConfigError, PyappdistError
 from .launcher import build_launchers
@@ -44,7 +44,7 @@ from .macos.sign import deep_sign, resolve_sign_options, sign_file
 from .msix import build_msix
 from .runtime import fetch_runtime
 from .sign import env_sign_command, resolve_msi_sign_command, sign_artifact
-from .wheels import build_wheelhouse
+from .wheels import app_wheel_version, build_wheelhouse
 from .wix import build_msi, generate_wxs, scan_image
 
 
@@ -98,11 +98,35 @@ def _tag(ctx: BuildContext) -> str:
     return ctx.config.target_name
 
 
+def _resolve_version(ctx: BuildContext) -> BuildContext:
+    """Fill in a dynamic ``[project].version`` from the app wheel in the wheelhouse.
+
+    A no-op for a static version. For a dynamic one (hatch-vcs, setuptools-scm, ...)
+    the PEP 517 build in build-wheels already ran the backend that computes it, so
+    the built app wheel's filename is the authoritative source. Every stage that
+    consumes ``config.version`` (launchers, .wxs, manifests, artifact names) runs
+    after build-wheels, so callers resolve here before those stages. The msi/msix
+    dotted-numeric rule, deferred at config load, is enforced against the resolved
+    version — a between-tags VCS version like "1.2.3.dev4+g1a2b3c" fails it.
+    """
+    config = ctx.config
+    if not config.dynamic_version:
+        return ctx
+    version = app_wheel_version(config, ctx.wheelhouse)
+    check_msi_version(version, {config.format})
+    print(f"version [{_tag(ctx)}]: {version} (from the app wheel)")
+    config = dataclasses.replace(config, version=version, dynamic_version=False)
+    return dataclasses.replace(ctx, config=config)
+
+
 def cmd_build_wheels(args: argparse.Namespace) -> int:
     for ctx in _contexts(args):
         # Dependencies are resolved with the target runtime's python, so prepare it first.
         info = _do_fetch_runtime(ctx, args)
         wheels = build_wheelhouse(ctx.config, info, ctx.wheelhouse)
+        # Resolve a dynamic version now so an msi/msix-incompatible version fails
+        # at the earliest stage that can know it, not at packaging time.
+        _resolve_version(ctx)
         print(f"OK [{_tag(ctx)}]: {len(wheels)} wheel -> {ctx.wheelhouse}")
     return 0
 
@@ -118,6 +142,7 @@ def cmd_build_image(args: argparse.Namespace) -> int:
     for ctx in _contexts(args):
         info = _do_fetch_runtime(ctx, args)
         build_wheelhouse(ctx.config, info, ctx.wheelhouse)
+        ctx = _resolve_version(ctx)
         layout = image_mod.build_image(ctx, info, compile_pyc=not args.no_compile)
         exes = build_launchers(ctx.config, layout, ctx.launcher_build_dir)
         print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} ({len(exes)} launcher)")
@@ -128,6 +153,7 @@ def cmd_build_launchers(args: argparse.Namespace) -> int:
     for ctx in _contexts(args):
         if not ctx.image_dir.is_dir():
             raise BuildError(f"image is missing: {ctx.image_dir} (run build-image first)")
+        ctx = _resolve_version(ctx)  # VERSIONINFO needs the real version
         layout = image_mod.ImageLayout(
             image_dir=ctx.image_dir,
             target=ctx.config.target,
@@ -165,6 +191,7 @@ def cmd_gen_wix(args: argparse.Namespace) -> int:
             continue
         if not ctx.image_dir.is_dir():
             raise BuildError(f"image is missing: {ctx.image_dir} (run build-image first)")
+        ctx = _resolve_version(ctx)  # the .wxs Version attribute needs the real version
         wxs = _write_wxs(ctx)
         print(f"OK [{_tag(ctx)}]: wxs -> {wxs}")
     return 0
@@ -178,6 +205,7 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
         shutil.rmtree(ctx.build_dir)
     info = _do_fetch_runtime(ctx, args)
     build_wheelhouse(ctx.config, info, ctx.wheelhouse)
+    ctx = _resolve_version(ctx)
     layout = image_mod.build_image(ctx, info, compile_pyc=not args.no_compile)
 
     if ctx.config.format == "image":

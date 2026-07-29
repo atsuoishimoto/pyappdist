@@ -13,7 +13,7 @@ import re
 import shlex
 import sys
 import tomllib
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -229,6 +229,10 @@ class Config:
     # Skip launcher generation entirely (image format only): the archive then contains
     # just the installed tree, for apps that ship their own entry mechanism.
     no_launcher: bool = False
+    # [project].version is declared dynamic and no explicit version was given:
+    # ``version`` holds the "0.0.0" placeholder until the CLI resolves the real
+    # version from the app wheel built by build-wheels (and clears this flag).
+    dynamic_version: bool = False
 
     @property
     def python_minor(self) -> str:
@@ -261,19 +265,20 @@ def load_configs(
     name = tool.get("name") or dist_name
 
     version = tool.get("version") or project.get("version")
+    dynamic_version = False
     if version is None:
         # A dynamic version is computed by the build backend (hatch-vcs,
-        # setuptools-scm, ...), so it is absent from pyproject.toml and we cannot
-        # resolve it here. Falling back to "0.0.0" would silently stamp every
+        # setuptools-scm, ...), so it is absent from pyproject.toml and cannot be
+        # resolved here. Falling back to "0.0.0" would silently stamp every
         # artifact — MSI ProductVersion, MSIX Identity, .run/archive filenames,
         # VERSIONINFO — with a version the app wheel itself does not carry.
+        # Instead the config is marked dynamic, and the CLI fills in the real
+        # version from the app wheel that build-wheels produces (the wheel is
+        # built via PEP 517, so its filename carries the backend-computed
+        # version) before any stage consumes it.
         dynamic = project.get("dynamic")
         if isinstance(dynamic, list) and "version" in dynamic:
-            raise ConfigError(
-                '[project].version is dynamic, so pyappdist cannot determine the '
-                "version of the package it builds; set [tool.pyappdist].version "
-                'explicitly (e.g. version = "1.2.3")'
-            )
+            dynamic_version = True
         version = "0.0.0"
     # An unquoted TOML number silently drops trailing zeros (1.10 parses as the
     # float 1.1), so reject non-strings before they mangle the version.
@@ -344,24 +349,12 @@ def load_configs(
                         "the name must contain only letters, digits, and hyphens"
                     )
 
+    # A dynamic version is unknown until build-wheels produces the app wheel, so
+    # the format/version compatibility check runs again post-resolution (the CLI
+    # calls check_msi_version with the wheel's version).
     selected_formats = {fmt for (_, _, fmt, *_rest) in specs}
-    if selected_formats & {"msi", "msix"} and not _MSI_VERSION_RE.match(version):
-        raise ConfigError(
-            "msi/msix targets require a dotted numeric version "
-            f'(e.g. "1.2.3"; MSI ProductVersion cannot express pre-releases): {version!r}'
-        )
-    # Windows Installer compares only the first three fields of ProductVersion, so
-    # releases differing solely in the fourth are the same version to it: MajorUpgrade
-    # does not fire, and without allow-same-version-upgrades the install errors or the
-    # two versions coexist. Four fields stay accepted (MSIX's Identity Version uses
-    # all four legitimately), but the MSI consequence is worth saying out loud.
-    if "msi" in selected_formats and version.count(".") == 3:
-        print(
-            f"warning: version {version!r} has four fields, but MSI upgrade logic "
-            "compares only the first three; releases differing only in the fourth "
-            "field look like the same version to Windows Installer",
-            file=sys.stderr,
-        )
+    if not dynamic_version:
+        check_msi_version(version, selected_formats)
 
     return [
         Config(
@@ -382,9 +375,35 @@ def load_configs(
             linux=linux,
             macos=macos,
             no_launcher=no_launcher,
+            dynamic_version=dynamic_version,
         )
         for (target_name, target, fmt, wix, msix, extras, linux, macos, no_launcher) in specs
     ]
+
+
+def check_msi_version(version: str, formats: Collection[str]) -> None:
+    """Reject/warn about a version the msi/msix toolchain cannot handle.
+
+    Runs at config load for a version read from pyproject.toml, and again from
+    the CLI once a dynamic version has been resolved from the built app wheel.
+    """
+    if {"msi", "msix"} & set(formats) and not _MSI_VERSION_RE.match(version):
+        raise ConfigError(
+            "msi/msix targets require a dotted numeric version "
+            f'(e.g. "1.2.3"; MSI ProductVersion cannot express pre-releases): {version!r}'
+        )
+    # Windows Installer compares only the first three fields of ProductVersion, so
+    # releases differing solely in the fourth are the same version to it: MajorUpgrade
+    # does not fire, and without allow-same-version-upgrades the install errors or the
+    # two versions coexist. Four fields stay accepted (MSIX's Identity Version uses
+    # all four legitimately), but the MSI consequence is worth saying out loud.
+    if "msi" in formats and version.count(".") == 3:
+        print(
+            f"warning: version {version!r} has four fields, but MSI upgrade logic "
+            "compares only the first three; releases differing only in the fourth "
+            "field look like the same version to Windows Installer",
+            file=sys.stderr,
+        )
 
 
 _TargetSpec = tuple[

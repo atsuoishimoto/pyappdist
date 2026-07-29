@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from pyappdist.config import ensure_upgrade_code, load_configs
+from pyappdist.config import check_msi_version, ensure_upgrade_code, load_configs
 from pyappdist.errors import ConfigError
 from pyappdist.wix.guid import is_guid
 
@@ -195,32 +195,49 @@ def test_unquoted_project_version_rejected(tmp_path: Path):
         load_configs(_write_text(tmp_path, text))
 
 
-def test_dynamic_version_rejected(tmp_path: Path):
+def test_dynamic_version_deferred(tmp_path: Path):
     # A version computed by the build backend is absent from pyproject.toml; the
-    # silent "0.0.0" fallback would mislabel every artifact.
+    # config is marked dynamic for the CLI to resolve from the built app wheel,
+    # and the msi/msix version check is deferred until then (the placeholder
+    # "0.0.0" would pass it, but the real version is not known yet).
     text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
         'version = "0.1.0"', 'dynamic = ["version"]'
     )
-    with pytest.raises(ConfigError, match="dynamic"):
-        load_configs(_write_text(tmp_path, text))
+    (cfg,) = load_configs(_write_text(tmp_path, text))
+    assert cfg.dynamic_version
+    assert cfg.version == "0.0.0"
 
 
 def test_dynamic_version_with_explicit_tool_version(tmp_path: Path):
-    # An explicit [tool.pyappdist].version resolves the ambiguity.
+    # An explicit [tool.pyappdist].version overrides the backend-computed one.
     text = _BASE.format(
         fmt="msi", app_extra='version = "2.0.0"', target_extra=""
     ).replace('version = "0.1.0"', 'dynamic = ["version"]')
     (cfg,) = load_configs(_write_text(tmp_path, text))
     assert cfg.version == "2.0.0"
+    assert not cfg.dynamic_version
 
 
 def test_missing_version_still_defaults(tmp_path: Path):
-    # Only a *dynamic* version is an error; a plain omission keeps the fallback.
+    # Only a *dynamic* version defers resolution; a plain omission keeps the
+    # static fallback.
     text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
         'version = "0.1.0"', ""
     )
     (cfg,) = load_configs(_write_text(tmp_path, text))
     assert cfg.version == "0.0.0"
+    assert not cfg.dynamic_version
+
+
+def test_check_msi_version():
+    # The deferred check the CLI runs on a resolved dynamic version: the same
+    # dotted-numeric rule load_configs applies to a static version.
+    check_msi_version("1.2.3", {"msi"})
+    check_msi_version("1.2.3.dev4+g1a2b3c", {"linux"})  # non-MSI formats accept PEP 440
+    with pytest.raises(ConfigError, match="dotted numeric"):
+        check_msi_version("1.2.3.dev4+g1a2b3c", {"msi"})
+    with pytest.raises(ConfigError, match="dotted numeric"):
+        check_msi_version("1.0.0rc1", {"msix"})
 
 
 @pytest.mark.parametrize("bad", ['":main"', '"helloworld:"', '"bad name"', '"a..b"'])

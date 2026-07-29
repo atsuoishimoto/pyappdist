@@ -66,17 +66,23 @@ All keys at a glance
    dotted numeric (e.g. ``"1.2.3"``) — MSI's ProductVersion cannot express
    pre-releases, so e.g. ``"1.0.0rc1"`` is rejected at load time.
 
-   If the project declares ``dynamic = ["version"]`` (hatch-vcs,
-   setuptools-scm, …), the version is computed by the build backend and is not
-   readable from ``pyproject.toml``, so this key is **required** — pyappdist
-   reports an error instead of silently labelling every artifact ``0.0.0``.
-
    Up to four fields are accepted, but Windows Installer compares only the
    **first three** when deciding whether an install is an upgrade. Two MSI
    releases differing solely in the fourth field (``1.2.3.4`` → ``1.2.3.5``)
    are the same version to it, so ``MajorUpgrade`` does not fire; pyappdist
    warns when an msi target is built from such a version. (MSIX is unaffected —
    its Identity Version uses all four fields.)
+
+   If the project declares ``dynamic = ["version"]`` (hatch-vcs,
+   setuptools-scm, …), the version is computed by the build backend and is not
+   readable from ``pyproject.toml``. pyappdist then takes the version from the
+   app wheel it builds during ``build-wheels`` — the same PEP 517 build that
+   stamps the wheel — so every artifact carries the real version. Set
+   ``[tool.pyappdist].version`` to override. For msi/msix targets the
+   dotted-numeric rule above applies to the resolved version, so building
+   between VCS tags (e.g. setuptools-scm's ``1.2.3.dev4+g1a2b3c``) is rejected
+   at that point; the standalone ``build-launchers`` and ``gen-wix`` commands
+   need the wheelhouse from a prior ``build-wheels`` run to know the version.
 
 ``manager``
    Package manager used to pin dependencies: ``"uv"``, ``"poetry"``,

@@ -28,6 +28,7 @@ old, so the ``-m pip`` calls below can rely on pylock support being present.
 
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -79,6 +80,42 @@ def build_app_wheel(config: Config, runtime: RuntimeInfo, wheelhouse: Path, *, l
             raise BuildError("pip wheel did not produce a wheel")
         return all_wheels[-1]
     return new[-1]
+
+
+def _canonical(name: str) -> str:
+    """PEP 503 canonical form, so a pyproject name matches its wheel-filename escaping."""
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def app_wheel_version(config: Config, wheelhouse: Path) -> str:
+    """The version of the app wheel in the wheelhouse.
+
+    This is how a dynamic ``[project].version`` (hatch-vcs, setuptools-scm, ...)
+    is resolved: the PEP 517 build in :func:`build_app_wheel` already ran the
+    backend that computes it, and the wheel filename
+    (``{dist}-{version}(-{build})?-{python}-{abi}-{platform}.whl``) records the
+    result. The distribution segment is matched canonically because wheel
+    filenames escape the project name (``my-app`` becomes ``my_app``).
+    """
+    want = _canonical(config.dist_name)
+    versions = {
+        parts[1]
+        for whl in wheelhouse.glob("*.whl")
+        if len(parts := whl.name.removesuffix(".whl").split("-")) >= 2
+        and _canonical(parts[0]) == want
+    }
+    if not versions:
+        raise BuildError(
+            f"app wheel for {config.dist_name!r} not found in {wheelhouse} "
+            "(run build-wheels first; it is needed to resolve the dynamic "
+            "[project].version)"
+        )
+    if len(versions) > 1:
+        raise BuildError(
+            f"multiple versions of {config.dist_name!r} in {wheelhouse}: "
+            f"{sorted(versions)} (remove the stale wheels or re-run build-wheels)"
+        )
+    return versions.pop()
 
 
 def collect_dependencies(runtime: RuntimeInfo, requirements_file: Path, wheelhouse: Path, *, log=print) -> list[Path]:
