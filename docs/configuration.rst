@@ -224,8 +224,18 @@ Every platform additionally accepts format ``image``.
 ``windows-x86_64``
    Triple ``x86_64-pc-windows-msvc`` · OS windows · format ``msi`` / ``msix``.
 
+``windows-arm64``
+   Triple ``aarch64-pc-windows-msvc`` · OS windows · format ``msi`` / ``msix``.
+   Building requires an ARM64 Windows host (the pipeline runs the target
+   runtime's ``python.exe``, which x64 Windows cannot execute).
+
 ``linux-x86_64``
    Triple ``x86_64-unknown-linux-gnu`` · OS linux · format ``linux``.
+
+``linux-aarch64``
+   Triple ``aarch64-unknown-linux-gnu`` · OS linux · format ``linux``.
+   Building requires an aarch64 Linux host (or binfmt/qemu user emulation),
+   since the pipeline runs the target runtime's ``python``.
 
 ``macos-aarch64``
    Triple ``aarch64-apple-darwin`` · OS macos · format ``macos`` / ``macapp`` / ``dmg``.

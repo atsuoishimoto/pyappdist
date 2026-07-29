@@ -445,6 +445,21 @@ def test_format_platform_mismatch(tmp_path: Path):
         load_configs(_write_text(tmp_path, msi_on_macos))
 
 
+def test_format_accepted_on_arm_platforms(tmp_path: Path):
+    # The arm platforms take the same formats as their x86_64 siblings.
+    msi_on_win_arm = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        '"windows-x86_64"', '"windows-arm64"'
+    )
+    cfg = load_configs(_write_text(tmp_path, msi_on_win_arm))[0]
+    assert cfg.target.triple == "aarch64-pc-windows-msvc"
+
+    linux_on_aarch64 = _BASE.format(fmt="linux", app_extra="", target_extra="").replace(
+        '"windows-x86_64"', '"linux-aarch64"'
+    )
+    cfg = load_configs(_write_text(tmp_path, linux_on_aarch64))[0]
+    assert cfg.target.triple == "aarch64-unknown-linux-gnu"
+
+
 def _linux_pyproject(target_extra: str) -> str:
     return _BASE.format(fmt="linux", app_extra="", target_extra=target_extra).replace(
         '"windows-x86_64"', '"linux-x86_64"'
@@ -871,7 +886,11 @@ def test_identifier_not_required_for_unselected_app_target(tmp_path: Path):
 
 
 @pytest.mark.parametrize(
-    "platform", ["windows-x86_64", "linux-x86_64", "macos-aarch64", "macos-x86_64"]
+    "platform",
+    [
+        "windows-x86_64", "windows-arm64", "linux-x86_64", "linux-aarch64",
+        "macos-aarch64", "macos-x86_64",
+    ],
 )
 def test_format_image_accepted_on_all_platforms(tmp_path: Path, platform: str):
     text = _BASE.format(fmt="image", app_extra="", target_extra="").replace(

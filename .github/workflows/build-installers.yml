@@ -1,9 +1,11 @@
 name: Build installers
 
-# Manually (workflow_dispatch) build every project under samples/ on 3 OSes
-# (Linux / Windows / macOS-arm). The build is driven by uv-matrix's
-# `build-installers` matrix. Each cell runs only the targets for its own OS via
-# `when = "target.startswith(platform)"`, so the same command runs on every runner.
+# Manually (workflow_dispatch) build every project under samples/ on 5 runners
+# (Linux / Windows / macOS-arm, plus arm64 Linux / Windows). The build is driven
+# by uv-matrix's `build-installers` matrix (x86_64 + macOS targets) or
+# `build-installers-arm` (the arm64 Linux/Windows targets). Each cell runs only
+# the targets for its own OS via `when = "target.startswith(platform)"`, so the
+# same command runs on every runner.
 on:
   workflow_dispatch:
 
@@ -15,10 +17,19 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact: installers-linux
+            matrix: build-installers
           - os: windows-latest
             artifact: installers-windows
+            matrix: build-installers
           - os: macos-14          # Apple Silicon (arm64) runner
             artifact: installers-macos-arm
+            matrix: build-installers
+          - os: ubuntu-24.04-arm  # arm64 Linux runner
+            artifact: installers-linux-arm
+            matrix: build-installers-arm
+          - os: windows-11-arm    # arm64 Windows runner
+            artifact: installers-windows-arm
+            matrix: build-installers-arm
     runs-on: ${{ matrix.os }}
     # The macOS signing secrets live in the `sign_macos` environment; only the
     # macOS cell enters it (an empty environment = none), so Linux/Windows runs
@@ -35,7 +46,8 @@ jobs:
 
       # WiX (for the Windows MSI) is a dotnet global tool. MSVC (cl.exe/rc.exe)
       # and the Windows SDK (makeappx, for MSIX) are preinstalled on
-      # windows-latest and resolved automatically by pyappdist via vswhere.
+      # windows-latest / windows-11-arm and resolved automatically by pyappdist
+      # via vswhere.
       # macOS Xcode CLT (clang/codesign/hdiutil/sips/iconutil) and Linux need nothing extra.
       - name: Install WiX (Windows only)
         if: runner.os == 'Windows'
@@ -104,7 +116,7 @@ jobs:
             --team-id "$NOTARY_TEAM_ID" \
             --password "$NOTARY_PASSWORD"
 
-      - name: Build installers (build-installers matrix)
+      - name: Build installers (${{ matrix.matrix }} matrix)
         env:
           # Set this secret only to sign; unset means ship unsigned.
           PYAPPDIST_SIGN_CMD: ${{ secrets.PYAPPDIST_SIGN_CMD }}
@@ -113,7 +125,7 @@ jobs:
           # and when unset (dmg/macapp then fall back to ad-hoc, unnotarized).
           PYAPPDIST_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
           PYAPPDIST_NOTARY_PROFILE: pyappdist-notary
-        run: uv run uv-matrix run --max-jobs 4 --matrix build-installers
+        run: uv run uv-matrix run --max-jobs 4 --matrix ${{ matrix.matrix }}
 
       - name: Upload installers
         if: always()      # upload whatever built even if some cells failed

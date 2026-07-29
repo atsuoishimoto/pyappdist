@@ -1,13 +1,14 @@
 """Build launcher.exe with MSVC (Windows target).
 
-vcvars64.bat + cl.exe are invoked from WSL via cmd.exe. A config header is
-generated per launcher, and the same launcher.c is compiled with different
-subsystems.
+A vcvars script (picked for the target architecture, see :func:`_find_vcvars`)
++ cl.exe are invoked from WSL via cmd.exe. A config header is generated per
+launcher, and the same launcher.c is compiled with different subsystems.
 """
 
 from __future__ import annotations
 
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -74,7 +75,7 @@ def build_launchers(config: Config, layout: ImageLayout, workdir: Path, *, log=p
     if config.target.os != "windows":
         log("launcher: skipping (shell-wrapper launchers are written by the posix builder)")
         return []
-    vcvars = _find_vcvars()
+    vcvars = _find_vcvars(config.target)
     workdir.mkdir(parents=True, exist_ok=True)
     out: list[Path] = []
     for spec in config.launchers:
@@ -391,20 +392,45 @@ def _c_str(s: str) -> str:
     )
 
 
-def _find_vcvars() -> str:
+def _vcvars_candidates(target: Target) -> list[str]:
+    """vcvars script basenames for ``target``, in preference order.
+
+    MSVC ships one script per host/target pair. For an arm64 target on an arm64
+    host the native ``vcvarsarm64.bat`` is preferred, but the x64-hosted cross
+    compiler (``vcvarsamd64_arm64.bat``) also runs there under emulation, so it
+    is kept as a fallback for VS installs without the arm64-hosted tools. The
+    host is the machine actually running cl.exe — on WSL that is the Windows
+    side, whose architecture matches the WSL kernel's (``platform.machine()``).
+    """
+    if target.wix_arch == "arm64":
+        host_arm64 = platform.machine().lower() in ("arm64", "aarch64")
+        if host_arm64:
+            return ["vcvarsarm64.bat", "vcvarsamd64_arm64.bat"]
+        return ["vcvarsamd64_arm64.bat"]
+    return ["vcvars64.bat"]
+
+
+def _find_vcvars(target: Target) -> str:
     vswhere = _vswhere_path()
     if not vswhere.is_file():
         raise BuildError(f"vswhere not found: {vswhere}")
+    # The arm64 compilers are their own optional VS component, distinct from the
+    # x86/x64 one the x64 target needs.
+    component = (
+        "Microsoft.VisualStudio.Component.VC.Tools.ARM64"
+        if target.wix_arch == "arm64"
+        else "Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+    )
     # Mirror setuptools' MSVC discovery (_distutils/compilers/C/msvc.py):
     #   -products *    also matches the standalone "C++ Build Tools" SKU
     #                  (bare -latest excludes it; common on CI/build machines)
     #   -requires ...  only an install with the C++ compiler workload, so the
-    #                  returned path actually has vcvars64.bat
+    #                  returned path actually has the vcvars script
     #   -prerelease    also matches preview / Insiders channels
     proc = subprocess.run(
         [
             str(vswhere), "-latest", "-prerelease", "-products", "*",
-            "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+            "-requires", component,
             "-property", "installationPath",
         ],
         capture_output=True, text=True, errors="replace",
@@ -414,13 +440,18 @@ def _find_vcvars() -> str:
         raise BuildError(
             "Visual Studio C++ build tools not found. Install the "
             '"Desktop development with C++" workload or the standalone '
-            "Build Tools (vswhere found no install with the "
-            "VC.Tools.x86.x64 component)."
+            f"Build Tools (vswhere found no install with the {component} "
+            "component)."
         )
     # Keep the native Windows path (with backslashes) for build.bat's `call`,
     # which runs under cmd.exe on the Windows side. The existence check must use
     # the host-side path, since on WSL the C:\... string is not a real Linux path.
-    vcvars = install + r"\VC\Auxiliary\Build\vcvars64.bat"
-    if not _to_host_path(vcvars).is_file():
-        raise BuildError(f"vcvars64.bat not found under the VS install: {vcvars}")
-    return vcvars
+    names = _vcvars_candidates(target)
+    for name in names:
+        vcvars = install + r"\VC\Auxiliary\Build" + "\\" + name
+        if _to_host_path(vcvars).is_file():
+            return vcvars
+    raise BuildError(
+        f"no vcvars script ({' / '.join(names)}) found under the VS install: "
+        f"{install}"
+    )

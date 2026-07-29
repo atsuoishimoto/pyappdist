@@ -75,6 +75,22 @@ exclude = [
 
 tasks = ["build-installer"]
 
+# The arm targets, run only by the arm64 runners (see build-installers.yml).
+# A separate matrix because the shared `when` gate distinguishes targets by OS
+# prefix only, so mixing arm targets into build-installers would make the
+# x86_64 runners pick them up too.
+[tool.uv-matrix.matrix.build-installers-arm]
+project = ["datafiles", "helloworld", "matplotlibdemo", "niceguidemo",
+           "pandascli", "pygamedemo", "pyside6demo", "pytorchdemo"]
+target = ["win32-arm-msi", "win32-arm-store", "win32-arm-image",
+          "linux-arm", "linux-arm-image"]
+exclude = [
+    {project = "niceguidemo", target = "linux-arm"},
+    {project = "niceguidemo", target = "linux-arm-image"},
+]
+
+tasks = ["build-installer"]
+
 [tool.uv-matrix.tasks.build-installer]
 when = "target.startswith(platform)"
 continue-on-error = "environ.get('CI') == 'true'"   # in CI, keep building the rest after a failed cell

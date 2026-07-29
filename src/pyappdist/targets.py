@@ -19,6 +19,10 @@ class Target:
     wix_arch: str      # value passed to wix build -arch (x64 / arm64). Makes the MSI a 64-bit package
 
 
+# The pipeline executes the *target* runtime's python (pip wheel/install,
+# compileall), so a target can only be built on a host able to run it:
+# windows-arm64 needs an ARM64 Windows host, linux-aarch64 an aarch64 Linux
+# host (or binfmt/qemu emulation).
 TARGETS: dict[str, Target] = {
     "windows-x86_64": Target(
         name="windows-x86_64",
@@ -26,12 +30,24 @@ TARGETS: dict[str, Target] = {
         os="windows",
         wix_arch="x64",
     ),
+    "windows-arm64": Target(
+        name="windows-arm64",
+        triple="aarch64-pc-windows-msvc",
+        os="windows",
+        wix_arch="arm64",
+    ),
     # The Linux variant is mainly used for alternative validation on Linux (Phase 2).
     "linux-x86_64": Target(
         name="linux-x86_64",
         triple="x86_64-unknown-linux-gnu",
         os="linux",
         wix_arch="x64",
+    ),
+    "linux-aarch64": Target(
+        name="linux-aarch64",
+        triple="aarch64-unknown-linux-gnu",
+        os="linux",
+        wix_arch="arm64",
     ),
     # macOS variants ship the same POSIX tarball + .run as Linux (wix_arch is unused).
     "macos-aarch64": Target(

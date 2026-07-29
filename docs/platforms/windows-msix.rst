@@ -7,7 +7,10 @@ launchers are packaged as full-trust Win32 apps (``runFullTrust``), one
 
 * ``appdist/<target>/dist/<name>-<version>.msix`` — the package.
 
-Only ``platform = "windows-x86_64"`` may use this format.
+Only ``platform = "windows-x86_64"`` or ``"windows-arm64"`` may use this
+format. Building the ``windows-arm64`` variant requires an ARM64 Windows host
+(with the "MSVC C++ ARM64 build tools" component installed); x64 Windows cannot
+run the target runtime's ``python.exe``.
 
 Build requirements
 ------------------

@@ -113,3 +113,36 @@ format = "image"
 name = "darwin-arm-image"
 platform = "macos-aarch64"
 format = "image"
+
+[[tool.pyappdist.targets]]
+name = "win32-arm-msi"
+platform = "windows-arm64"
+format = "msi"
+manufacturer = "Example Inc."
+code-sign = false
+allow-same-version-upgrades = false
+extras = ["gui"]
+
+[[tool.pyappdist.targets]]
+name = "win32-arm-store"
+platform = "windows-arm64"
+format = "msix"
+manufacturer = "Example Inc."
+extras = ["gui"]
+
+[[tool.pyappdist.targets]]
+name = "win32-arm-image"
+platform = "windows-arm64"
+format = "image"
+
+[[tool.pyappdist.targets]]
+name = "linux-arm"
+platform = "linux-aarch64"
+format = "linux"
+extras = ["gui"]
+
+[[tool.pyappdist.targets]]
+name = "linux-arm-image"
+platform = "linux-aarch64"
+format = "image"
+

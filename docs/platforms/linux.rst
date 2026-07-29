@@ -7,7 +7,10 @@ installer in ``appdist/<target>/dist/``:
 * ``<name>-<version>-<target>.run`` — a self-extracting installer (a POSIX shell
   script with the compressed image payload appended).
 
-Only ``platform = "linux-x86_64"`` may use this format.
+Only ``platform = "linux-x86_64"`` or ``"linux-aarch64"`` may use this format.
+Building the ``linux-aarch64`` variant requires an aarch64 Linux host (or
+binfmt/qemu user emulation), since the pipeline runs the target runtime's
+``python``.
 
 Build requirements
 ------------------
