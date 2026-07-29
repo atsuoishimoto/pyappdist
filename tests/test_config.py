@@ -204,6 +204,54 @@ def test_launcher_entry_invalid(tmp_path: Path, bad: str):
         load_configs(proj)
 
 
+def test_launcher_args_unparsable(tmp_path: Path):
+    # args is split with POSIX quoting rules; an unbalanced quote is rejected at load
+    # time rather than surfacing as a shlex traceback mid-build.
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'entry = "helloworld:main"', "entry = \"helloworld:main\", args = \"--path 'a\""
+    )
+    with pytest.raises(ConfigError, match=r"launchers\[0\].args"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_launcher_args_split(tmp_path: Path):
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'entry = "helloworld:main"',
+        "entry = \"helloworld:main\", args = \"--path 'a b' -x\"",
+    )
+    (cfg,) = load_configs(_write_text(tmp_path, text))
+    assert cfg.launchers[0].argv == ("--path", "a b", "-x")
+
+
+def test_launcher_args_exec_form(tmp_path: Path):
+    # Exec form: an array is the argument list verbatim — no splitting, quoting,
+    # or glob expansion, so spaces and shell metacharacters pass through as-is.
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'entry = "helloworld:main"',
+        'entry = "helloworld:main", args = ["--path", "a b", "*"]',
+    )
+    (cfg,) = load_configs(_write_text(tmp_path, text))
+    assert cfg.launchers[0].argv == ("--path", "a b", "*")
+
+
+def test_launcher_args_exec_form_non_string(tmp_path: Path):
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'entry = "helloworld:main"',
+        'entry = "helloworld:main", args = ["-n", 1]',
+    )
+    with pytest.raises(ConfigError, match=r"launchers\[0\].args\[1\] must be a string"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_launcher_args_wrong_type(tmp_path: Path):
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'entry = "helloworld:main"',
+        'entry = "helloworld:main", args = true',
+    )
+    with pytest.raises(ConfigError, match=r"launchers\[0\].args must be a string"):
+        load_configs(_write_text(tmp_path, text))
+
+
 def _bootstrap_for(tmp_path: Path, entry: str) -> str:
     proj = _write(tmp_path)
     text = (proj / "pyproject.toml").read_text().replace('"helloworld:main"', f'"{entry}"')
