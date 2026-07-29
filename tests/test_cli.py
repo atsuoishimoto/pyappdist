@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 from pyappdist import cli
-from pyappdist.cli import _contexts, build_parser
-from pyappdist.errors import BuildError
+from pyappdist.cli import _check_common_root, _contexts, build_parser
+from pyappdist.errors import BuildError, ConfigError
 
 _MULTI = """
 [project]
@@ -71,6 +71,26 @@ def test_appdist_and_build_dir_options_override(tmp_path: Path):
     (ctx,) = _contexts(args)
     assert ctx.out_dir == tmp_path / "art" / "win-user"
     assert ctx.build_dir == tmp_path / "bld" / "win-user"
+
+
+def test_split_drive_dirs_rejected_at_startup(tmp_path: Path, monkeypatch):
+    # On a native Windows host, --appdist-dir and --build-dir on different drives make
+    # os.path.commonpath raise ValueError deep inside the packagers. Simulate the
+    # Windows path semantics on any host and check the failure surfaces as a
+    # ConfigError before any building starts.
+    import ntpath
+    import os as _os
+
+    monkeypatch.setattr(_os.path, "commonpath", ntpath.commonpath)
+    with pytest.raises(ConfigError, match="common root"):
+        _check_common_root(Path("C:/artifacts"), Path("D:/build"))
+
+
+def test_common_root_accepted(tmp_path: Path):
+    # The default layout (both under the project dir) always shares a root.
+    (tmp_path / "pyproject.toml").write_text(_MULTI, encoding="utf-8")
+    args = build_parser().parse_args(["build", "-C", str(tmp_path), "win-user"])
+    assert len(_contexts(args)) == 1
 
 
 _LINUX_ONLY = """
