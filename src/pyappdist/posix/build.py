@@ -28,8 +28,10 @@ on macOS/BSD), so the same wrapper and installer run on both OSes.
 
 from __future__ import annotations
 
+import bz2
+import gzip
 import hashlib
-import io
+import lzma
 import shutil
 import subprocess
 import tarfile
@@ -51,6 +53,11 @@ _COMPRESSION = {
 _INSTALLER_BODY = (Path(__file__).resolve().parent / "installer.sh").read_text(
     encoding="utf-8"
 )
+
+# Stand-in for the payload digest while the header is written; patched in place once
+# the streamed payload has been hashed. Same length as a real hex SHA-256, so the
+# patch never shifts the rest of the file.
+_SHA_PLACEHOLDER = "0" * 64
 
 
 def build_posix(
@@ -86,22 +93,29 @@ def build_posix(
     base = f"{config.dist_name}-{config.version}-{config.target_name}"
 
     run = dist_dir / f"{base}.run"
-    payload = targz_bytes(image_dir, mode=mode, log=log)
-    sha256 = hashlib.sha256(payload).hexdigest()
     header = _render_header(
         config,
         launchers_field,
         decompress=decompress,
-        sha256=sha256,
         desktop=desktop,
         categories=categories,
-    )
-    run.write_bytes(
-        header.encode("utf-8")
-        + _INSTALLER_BODY.encode("utf-8")
-        + _PAYLOAD_MARKER
-        + payload
-    )
+    ).encode("utf-8")
+
+    with run.open("wb") as fp:
+        fp.write(header)
+        # The header carries the payload's SHA-256, but the payload is streamed after
+        # it (a multi-GB image must not be buffered whole). The digest field is
+        # appended right after the rendered header so its offset is known exactly:
+        # write a fixed-length placeholder, stream and hash the payload straight into
+        # the file, then seek back and overwrite the placeholder with the real digest.
+        fp.write(b"PAYLOAD_SHA256='")
+        sha_offset = fp.tell()
+        fp.write(_SHA_PLACEHOLDER.encode("ascii") + b"'\n")
+        fp.write(_INSTALLER_BODY.encode("utf-8"))
+        fp.write(_PAYLOAD_MARKER)
+        sha256 = write_targz(fp, image_dir, mode=mode, log=log)
+        fp.seek(sha_offset)
+        fp.write(sha256.encode("ascii"))
     run.chmod(0o755)
     log(f"{os_kind}: installer -> {run} ({compression}, sha256 {sha256[:12]}…)")
     return [run]
@@ -175,7 +189,6 @@ def _render_header(
     launchers_field: str,
     *,
     decompress: str,
-    sha256: str,
     desktop: bool,
     categories: str,
 ) -> str:
@@ -198,7 +211,6 @@ def _render_header(
         f"CATEGORIES={_sq(categories)}\n"
         f"LAUNCHERS={_sq(launchers_field)}\n"
         f"DECOMPRESS={_sq(decompress)}\n"
-        f"PAYLOAD_SHA256={_sq(sha256)}\n"
     )
 
 
@@ -216,42 +228,88 @@ def _sq(s: str) -> str:
 # built-in codec.
 _XZ_PRESET = 1
 _GZIP_LEVEL = 6
-# tarfile mode suffix -> (external command, tarfile.open fallback kwargs)
+# tarfile mode suffix -> (external command, built-in compressor around a writer).
+# The fallback compresses through the module directly rather than through
+# tarfile's "w:<mode>": the payload is streamed into an already-open output file,
+# and tarfile's seekable modes want more than write() from it.
 _CODECS = {
-    "xz": (["xz", f"-{_XZ_PRESET}", "-T0", "-c"], {"preset": _XZ_PRESET}),
-    "gz": (["gzip", f"-{_GZIP_LEVEL}", "-c"], {"compresslevel": _GZIP_LEVEL}),
-    "bz2": (None, {}),
+    "xz": (
+        ["xz", f"-{_XZ_PRESET}", "-T0", "-c"],
+        lambda fp: lzma.LZMAFile(fp, "wb", preset=_XZ_PRESET),
+    ),
+    "gz": (
+        ["gzip", f"-{_GZIP_LEVEL}", "-c"],
+        lambda fp: gzip.GzipFile(fileobj=fp, mode="wb", compresslevel=_GZIP_LEVEL),
+    ),
+    "bz2": (None, lambda fp: bz2.BZ2File(fp, "wb")),
 }
 
 
-def targz_bytes(src_dir: Path, *, mode: str, prefix: str = "", log=print) -> bytes:
-    """Compressed tar of the directory contents, preserving symlinks.
+_CHUNK = 1 << 20  # bytes drained from the compressor at a time
+
+
+class _HashingWriter:
+    """Pass-through writer that hashes everything on its way to ``fp``."""
+
+    def __init__(self, fp, digest) -> None:
+        self._fp = fp
+        self._digest = digest
+
+    def write(self, data) -> int:
+        self._digest.update(data)
+        return self._fp.write(data)
+
+    def flush(self) -> None:
+        self._fp.flush()
+
+
+def write_targz(dest, src_dir: Path, *, mode: str, prefix: str = "", log=print) -> str:
+    """Stream a compressed tar of ``src_dir`` into ``dest``; return its SHA-256.
+
+    ``dest`` is an open binary file positioned where the payload should start. The
+    compressed data is written as it is produced and hashed on the way through, so
+    memory stays flat no matter how large the image is — for a multi-GB app, buffering
+    the payload (and then concatenating it) cost several GB of RAM.
 
     Entries are archived under ``prefix/`` when given, else at the archive root (no
     top-level dir — the .run installer's payload layout). Public because the ``image``
     format reuses it for its ``.tar.gz`` deliverable (with a prefix).
     """
-    cmd, fallback_kw = _CODECS[mode]
+    cmd, compressor = _CODECS[mode]
+    digest = hashlib.sha256()
     if cmd and shutil.which(cmd[0]):
+        start = dest.tell()
         # The uncompressed tar goes to an anonymous temp file, so the compressor reads
-        # a real fd and its stdout is the only pipe — safe to drain single-threaded
-        # (stdin and stdout both as pipes would deadlock once either buffer fills).
-        with tempfile.TemporaryFile() as raw:
+        # a real fd; stderr goes to another temp file rather than a pipe, leaving
+        # stdout as the only pipe — safe to drain single-threaded (two pipes would
+        # deadlock once either buffer fills).
+        with tempfile.TemporaryFile() as raw, tempfile.TemporaryFile() as errf:
             with tarfile.open(fileobj=raw, mode="w") as tf:
                 _add_tree(tf, src_dir, prefix)
             raw.seek(0)
-            proc = subprocess.run(cmd, stdin=raw, capture_output=True)
-        if proc.returncode == 0:
-            return proc.stdout
-        err = proc.stderr.decode(errors="replace").strip()
+            proc = subprocess.Popen(cmd, stdin=raw, stdout=subprocess.PIPE, stderr=errf)
+            with proc.stdout as out:
+                for chunk in iter(lambda: out.read(_CHUNK), b""):
+                    digest.update(chunk)
+                    dest.write(chunk)
+            if proc.wait() == 0:
+                return digest.hexdigest()
+            errf.seek(0)
+            err = errf.read().decode(errors="replace").strip()
+        # Discard the partial output before retrying with the built-in codec.
+        dest.seek(start)
+        dest.truncate()
+        digest = hashlib.sha256()
         log(
             f"posix: {cmd[0]} failed (exit {proc.returncode}), "
             f"falling back to the built-in codec:\n{err}"
         )
-    buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode=f"w:{mode}", **fallback_kw) as tf:
+    # An uncompressed stream tar ("w|") into the compressor, which writes through the
+    # hashing wrapper to the output file — every layer needs nothing but write().
+    writer = _HashingWriter(dest, digest)
+    with compressor(writer) as comp, tarfile.open(fileobj=comp, mode="w|") as tf:
         _add_tree(tf, src_dir, prefix)
-    return buf.getvalue()
+    return digest.hexdigest()
 
 
 def _add_tree(tf: tarfile.TarFile, src_dir: Path, prefix: str = "") -> None:
