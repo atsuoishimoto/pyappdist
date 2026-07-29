@@ -6,6 +6,7 @@ import dataclasses
 import hashlib
 import io
 import os
+import re
 import shutil
 import subprocess
 import tarfile
@@ -353,6 +354,125 @@ def test_multi_launcher_desktop_names_are_disambiguated(tmp_path, sample_config)
     assert res.returncode == 0, res.stderr
     assert "Name=Hello World - foo\n" in (appdir / "helloworld-foo.desktop").read_text()
     assert "Name=Hello World - bar\n" in (appdir / "helloworld-bar.desktop").read_text()
+
+
+# Desktop Entry escaping, applied when a path is interpolated into an entry.
+# A string value only reserves the backslash; an Exec argument additionally
+# backslash-escapes ", ` and $ inside the quotes, and that escaping is then
+# itself string-escaped — so every added backslash appears doubled.
+_STRING_ESCAPES = {"\\": "\\" * 2}
+_EXEC_ESCAPES = {
+    "\\": "\\" * 4,
+    '"': "\\" * 2 + '"',
+    "`": "\\" * 2 + "`",
+    "$": "\\" * 2 + "$",
+}
+
+
+def _escape(path: str, table: dict[str, str]) -> str:
+    return "".join(table.get(c, c) for c in path)
+
+
+_INSTALLER_SH = (
+    Path(__file__).resolve().parents[1]
+    / "src" / "pyappdist" / "posix" / "installer.sh"
+)
+
+
+def _shell_escape(func: str, value: str) -> str:
+    """Call one of installer.sh's escaping helpers with ``value``.
+
+    The helpers are lifted out of the installer verbatim (they are top-level
+    definitions with no nested braces at column 0), so the rules are tested where
+    they are written rather than restated here.
+    """
+    body = _INSTALLER_SH.read_text(encoding="utf-8")
+    match = re.search(rf"^{func}\(\) \{{.*?^\}}", body, re.DOTALL | re.MULTILINE)
+    assert match, f"{func} not found in installer.sh"
+    res = subprocess.run(
+        ["/bin/sh", "-c", f'{match.group(0)}\n{func} "$1"', "_", value],
+        capture_output=True, text=True,
+    )
+    assert res.returncode == 0, res.stderr
+    return res.stdout
+
+
+@pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("/plain/path", "/plain/path"),
+        ("/with space/x", "/with space/x"),
+        ("/a\\b", "/a" + "\\" * 2 + "b"),     # only the backslash is reserved
+        ('/a"b', '/a"b'),
+        ("/a$b", "/a$b"),
+    ],
+)
+def test_desktop_string_escaping(value, expected):
+    assert _shell_escape("desktop_string", value) == expected
+
+
+@pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("/plain/path", '"/plain/path"'),
+        ("/with space/x", '"/with space/x"'),
+        ("/a\\b", '"/a' + "\\" * 4 + 'b"'),   # Exec escape, then string escape
+        ('/a"b', '"/a' + "\\" * 2 + '"b"'),
+        ("/a$b", '"/a' + "\\" * 2 + '$b"'),
+        ("/a`b", '"/a' + "\\" * 2 + '`b"'),
+    ],
+)
+def test_desktop_exec_arg_escaping(value, expected):
+    assert _shell_escape("desktop_exec_arg", value) == expected
+
+
+@pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
+def test_desktop_entry_escapes_special_characters(tmp_path, sample_config):
+    """A prefix with Desktop-Entry-reserved characters produces a valid entry."""
+    if shutil.which("gzip") is None:
+        pytest.skip("gzip not installed")
+    (tmp_path / "app.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    run = _build_gui_run(tmp_path, sample_config, tmp_path / "build", ["foo"])
+
+    # Reserved characters that survive an install end to end. A backslash is
+    # escaped correctly too (see the unit tests above), but GNU tar rejects a
+    # -C directory containing one, so it cannot be exercised here.
+    prefix = tmp_path / 'we$ird `sub` "q" dir'
+    env, appdir = _desktop_env(tmp_path)
+    res = subprocess.run(
+        ["/bin/sh", str(run), "--prefix", str(prefix)],
+        capture_output=True, text=True, env=env,
+    )
+    assert res.returncode == 0, res.stderr
+
+    libdir = prefix / "lib" / "helloworld"
+    text = (appdir / "helloworld-foo.desktop").read_text()
+    assert f'Exec="{_escape(str(libdir / "foo"), _EXEC_ESCAPES)}" %U\n' in text
+    assert f"Icon={_escape(str(libdir / 'foo.png'), _STRING_ESCAPES)}\n" in text
+    # Nothing leaked onto extra lines: the entry keeps its fixed shape.
+    assert len([ln for ln in text.splitlines() if ln]) == 8  # header + 7 keys
+
+
+@pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
+def test_desktop_entry_refuses_unrepresentable_prefix(tmp_path, sample_config):
+    """A newline in the prefix cannot be written to an entry, so the install stops."""
+    if shutil.which("gzip") is None:
+        pytest.skip("gzip not installed")
+    (tmp_path / "app.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    run = _build_gui_run(tmp_path, sample_config, tmp_path / "build", ["foo"])
+
+    prefix = tmp_path / "two\nlines"
+    env, _appdir = _desktop_env(tmp_path)
+    res = subprocess.run(
+        ["/bin/sh", str(run), "--prefix", str(prefix)],
+        capture_output=True, text=True, env=env,
+    )
+    assert res.returncode != 0
+    assert "tab or newline" in res.stderr
+    # It fails before extracting, so no half-install is left behind.
+    assert not (prefix / "lib" / "helloworld").exists()
 
 
 @pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
