@@ -99,23 +99,25 @@ def _tag(ctx: BuildContext) -> str:
 
 
 def _resolve_version(ctx: BuildContext) -> BuildContext:
-    """Fill in a dynamic ``[project].version`` from the app wheel in the wheelhouse.
+    """Fill in the version from the app wheel in the wheelhouse.
 
-    A no-op for a static version. For a dynamic one (hatch-vcs, setuptools-scm, ...)
-    the PEP 517 build in build-wheels already ran the backend that computes it, so
-    the built app wheel's filename is the authoritative source. Every stage that
-    consumes ``config.version`` (launchers, .wxs, manifests, artifact names) runs
-    after build-wheels, so callers resolve here before those stages. The msi/msix
-    dotted-numeric rule, deferred at config load, is enforced against the resolved
-    version — a between-tags VCS version like "1.2.3.dev4+g1a2b3c" fails it.
+    A no-op when an explicit ``[tool.pyappdist].version`` was given. Otherwise the
+    built app wheel is the authoritative source: the PEP 517 build in build-wheels
+    ran the project's real build backend, so the wheel carries both a static
+    ``[project].version`` and a backend-computed dynamic one (hatch-vcs,
+    setuptools-scm, ...). Every stage that consumes ``config.version`` (launchers,
+    .wxs, manifests, artifact names) runs after build-wheels, so callers resolve
+    here before those stages. The msi/msix dotted-numeric rule, deferred at config
+    load, is enforced against the resolved version — a between-tags VCS version
+    like "1.2.3.dev4+g1a2b3c" fails it.
     """
     config = ctx.config
-    if not config.dynamic_version:
+    if not config.version_from_wheel:
         return ctx
     version = app_wheel_version(config, ctx.wheelhouse)
     check_msi_version(version, {config.format})
     print(f"version [{_tag(ctx)}]: {version} (from the app wheel)")
-    config = dataclasses.replace(config, version=version, dynamic_version=False)
+    config = dataclasses.replace(config, version=version, version_from_wheel=False)
     return dataclasses.replace(ctx, config=config)
 
 
@@ -124,7 +126,7 @@ def cmd_build_wheels(args: argparse.Namespace) -> int:
         # Dependencies are resolved with the target runtime's python, so prepare it first.
         info = _do_fetch_runtime(ctx, args)
         wheels = build_wheelhouse(ctx.config, info, ctx.wheelhouse)
-        # Resolve a dynamic version now so an msi/msix-incompatible version fails
+        # Resolve the version now so an msi/msix-incompatible version fails
         # at the earliest stage that can know it, not at packaging time.
         _resolve_version(ctx)
         print(f"OK [{_tag(ctx)}]: {len(wheels)} wheel -> {ctx.wheelhouse}")

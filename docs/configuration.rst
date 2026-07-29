@@ -61,10 +61,19 @@ All keys at a glance
    Display name of the app. Defaults to ``[project].name``.
 
 ``version``
-   Product version. Defaults to ``[project].version`` (then ``"0.0.0"``).
+   Product version. When omitted (the usual case), the version is taken from
+   the app wheel pyappdist builds during ``build-wheels``: that PEP 517 build
+   runs the project's own build backend, so both a static
+   ``[project].version`` and a backend-computed dynamic one (hatch-vcs,
+   setuptools-scm, …) are honored, in PEP 440 normalized form. Set this key to
+   pin the product version independently of the wheel.
+
    When any target uses ``format = "msi"`` or ``"msix"``, the version must be
    dotted numeric (e.g. ``"1.2.3"``) — MSI's ProductVersion cannot express
-   pre-releases, so e.g. ``"1.0.0rc1"`` is rejected at load time.
+   pre-releases. The check runs as soon as the version is known: at load time
+   for an explicit ``version`` (``"1.0.0rc1"`` is rejected immediately),
+   otherwise right after ``build-wheels`` — so building between VCS tags
+   (e.g. setuptools-scm's ``1.2.3.dev4+g1a2b3c``) fails there.
 
    Up to four fields are accepted, but Windows Installer compares only the
    **first three** when deciding whether an install is an upgrade. Two MSI
@@ -73,16 +82,9 @@ All keys at a glance
    warns when an msi target is built from such a version. (MSIX is unaffected —
    its Identity Version uses all four fields.)
 
-   If the project declares ``dynamic = ["version"]`` (hatch-vcs,
-   setuptools-scm, …), the version is computed by the build backend and is not
-   readable from ``pyproject.toml``. pyappdist then takes the version from the
-   app wheel it builds during ``build-wheels`` — the same PEP 517 build that
-   stamps the wheel — so every artifact carries the real version. Set
-   ``[tool.pyappdist].version`` to override. For msi/msix targets the
-   dotted-numeric rule above applies to the resolved version, so building
-   between VCS tags (e.g. setuptools-scm's ``1.2.3.dev4+g1a2b3c``) is rejected
-   at that point; the standalone ``build-launchers`` and ``gen-wix`` commands
-   need the wheelhouse from a prior ``build-wheels`` run to know the version.
+   Without an explicit ``version``, the standalone ``build-launchers`` and
+   ``gen-wix`` commands need the wheelhouse from a prior ``build-wheels`` run
+   to know the version.
 
 ``manager``
    Package manager used to pin dependencies: ``"uv"``, ``"poetry"``,

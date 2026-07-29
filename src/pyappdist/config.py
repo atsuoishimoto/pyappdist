@@ -229,10 +229,10 @@ class Config:
     # Skip launcher generation entirely (image format only): the archive then contains
     # just the installed tree, for apps that ship their own entry mechanism.
     no_launcher: bool = False
-    # [project].version is declared dynamic and no explicit version was given:
-    # ``version`` holds the "0.0.0" placeholder until the CLI resolves the real
-    # version from the app wheel built by build-wheels (and clears this flag).
-    dynamic_version: bool = False
+    # No explicit [tool.pyappdist].version was given: ``version`` holds the
+    # "0.0.0" placeholder until the CLI resolves the real version from the app
+    # wheel built by build-wheels (and clears this flag).
+    version_from_wheel: bool = False
 
     @property
     def python_minor(self) -> str:
@@ -264,22 +264,19 @@ def load_configs(
         raise ConfigError("[project].name is required")
     name = tool.get("name") or dist_name
 
-    version = tool.get("version") or project.get("version")
-    dynamic_version = False
-    if version is None:
-        # A dynamic version is computed by the build backend (hatch-vcs,
-        # setuptools-scm, ...), so it is absent from pyproject.toml and cannot be
-        # resolved here. Falling back to "0.0.0" would silently stamp every
-        # artifact — MSI ProductVersion, MSIX Identity, .run/archive filenames,
-        # VERSIONINFO — with a version the app wheel itself does not carry.
-        # Instead the config is marked dynamic, and the CLI fills in the real
-        # version from the app wheel that build-wheels produces (the wheel is
-        # built via PEP 517, so its filename carries the backend-computed
-        # version) before any stage consumes it.
-        dynamic = project.get("dynamic")
-        if isinstance(dynamic, list) and "version" in dynamic:
-            dynamic_version = True
-        version = "0.0.0"
+    # [tool.pyappdist].version is the only version read from pyproject.toml.
+    # Without it, the version comes from the app wheel that build-wheels
+    # produces: the PEP 517 build runs the project's real build backend, so
+    # both a static [project].version and a backend-computed dynamic one
+    # (hatch-vcs, setuptools-scm, ...) end up in the wheel, and the CLI fills
+    # it in from there before any stage consumes config.version. Guessing here
+    # instead — reading [project].version, or a "0.0.0" fallback — could stamp
+    # every artifact (MSI ProductVersion, MSIX Identity, .run/archive
+    # filenames, VERSIONINFO) with a version the wheel itself does not carry.
+    version = tool.get("version")
+    version_from_wheel = version is None
+    if version_from_wheel:
+        version = "0.0.0"  # placeholder; resolution replaces it before any use
     # An unquoted TOML number silently drops trailing zeros (1.10 parses as the
     # float 1.1), so reject non-strings before they mangle the version.
     if not isinstance(version, str):
@@ -349,11 +346,11 @@ def load_configs(
                         "the name must contain only letters, digits, and hyphens"
                     )
 
-    # A dynamic version is unknown until build-wheels produces the app wheel, so
-    # the format/version compatibility check runs again post-resolution (the CLI
-    # calls check_msi_version with the wheel's version).
+    # A wheel-resolved version is unknown until build-wheels produces the app
+    # wheel, so the format/version compatibility check runs post-resolution
+    # instead (the CLI calls check_msi_version with the wheel's version).
     selected_formats = {fmt for (_, _, fmt, *_rest) in specs}
-    if not dynamic_version:
+    if not version_from_wheel:
         check_msi_version(version, selected_formats)
 
     return [
@@ -375,7 +372,7 @@ def load_configs(
             linux=linux,
             macos=macos,
             no_launcher=no_launcher,
-            dynamic_version=dynamic_version,
+            version_from_wheel=version_from_wheel,
         )
         for (target_name, target, fmt, wix, msix, extras, linux, macos, no_launcher) in specs
     ]
@@ -384,8 +381,8 @@ def load_configs(
 def check_msi_version(version: str, formats: Collection[str]) -> None:
     """Reject/warn about a version the msi/msix toolchain cannot handle.
 
-    Runs at config load for a version read from pyproject.toml, and again from
-    the CLI once a dynamic version has been resolved from the built app wheel.
+    Runs at config load for an explicit [tool.pyappdist].version, and from the
+    CLI once any other version has been resolved from the built app wheel.
     """
     if {"msi", "msix"} & set(formats) and not _MSI_VERSION_RE.match(version):
         raise ConfigError(

@@ -139,7 +139,7 @@ def test_main_reports_pyappdist_error(monkeypatch, capsys):
     assert "error: boom" in capsys.readouterr().err
 
 
-_DYNAMIC = """
+_NO_TOOL_VERSION = """
 [project]
 name = "helloworld"
 dynamic = ["version"]
@@ -155,8 +155,8 @@ format = "msi"
 """
 
 
-def _dynamic_ctx(tmp_path: Path, wheel: str | None):
-    (tmp_path / "pyproject.toml").write_text(_DYNAMIC, encoding="utf-8")
+def _wheel_version_ctx(tmp_path: Path, wheel: str | None):
+    (tmp_path / "pyproject.toml").write_text(_NO_TOOL_VERSION, encoding="utf-8")
     args = build_parser().parse_args(["build", "-C", str(tmp_path)])
     (ctx,) = _contexts(args)
     if wheel is not None:
@@ -166,25 +166,26 @@ def _dynamic_ctx(tmp_path: Path, wheel: str | None):
 
 
 def test_resolve_version_from_app_wheel(tmp_path: Path, capsys):
-    # A dynamic [project].version is filled in from the app wheel build-wheels
-    # produced; the resolved config no longer carries the dynamic flag.
-    ctx = _dynamic_ctx(tmp_path, "helloworld-1.2.3-py3-none-any.whl")
-    assert ctx.config.dynamic_version
+    # Without [tool.pyappdist].version, the version is filled in from the app
+    # wheel build-wheels produced; the resolved config no longer carries the flag.
+    ctx = _wheel_version_ctx(tmp_path, "helloworld-1.2.3-py3-none-any.whl")
+    assert ctx.config.version_from_wheel
     ctx = cli._resolve_version(ctx)
     assert ctx.config.version == "1.2.3"
-    assert not ctx.config.dynamic_version
+    assert not ctx.config.version_from_wheel
     assert "1.2.3" in capsys.readouterr().out
 
 
-def test_resolve_version_static_is_noop(tmp_path: Path):
-    (tmp_path / "pyproject.toml").write_text(_MULTI, encoding="utf-8")
+def test_resolve_version_explicit_is_noop(tmp_path: Path):
+    text = _MULTI.replace("[tool.pyappdist]", '[tool.pyappdist]\nversion = "0.1.0"')
+    (tmp_path / "pyproject.toml").write_text(text, encoding="utf-8")
     args = build_parser().parse_args(["build", "-C", str(tmp_path), "win-user"])
     (ctx,) = _contexts(args)
     assert cli._resolve_version(ctx) is ctx
 
 
 def test_resolve_version_requires_wheelhouse(tmp_path: Path):
-    ctx = _dynamic_ctx(tmp_path, None)
+    ctx = _wheel_version_ctx(tmp_path, None)
     with pytest.raises(BuildError, match="run build-wheels first"):
         cli._resolve_version(ctx)
 
@@ -192,6 +193,6 @@ def test_resolve_version_requires_wheelhouse(tmp_path: Path):
 def test_resolve_version_enforces_msi_rule(tmp_path: Path):
     # The msi/msix dotted-numeric check was deferred at load time (the version
     # was unknown); it must fire against the resolved version.
-    ctx = _dynamic_ctx(tmp_path, "helloworld-1.2.3.dev4+g1a2b3c-py3-none-any.whl")
+    ctx = _wheel_version_ctx(tmp_path, "helloworld-1.2.3.dev4+g1a2b3c-py3-none-any.whl")
     with pytest.raises(ConfigError, match="dotted numeric"):
         cli._resolve_version(ctx)

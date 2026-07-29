@@ -90,12 +90,13 @@ def _canonical(name: str) -> str:
 def app_wheel_version(config: Config, wheelhouse: Path) -> str:
     """The version of the app wheel in the wheelhouse.
 
-    This is how a dynamic ``[project].version`` (hatch-vcs, setuptools-scm, ...)
-    is resolved: the PEP 517 build in :func:`build_app_wheel` already ran the
-    backend that computes it, and the wheel filename
-    (``{dist}-{version}(-{build})?-{python}-{abi}-{platform}.whl``) records the
-    result. The distribution segment is matched canonically because wheel
-    filenames escape the project name (``my-app`` becomes ``my_app``).
+    This is how ``config.version`` is resolved when ``[tool.pyappdist].version``
+    is not set: the PEP 517 build in :func:`build_app_wheel` already ran the
+    project's build backend — which knows the version, whether static
+    ``[project].version`` or computed (hatch-vcs, setuptools-scm, ...) — and the
+    wheel filename (``{dist}-{version}(-{build})?-{python}-{abi}-{platform}.whl``)
+    records the result. The distribution segment is matched canonically because
+    wheel filenames escape the project name (``my-app`` becomes ``my_app``).
     """
     want = _canonical(config.dist_name)
     versions = {
@@ -107,8 +108,8 @@ def app_wheel_version(config: Config, wheelhouse: Path) -> str:
     if not versions:
         raise BuildError(
             f"app wheel for {config.dist_name!r} not found in {wheelhouse} "
-            "(run build-wheels first; it is needed to resolve the dynamic "
-            "[project].version)"
+            "(run build-wheels first; the app version is taken from the built "
+            "wheel unless [tool.pyappdist].version is set)"
         )
     if len(versions) > 1:
         raise BuildError(
