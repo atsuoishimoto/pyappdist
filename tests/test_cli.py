@@ -137,3 +137,62 @@ def test_main_reports_pyappdist_error(monkeypatch, capsys):
     monkeypatch.setattr(cli, "cmd_build", failing)
     assert cli.main(["build", "-C", "."]) == 1
     assert "error: boom" in capsys.readouterr().err
+
+
+_NO_TOOL_VERSION = """
+[project]
+name = "helloworld"
+dynamic = ["version"]
+
+[tool.pyappdist]
+python = "3.12"
+launchers = [ { name = "helloworld", entry = "helloworld:main" } ]
+
+[[tool.pyappdist.targets]]
+name = "win"
+platform = "windows-x86_64"
+format = "msi"
+"""
+
+
+def _wheel_version_ctx(tmp_path: Path, wheel: str | None):
+    (tmp_path / "pyproject.toml").write_text(_NO_TOOL_VERSION, encoding="utf-8")
+    args = build_parser().parse_args(["build", "-C", str(tmp_path)])
+    (ctx,) = _contexts(args)
+    if wheel is not None:
+        ctx.wheelhouse.mkdir(parents=True)
+        (ctx.wheelhouse / wheel).write_bytes(b"")
+    return ctx
+
+
+def test_resolve_version_from_app_wheel(tmp_path: Path, capsys):
+    # Without [tool.pyappdist].version, the version is filled in from the app
+    # wheel build-wheels produced; the resolved config no longer carries the flag.
+    ctx = _wheel_version_ctx(tmp_path, "helloworld-1.2.3-py3-none-any.whl")
+    assert ctx.config.version_from_wheel
+    ctx = cli._resolve_version(ctx)
+    assert ctx.config.version == "1.2.3"
+    assert not ctx.config.version_from_wheel
+    assert "1.2.3" in capsys.readouterr().out
+
+
+def test_resolve_version_explicit_is_noop(tmp_path: Path):
+    text = _MULTI.replace("[tool.pyappdist]", '[tool.pyappdist]\nversion = "0.1.0"')
+    (tmp_path / "pyproject.toml").write_text(text, encoding="utf-8")
+    args = build_parser().parse_args(["build", "-C", str(tmp_path), "win-user"])
+    (ctx,) = _contexts(args)
+    assert cli._resolve_version(ctx) is ctx
+
+
+def test_resolve_version_requires_wheelhouse(tmp_path: Path):
+    ctx = _wheel_version_ctx(tmp_path, None)
+    with pytest.raises(BuildError, match="run build-wheels first"):
+        cli._resolve_version(ctx)
+
+
+def test_resolve_version_enforces_msi_rule(tmp_path: Path):
+    # The msi/msix dotted-numeric check was deferred at load time (the version
+    # was unknown); it must fire against the resolved version.
+    ctx = _wheel_version_ctx(tmp_path, "helloworld-1.2.3.dev4+g1a2b3c-py3-none-any.whl")
+    with pytest.raises(ConfigError, match="dotted numeric"):
+        cli._resolve_version(ctx)

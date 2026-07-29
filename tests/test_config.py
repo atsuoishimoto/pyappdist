@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from pyappdist.config import ensure_upgrade_code, load_configs
+from pyappdist.config import check_msi_version, ensure_upgrade_code, load_configs
 from pyappdist.errors import ConfigError
 from pyappdist.wix.guid import is_guid
 
@@ -187,12 +187,43 @@ def test_unquoted_tool_version_rejected(tmp_path: Path):
         load_configs(_write_text(tmp_path, text))
 
 
-def test_unquoted_project_version_rejected(tmp_path: Path):
+@pytest.mark.parametrize(
+    "project_version",
+    ['version = "0.1.0"', 'dynamic = ["version"]', ""],
+    ids=["static", "dynamic", "absent"],
+)
+def test_version_from_wheel_without_tool_version(tmp_path: Path, project_version: str):
+    # Without [tool.pyappdist].version, the version comes from the app wheel the
+    # CLI builds — whatever form [project] declares it in (the build backend
+    # knows it either way). The msi/msix version check is deferred until then
+    # (the placeholder "0.0.0" would pass it, but the real version is unknown).
     text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
-        'version = "0.1.0"', "version = 1.10"
+        'version = "0.1.0"', project_version
     )
-    with pytest.raises(ConfigError, match="quoted string"):
-        load_configs(_write_text(tmp_path, text))
+    (cfg,) = load_configs(_write_text(tmp_path, text))
+    assert cfg.version_from_wheel
+    assert cfg.version == "0.0.0"
+
+
+def test_explicit_tool_version_skips_wheel_resolution(tmp_path: Path):
+    # An explicit [tool.pyappdist].version pins the product version.
+    text = _BASE.format(
+        fmt="msi", app_extra='version = "2.0.0"', target_extra=""
+    ).replace('version = "0.1.0"', 'dynamic = ["version"]')
+    (cfg,) = load_configs(_write_text(tmp_path, text))
+    assert cfg.version == "2.0.0"
+    assert not cfg.version_from_wheel
+
+
+def test_check_msi_version():
+    # The deferred check the CLI runs on a wheel-resolved version: the same
+    # dotted-numeric rule load_configs applies to an explicit tool.version.
+    check_msi_version("1.2.3", {"msi"})
+    check_msi_version("1.2.3.dev4+g1a2b3c", {"linux"})  # non-MSI formats accept PEP 440
+    with pytest.raises(ConfigError, match="dotted numeric"):
+        check_msi_version("1.2.3.dev4+g1a2b3c", {"msi"})
+    with pytest.raises(ConfigError, match="dotted numeric"):
+        check_msi_version("1.0.0rc1", {"msix"})
 
 
 @pytest.mark.parametrize("bad", ['":main"', '"helloworld:"', '"bad name"', '"a..b"'])
@@ -755,24 +786,22 @@ def test_distinct_launcher_names_accepted(tmp_path: Path):
 
 
 def test_msi_rejects_non_numeric_version(tmp_path: Path):
-    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
-        'version = "0.1.0"', 'version = "0.1.0a1"'
-    )
+    text = _BASE.format(fmt="msi", app_extra='version = "0.1.0a1"', target_extra="")
     with pytest.raises(ConfigError, match="numeric version"):
         load_configs(_write_text(tmp_path, text))
 
 
 def test_posix_allows_non_numeric_version(tmp_path: Path):
-    text = _linux_pyproject("").replace('version = "0.1.0"', 'version = "0.1.0a1"')
+    text = _BASE.format(
+        fmt="linux", app_extra='version = "0.1.0a1"', target_extra=""
+    ).replace('"windows-x86_64"', '"linux-x86_64"')
     cfg = load_configs(_write_text(tmp_path, text))[0]
     assert cfg.version == "0.1.0a1"
 
 
 def test_msi_four_field_version_warns(tmp_path: Path, capsys):
     # Accepted, but MSI compares only the first three fields for upgrades.
-    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
-        'version = "0.1.0"', 'version = "1.2.3.4"'
-    )
+    text = _BASE.format(fmt="msi", app_extra='version = "1.2.3.4"', target_extra="")
     cfg = load_configs(_write_text(tmp_path, text))[0]
     assert cfg.version == "1.2.3.4"
     err = capsys.readouterr().err
@@ -780,15 +809,13 @@ def test_msi_four_field_version_warns(tmp_path: Path, capsys):
 
 
 def test_msi_three_field_version_does_not_warn(tmp_path: Path, capsys):
-    load_configs(_write(tmp_path))
+    load_configs(_write(tmp_path, app_extra='version = "1.2.3"'))
     assert capsys.readouterr().err == ""
 
 
 def test_msix_four_field_version_does_not_warn(tmp_path: Path, capsys):
     # MSIX's Identity Version legitimately uses all four fields.
-    text = _BASE.format(fmt="msix", app_extra="", target_extra="").replace(
-        'version = "0.1.0"', 'version = "1.2.3.4"'
-    )
+    text = _BASE.format(fmt="msix", app_extra='version = "1.2.3.4"', target_extra="")
     load_configs(_write_text(tmp_path, text))
     assert capsys.readouterr().err == ""
 
@@ -798,9 +825,9 @@ def test_msix_four_field_version_does_not_warn(tmp_path: Path, capsys):
 _MSI_PLUS_LINUX = """
 [project]
 name = "helloworld"
-version = "0.1.0a1"
 
 [tool.pyappdist]
+version = "0.1.0a1"
 python = "3.12"
 launchers = [ { name = "helloworld", entry = "helloworld:main" } ]
 
