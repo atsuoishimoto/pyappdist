@@ -5,7 +5,6 @@ from __future__ import annotations
 import dataclasses
 
 from pyappdist.config import MsixConfig, WixConfig
-from pyappdist.msix.build import _solid_png
 from pyappdist.msix.manifest import _app_id, _rdn_escape, _version4, generate_manifest
 
 
@@ -77,12 +76,6 @@ def test_version4():
 def test_app_id_sanitizes():
     assert _app_id("my-app") == "myapp"
     assert _app_id("1app") == "App1app"
-
-
-def test_solid_png_is_valid_png():
-    data = _solid_png(16, 16, (0, 120, 212))
-    assert data[:8] == b"\x89PNG\r\n\x1a\n"
-    assert b"IHDR" in data[:32] and data.rstrip().endswith(b"\xaeB`\x82")  # IEND CRC
 
 
 def test_build_msix_invokes_makeappx_with_relative_paths(

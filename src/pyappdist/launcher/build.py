@@ -107,7 +107,7 @@ def _build_one_macos(
     header = (
         f'#define PYAPPDIST_PYREL "{_c_str(_MACOS_PYREL)}"\n'
         f'#define PYAPPDIST_BOOTSTRAP "{_c_str(spec.bootstrap)}"\n'
-        f"#define PYAPPDIST_FIXED_ARGS {_fixed_args_initializer(spec.args)}\n"
+        f"#define PYAPPDIST_FIXED_ARGS {_fixed_args_initializer(spec)}\n"
     )
     (gen / "pyappdist_launcher_config.h").write_text(header, encoding="utf-8")
     # Stage launcher_mac.c next to the generated header so clang runs with cwd=gen.
@@ -140,12 +140,44 @@ def macos_arch(target: Target) -> str:
     return "arm64" if machine == "aarch64" else machine
 
 
-def _fixed_args_initializer(args: str) -> str:
-    """POSIX-split fixed args into a NULL-terminated C array initializer."""
-    import shlex
-
-    items = "".join(f'"{_c_str(p)}", ' for p in shlex.split(args))
+def _fixed_args_initializer(spec: LauncherConfig) -> str:
+    """The launcher's fixed args as a NULL-terminated C array initializer."""
+    items = "".join(f'"{_c_str(arg)}", ' for arg in spec.argv)
     return "{ " + items + "NULL }"
+
+
+def _windows_fixed_args(spec: LauncherConfig) -> str:
+    """The launcher's fixed args as one MSVC-quoted command-line fragment.
+
+    launcher.c appends this verbatim, so it must already be quoted the way the child's
+    argv parsing will read it back — otherwise the raw ``args`` string would be
+    re-split by MSVC rules and mean something different than it does for the shell
+    wrapper and the macOS stub.
+    """
+    return " ".join(msvc_quote(arg) for arg in spec.argv)
+
+
+def msvc_quote(arg: str) -> str:
+    """Quote one argument the way ``CommandLineToArgvW`` will parse it back.
+
+    Mirrors ``append_quoted`` in launcher.c: only backslashes immediately before a
+    quote are doubled, and the run before the closing quote is doubled too.
+    """
+    if arg and not any(c in ' \t"' for c in arg):
+        return arg
+    out = ['"']
+    backslashes = 0
+    for ch in arg:
+        if ch == "\\":
+            backslashes += 1
+            continue
+        if ch == '"':
+            out.append("\\" * (backslashes * 2 + 1) + '"')
+        else:
+            out.append("\\" * backslashes + ch)
+        backslashes = 0
+    out.append("\\" * (backslashes * 2) + '"')
+    return "".join(out)
 
 
 def _build_one(
@@ -157,10 +189,11 @@ def _build_one(
     gen.mkdir(parents=True, exist_ok=True)
 
     pyexe = "python\\pythonw.exe" if spec.gui else "python\\python.exe"
+    fixed_args = _windows_fixed_args(spec)
     header = (
         f"#define PYAPPDIST_PYEXE L\"{_c_str(pyexe)}\"\n"
         f"#define PYAPPDIST_BOOTSTRAP L\"{_c_str(_bootstrap(spec, config))}\"\n"
-        f"#define PYAPPDIST_FIXED_ARGS L\"{_c_str(spec.args)}\"\n"
+        f"#define PYAPPDIST_FIXED_ARGS L\"{_c_str(fixed_args)}\"\n"
     )
     # Write as UTF-8. With cl's /utf-8, non-ASCII in the source is read correctly,
     # and L"..." compiles to wide (UTF-16) literals.

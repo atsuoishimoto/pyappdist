@@ -19,7 +19,7 @@ from pathlib import Path
 
 from .config import Config
 from .image.layout import ImageLayout
-from .posix.build import targz_bytes, write_launchers
+from .posix.build import write_launchers, write_targz
 
 
 def build_archive(
@@ -39,7 +39,8 @@ def build_archive(
         _write_zip(image_dir, out, prefix)
     else:
         out = dist_dir / f"{base}.tar.gz"
-        out.write_bytes(targz_bytes(image_dir, mode="gz", prefix=prefix, log=log))
+        with out.open("wb") as fp:
+            write_targz(fp, image_dir, mode="gz", prefix=prefix, log=log)
     log(f"image: archive -> {out}")
     return [out]
 
