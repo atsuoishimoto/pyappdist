@@ -127,14 +127,19 @@ shell wrapper on Linux/macOS).
    key means that platform gets no icon (macOS falls back to a generated placeholder).
 
 ``args``
-   Fixed arguments as a single string, prepended to the program's argv.
+   Fixed arguments, prepended to the program's argv. Two forms:
 
-   The string is split into individual arguments with **POSIX shell quoting
-   rules**, at build time, on every platform — so ``args = "--path 'a b'"`` is
-   always the two arguments ``--path`` and ``a b``. Each launcher then embeds
-   that argument list in the form its own OS needs, and nothing is glob-expanded
-   or re-split when the app runs. An ``args`` value that cannot be parsed (an
-   unbalanced quote, say) is rejected at load time.
+   * **Shell form** — a single string, split into individual arguments with
+     **POSIX shell quoting rules**, at build time, on every platform — so
+     ``args = "--path 'a b'"`` is always the two arguments ``--path`` and
+     ``a b``. A string that cannot be parsed (an unbalanced quote, say) is
+     rejected at load time.
+   * **Exec form** — an array of strings, used verbatim as the argument list
+     with no splitting at all: ``args = ["--path", "a b"]`` is exactly those
+     two arguments, with no quoting to get right.
+
+   Either way, each launcher embeds the resulting argument list in the form its
+   own OS needs, and nothing is glob-expanded or re-split when the app runs.
 
 .. code-block:: toml
 

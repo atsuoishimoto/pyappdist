@@ -87,7 +87,9 @@ class LauncherConfig:
     # "windows"/"macos"/"linux" (matching Target.os). Stored as a tuple, not a dict, so the
     # frozen dataclass stays hashable. Use icon_for() to look one up.
     icons: tuple[tuple[str, str], ...] = ()
-    args: str = ""      # fixed arguments (single string)
+    # Fixed arguments. Shell form (str, split with POSIX quoting rules) or exec form
+    # (a tuple of pre-split arguments, from a TOML array). Read via argv.
+    args: str | tuple[str, ...] = ""
 
     def icon_for(self, os: str) -> str | None:
         """The icon path configured for ``os`` (``Target.os``), or None."""
@@ -98,16 +100,20 @@ class LauncherConfig:
 
     @property
     def argv(self) -> tuple[str, ...]:
-        """``args`` split into individual arguments.
+        """``args`` as individual arguments.
 
-        POSIX shell quoting is the single canonical reading of ``args`` on every OS —
-        ``--path 'a b'`` is two arguments everywhere, and nothing is glob-expanded.
-        Each launcher kind renders this list in whatever form its own OS needs
-        (MSVC quoting on Windows, single quotes in the shell wrapper, a C array in
-        the macOS stub), rather than re-splitting the raw string by its own rules.
-        ``_validate_args`` has already rejected unparsable values at load time.
+        The exec form (a TOML array) already is the argument list; the shell form
+        (a string) is split with POSIX shell quoting rules — ``--path 'a b'`` is two
+        arguments everywhere, and nothing is glob-expanded. Either way the list is
+        the single canonical reading on every OS: each launcher kind renders it in
+        whatever form its own OS needs (MSVC quoting on Windows, single quotes in
+        the shell wrapper, a C array in the macOS stub), rather than re-splitting a
+        raw string by its own rules. ``_parse_args`` has already rejected unparsable
+        values at load time.
         """
-        return tuple(shlex.split(self.args))
+        if isinstance(self.args, str):
+            return tuple(shlex.split(self.args))
+        return self.args
 
     @property
     def bootstrap(self) -> str:
@@ -563,15 +569,34 @@ def _validate_target_name(name: str, i: int) -> None:
         )
 
 
-def _validate_args(args: str, i: int) -> None:
-    """Reject an ``args`` string that POSIX shell quoting cannot parse."""
-    try:
-        shlex.split(args)
-    except ValueError as exc:
-        raise ConfigError(
-            f"launchers[{i}].args cannot be parsed ({exc}); arguments are split with "
-            f"POSIX shell quoting rules: {args!r}"
-        ) from None
+def _parse_args(raw: object, i: int) -> str | tuple[str, ...]:
+    """Normalize a launcher ``args`` value.
+
+    Shell form (a string) is kept as-is after checking that POSIX shell quoting can
+    parse it; exec form (an array of strings) becomes a tuple of pre-split arguments.
+    """
+    if raw is None:
+        return ""
+    if isinstance(raw, str):
+        try:
+            shlex.split(raw)
+        except ValueError as exc:
+            raise ConfigError(
+                f"launchers[{i}].args cannot be parsed ({exc}); arguments are split "
+                f"with POSIX shell quoting rules: {raw!r}"
+            ) from None
+        return raw
+    if isinstance(raw, list):
+        for j, arg in enumerate(raw):
+            if not isinstance(arg, str):
+                raise ConfigError(
+                    f"launchers[{i}].args[{j}] must be a string: {arg!r}"
+                )
+        return tuple(raw)
+    raise ConfigError(
+        f"launchers[{i}].args must be a string (split with POSIX shell quoting "
+        f"rules) or an array of strings: {raw!r}"
+    )
 
 
 def _validate_entry(entry: str, i: int) -> None:
@@ -605,14 +630,13 @@ def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:
             raise ConfigError(f"launchers[{i}].entry is required")
         _validate_launcher_name(str(name), i)
         _validate_entry(str(entry), i)
-        _validate_args(str(item.get("args", "")), i)
         out.append(
             LauncherConfig(
                 name=str(name),
                 entry=str(entry),
                 gui=bool(item.get("gui", False)),
                 icons=_parse_icon(item.get("icon"), i),
-                args=str(item.get("args", "")),
+                args=_parse_args(item.get("args"), i),
             )
         )
     # Duplicate names clobber each other's image/<name>.exe and produce duplicate
