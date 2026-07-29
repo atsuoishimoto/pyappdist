@@ -12,9 +12,9 @@ Subcommands:
   build-wheels    app + dependency wheels into <target>/wheelhouse
   fetch-runtime   python-build-standalone runtime into <target>/runtime
   build-image     runtime + install + compileall + launcher into <target>/image
-  build-launchers build launcher.exe inside the image (Windows, MSVC)
-  gen-wix         scan the image and generate WiX XML (.wxs)
-  build           run wheels->runtime->image->launcher->wix->MSI in one go
+  build-launchers build the launchers inside the image (kind follows the format)
+  gen-wix         scan the image and generate WiX XML (.wxs) — msi targets only
+  build           run the full pipeline and package the selected target(s)
 """
 
 from __future__ import annotations
@@ -277,7 +277,10 @@ def _build_macos_bundle(ctx: BuildContext, layout: image_mod.ImageLayout) -> Non
 
 
 def cmd_build(args: argparse.Namespace) -> int:
-    """Run wheelhouse -> runtime -> image -> launcher -> wix -> MSI for each target."""
+    """Run runtime -> wheelhouse -> image -> launcher -> package for each target.
+
+    The packaging step depends on the target's format (see ``_build_one``).
+    """
     contexts = _contexts(args)
     # Unlike the individual pipeline stages, build doesn't fan out over every target by
     # default: with several defined, an explicit selection is required so we don't build
@@ -323,7 +326,11 @@ def _version() -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="pyappdist", description="Create a Windows distribution of a Python app")
+    parser = argparse.ArgumentParser(
+        prog="pyappdist",
+        description="Build a native package of a Python app "
+                    "(Windows .msi/.msix, Linux/macOS .run, macOS .app/.dmg, or a portable archive)",
+    )
     parser.add_argument("--version", action="version", version=f"%(prog)s {_version()}")
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -343,15 +350,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-compile", action="store_true", help="skip compileall")
     p.set_defaults(func=cmd_build_image)
 
-    p = sub.add_parser("build-launchers", help="build launcher.exe into the image (Windows)")
+    p = sub.add_parser("build-launchers", help="build the launchers into the image")
     _add_common(p)
     p.set_defaults(func=cmd_build_launchers)
 
-    p = sub.add_parser("gen-wix", help="generate WiX XML (.wxs) from the image")
+    p = sub.add_parser("gen-wix", help="generate WiX XML (.wxs) from the image (msi targets)")
     _add_common(p)
     p.set_defaults(func=cmd_gen_wix)
 
-    p = sub.add_parser("build", help="run wheels->runtime->image->launcher->wix->MSI in one go")
+    p = sub.add_parser("build", help="run the full pipeline and package the target(s)")
     _add_common(p)
     _add_runtime_opts(p)
     p.add_argument("--no-compile", action="store_true")
