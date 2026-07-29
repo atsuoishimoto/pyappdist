@@ -122,27 +122,22 @@ static BOOL WINAPI ctrl_handler(DWORD type) {
 }
 
 /* Directory this executable lives in, as a heap string the caller frees.
-   The buffer grows until the path fits: MAX_PATH is only the *traditional*
-   limit, and the image format's .zip can be extracted anywhere, including
-   below a deeper tree than that. NULL on failure. */
+   The buffer is sized for the longest possible path outright: MAX_PATH is
+   only the *traditional* limit, and the image format's .zip can be extracted
+   anywhere, including below a deeper tree than that. NULL on failure. */
 static WCHAR *module_dir(void) {
-    DWORD size = MAX_PATH;
-    for (;;) {
-        WCHAR *buf = (WCHAR *)malloc(size * sizeof(WCHAR));
-        if (!buf) return NULL;
-        DWORD n = GetModuleFileNameW(NULL, buf, size);
-        /* Truncation is reported by filling the buffer exactly (and, since
-           Windows XP, by ERROR_INSUFFICIENT_BUFFER); anything shorter fit. */
-        if (n != 0 && n < size) {
-            for (DWORD i = n; i > 0; --i) {
-                if (buf[i - 1] == L'\\' || buf[i - 1] == L'/') { buf[i - 1] = L'\0'; break; }
-            }
-            return buf;
-        }
+    const DWORD size = PATH_MAX_EXTENDED;
+    WCHAR *buf = (WCHAR *)malloc(size * sizeof(WCHAR));
+    if (!buf) return NULL;
+    DWORD n = GetModuleFileNameW(NULL, buf, size);
+    if (n == 0 || n >= size) {  /* n >= size: truncated (cannot happen) */
         free(buf);
-        if (n == 0 || size >= PATH_MAX_EXTENDED) return NULL;
-        size *= 2;
+        return NULL;
     }
+    for (DWORD i = n; i > 0; --i) {
+        if (buf[i - 1] == L'\\' || buf[i - 1] == L'/') { buf[i - 1] = L'\0'; break; }
+    }
+    return buf;
 }
 
 /* "<dir>\<PYAPPDIST_PYEXE>", as a heap string the caller frees.
