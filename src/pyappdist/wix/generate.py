@@ -5,7 +5,9 @@ installs into ``%LocalAppData%\\Programs\\<name>`` with no admin, and ``"machine
 a per-machine package that installs into ``Program Files`` (requires admin). An optional
 ``[tool.pyappdist.wix].license`` (an RTF EULA) adds a one-page license dialog via the
 stock WixUI_Minimal set, which needs the ``WixToolset.UI.wixext`` extension at build
-time. File@Source is emitted as a path relative to the image root and resolved via the
+time. An optional ``add-to-path`` appends the install folder to PATH via the Environment
+table, at the user or system level matching ``scope``. File@Source is emitted as a path
+relative to the image root and resolved via the
 ``wix build -b <image>`` bind path (no absolute paths are embedded, so golden comparisons
 stay stable).
 """
@@ -145,6 +147,26 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
             Type="integer", Value="1", KeyPath="yes",
         )
         component_ids.append("cmp_shortcuts")
+
+    # Optional PATH registration: append INSTALLFOLDER (where the launcher .exes live)
+    # to PATH via the Environment table, scoped like the package — per-user edits the
+    # user's PATH (HKCU\Environment, no elevation), per-machine the system PATH (HKLM).
+    # Permanent="no" lets uninstall strip exactly the appended entry. Environment can't
+    # be a KeyPath, so a registry value anchors the component.
+    if config.wix.add_to_path:
+        path_comp = _sub(install, "Component", Id="cmp_path", Guid=stable_guid(upgrade_code, "::path"))
+        _sub(
+            path_comp, "Environment",
+            Id="env_path", Name="PATH", Value="[INSTALLFOLDER]",
+            Action="set", Part="last", Separator=";",
+            Permanent="no", System="no" if per_user else "yes",
+        )
+        _sub(
+            path_comp, "RegistryValue",
+            Root=install_root_reg, Key=reg_key, Name="PathRegistered",
+            Type="integer", Value="1", KeyPath="yes",
+        )
+        component_ids.append("cmp_path")
 
     feature = _sub(pkg, "Feature", Id="Main", Title=config.name, Level="1")
     for cid in component_ids:

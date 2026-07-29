@@ -151,6 +151,10 @@ class WixConfig:
     # Emit MajorUpgrade@AllowSameVersionUpgrades="yes" so reinstalling the same version
     # upgrades in place instead of erroring/coexisting (handy while iterating). Off by default.
     allow_same_version_upgrades: bool = False
+    # Append the install folder (where the launcher .exes live) to PATH via the MSI
+    # Environment table (off by default). Follows the package scope: per-user edits the
+    # user's PATH (HKCU), per-machine the system PATH (HKLM).
+    add_to_path: bool = False
 
 
 @dataclass(frozen=True)
@@ -502,6 +506,9 @@ def _parse_wix(raw: dict, index: int) -> WixConfig:
         raise ConfigError(
             f"{where}.allow-same-version-upgrades must be a boolean: {allow_same!r}"
         )
+    add_to_path = raw.get("add-to-path", False)
+    if not isinstance(add_to_path, bool):
+        raise ConfigError(f"{where}.add-to-path must be a boolean: {add_to_path!r}")
     return WixConfig(
         manufacturer=raw.get("manufacturer"),
         upgrade_code=str(upgrade_code) if upgrade_code is not None else None,
@@ -510,6 +517,7 @@ def _parse_wix(raw: dict, index: int) -> WixConfig:
         code_sign=code_sign,
         code_sign_command=_opt_str(raw, "code-sign-command"),
         allow_same_version_upgrades=allow_same,
+        add_to_path=add_to_path,
     )
 
 

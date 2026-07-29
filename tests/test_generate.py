@@ -98,6 +98,32 @@ def test_allow_same_version_upgrades(sample_config, sample_tree):
     assert 'AllowSameVersionUpgrades="yes"' in generate_wxs(cfg, sample_tree)
 
 
+def test_add_to_path_off_by_default(sample_config, sample_tree):
+    assert "<Environment " not in generate_wxs(sample_config, sample_tree)
+
+
+def test_add_to_path_per_user(sample_config, sample_tree):
+    cfg = dataclasses.replace(
+        sample_config, wix=dataclasses.replace(sample_config.wix, add_to_path=True)
+    )
+    xml = generate_wxs(cfg, sample_tree)
+    assert (
+        '<Environment Id="env_path" Name="PATH" Value="[INSTALLFOLDER]" '
+        'Action="set" Part="last" Separator=";" Permanent="no" System="no" />'
+    ) in xml
+    # The anchoring registry value lives under HKCU for a per-user package.
+    assert 'Name="PathRegistered"' in xml
+
+
+def test_add_to_path_per_machine(sample_config, sample_tree):
+    cfg = dataclasses.replace(
+        sample_config,
+        wix=dataclasses.replace(sample_config.wix, add_to_path=True, scope="machine"),
+    )
+    xml = generate_wxs(cfg, sample_tree)
+    assert 'System="yes"' in xml
+
+
 def test_requires_manufacturer(sample_config, sample_tree):
     cfg = dataclasses.replace(
         sample_config, wix=WixConfig(manufacturer=None, upgrade_code="x")

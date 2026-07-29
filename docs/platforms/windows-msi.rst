@@ -76,6 +76,14 @@ Configuration
    of erroring or installing side-by-side — convenient while iterating on a build
    without bumping the version. MSI-only; it has no effect on ``msix`` targets.
 
+``add-to-path``
+   Append the install folder — where the launcher ``.exe``\ s live — to ``PATH``
+   (default ``false``), so command-line launchers can be run by name from a
+   terminal. The scope follows the package scope: a ``user`` install edits the
+   per-user ``PATH``, a ``machine`` install the system one. Uninstalling removes
+   exactly the appended entry. Windows applies the change to processes started
+   *after* the install; already-open terminals must be reopened to see it.
+
 .. code-block:: toml
 
    [[tool.pyappdist.targets]]
@@ -88,6 +96,7 @@ Configuration
    # license = "EULA.rtf"    # optional EULA shown at install time
    # code-sign = true        # sign the .exe and .msi (see below)
    # allow-same-version-upgrades = false  # reinstall same version upgrades in place
+   # add-to-path = true      # append the install folder to PATH
 
 Install behavior
 ----------------
