@@ -196,6 +196,35 @@ def test_compression_option(tmp_path, sample_config, compression):
     assert f"DECOMPRESS='{_DECOMP_TOOL[compression]} -dc'" in script
 
 
+def test_write_targz_digests_exactly_what_it_wrote(tmp_path):
+    """The payload is hashed as it streams out, from wherever the file is positioned."""
+    from pyappdist.posix.build import write_targz
+
+    layout = _make_image(tmp_path)
+    out = tmp_path / "payload"
+    with out.open("wb") as fp:
+        fp.write(b"header bytes")  # the .run writes the payload after its header
+        digest = write_targz(fp, layout.image_dir, mode="gz", log=lambda *a: None)
+
+    payload = out.read_bytes()[len(b"header bytes"):]
+    assert hashlib.sha256(payload).hexdigest() == digest
+    with tarfile.open(fileobj=io.BytesIO(payload), mode="r:gz") as tf:
+        assert "python/bin/python3" in tf.getnames()
+
+
+def test_run_header_digest_placeholder_is_patched(tmp_path, sample_config):
+    """The digest is written last, over its placeholder — none may survive."""
+    from pyappdist.posix.build import _SHA_PLACEHOLDER
+
+    layout = _make_image(tmp_path)
+    config = _linux_config(sample_config, tmp_path)
+    arts = build_linux(config, layout, tmp_path / "dist", log=lambda *a: None)
+    script, payload = _split_run(next(p for p in arts if p.suffix == ".run"))
+
+    assert _SHA_PLACEHOLDER not in script
+    assert f"PAYLOAD_SHA256='{hashlib.sha256(payload).hexdigest()}'" in script
+
+
 @pytest.mark.parametrize("compression", ["gzip", "xz"])
 def test_falls_back_to_tarfile_codec_without_the_command(
     tmp_path, sample_config, monkeypatch, compression
@@ -224,10 +253,20 @@ def test_falls_back_when_the_command_fails(tmp_path, sample_config, monkeypatch,
 
     tool = _DECOMP_TOOL[compression]
 
-    def failing_run(cmd, **kwargs):
-        return subprocess.CompletedProcess(cmd, 1, stdout=b"", stderr=b"out of memory")
+    class _FailingPopen:
+        """A compressor that emits some output, then fails partway through."""
 
-    monkeypatch.setattr(posix_build.subprocess, "run", failing_run)
+        returncode = 1
+
+        def __init__(self, cmd, stdin=None, stdout=None, stderr=None, **kwargs):
+            # Partial output the caller must discard before falling back.
+            self.stdout = io.BytesIO(b"truncated garbage")
+            stderr.write(b"out of memory")
+
+        def wait(self):
+            return self.returncode
+
+    monkeypatch.setattr(posix_build.subprocess, "Popen", _FailingPopen)
     magic, read_mode = _COMPRESSION[compression]
     layout = _make_image(tmp_path)
     config = _linux_config(sample_config, tmp_path, compression=compression)
