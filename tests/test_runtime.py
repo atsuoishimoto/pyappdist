@@ -332,3 +332,35 @@ def test_fetch_runtime_refetches_damaged_tree(monkeypatch, tmp_path):
     )
     assert downloaded  # the damaged tree triggered a real fetch
     assert info.python_exe.exists()
+
+
+def test_fetch_runtime_dest_is_a_file(monkeypatch, tmp_path):
+    # A regular file in the destination's place made shutil.rmtree raise
+    # NotADirectoryError, which is not a PyappdistError; report it instead.
+    dest = tmp_path / "runtime"
+    dest.write_text("leftover", encoding="utf-8")
+
+    def no_network(*args):  # pragma: no cover - must not be reached
+        raise AssertionError("network hit before the destination check")
+
+    monkeypatch.setattr(runtime, "_resolve_release", no_network)
+    with pytest.raises(BuildError, match="not a directory"):
+        runtime.fetch_runtime(_windows_target(), "3.12", dest, log=lambda m: None)
+    assert dest.read_text(encoding="utf-8") == "leftover"  # left for the user to remove
+
+
+def test_fetch_runtime_dest_is_a_symlink(monkeypatch, tmp_path):
+    # rmtree refuses a symlink too ("Cannot call rmtree on a symbolic link"), and
+    # following it would delete whatever it points at.
+    real = tmp_path / "elsewhere"
+    _write_valid_tree(real)
+    dest = tmp_path / "runtime"
+    dest.symlink_to(real, target_is_directory=True)
+
+    def no_network(*args):  # pragma: no cover - must not be reached
+        raise AssertionError("network hit before the destination check")
+
+    monkeypatch.setattr(runtime, "_resolve_release", no_network)
+    with pytest.raises(BuildError, match="not a directory"):
+        runtime.fetch_runtime(_windows_target(), "3.12", dest, log=lambda m: None)
+    assert real.is_dir()  # the symlink target is untouched
