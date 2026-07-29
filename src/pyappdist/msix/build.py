@@ -12,12 +12,11 @@ from __future__ import annotations
 
 import glob
 import os
-import struct
 import subprocess
-import zlib
 from pathlib import Path
 
 from .._hostexec import target_relpath
+from .._png import solid_png
 from ..config import Config
 from ..errors import BuildError
 from .manifest import generate_manifest
@@ -73,27 +72,10 @@ def _stage_logos(config: Config, image_dir: Path, *, log) -> None:
             )
         data = src.read_bytes()
     else:
-        data = _solid_png(256, 256, (0, 120, 212))
+        data = solid_png(256, 256)
         log("msix: no logo set; using a generated placeholder (supply 'logo' for real art)")
     for name in _LOGO_FILES:
         (assets / name).write_bytes(data)
-
-
-def _solid_png(width: int, height: int, rgb: tuple[int, int, int]) -> bytes:
-    """Minimal solid-colour RGB PNG encoder (avoids a Pillow dependency)."""
-    def chunk(typ: bytes, data: bytes) -> bytes:
-        body = typ + data
-        return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
-
-    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)  # 8-bit, colour type 2 (RGB)
-    row = b"\x00" + bytes(rgb) * width  # filter byte 0 + pixels
-    idat = zlib.compress(row * height, 9)
-    return (
-        b"\x89PNG\r\n\x1a\n"
-        + chunk(b"IHDR", ihdr)
-        + chunk(b"IDAT", idat)
-        + chunk(b"IEND", b"")
-    )
 
 
 def _find_makeappx(target) -> str:
