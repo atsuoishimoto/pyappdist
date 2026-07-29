@@ -330,12 +330,23 @@ def load_configs(
                         "the name must contain only letters, digits, and hyphens"
                     )
 
-    if any(fmt in ("msi", "msix") for (_, _, fmt, *_rest) in specs) and not _MSI_VERSION_RE.match(
-        version
-    ):
+    selected_formats = {fmt for (_, _, fmt, *_rest) in specs}
+    if selected_formats & {"msi", "msix"} and not _MSI_VERSION_RE.match(version):
         raise ConfigError(
             "msi/msix targets require a dotted numeric version "
             f'(e.g. "1.2.3"; MSI ProductVersion cannot express pre-releases): {version!r}'
+        )
+    # Windows Installer compares only the first three fields of ProductVersion, so
+    # releases differing solely in the fourth are the same version to it: MajorUpgrade
+    # does not fire, and without allow-same-version-upgrades the install errors or the
+    # two versions coexist. Four fields stay accepted (MSIX's Identity Version uses
+    # all four legitimately), but the MSI consequence is worth saying out loud.
+    if "msi" in selected_formats and version.count(".") == 3:
+        print(
+            f"warning: version {version!r} has four fields, but MSI upgrade logic "
+            "compares only the first three; releases differing only in the fourth "
+            "field look like the same version to Windows Installer",
+            file=sys.stderr,
         )
 
     return [

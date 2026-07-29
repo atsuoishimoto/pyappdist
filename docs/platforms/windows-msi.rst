@@ -113,6 +113,15 @@ identity — installing a newer version cleanly replaces the old one. Keep
 ``upgrade-code`` stable for the life of the product. The generated value is written
 back with ``tomlkit``, which preserves your file's existing formatting and comments.
 
+Windows Installer compares only the **first three** fields of ProductVersion
+when deciding whether an install is an upgrade. A four-field version is
+accepted, but two releases differing solely in the fourth field
+(``1.2.3.4`` → ``1.2.3.5``) are the same version to it: ``MajorUpgrade`` does
+not fire, and without ``allow-same-version-upgrades`` the install errors or the
+two versions end up side by side. pyappdist prints a warning when an msi target
+is built from a four-field version. (``msix`` is unaffected — its Identity
+Version uses all four fields.)
+
 Launchers are compiled native ``.exe`` stubs: ``gui = true`` uses ``pythonw.exe``
 (no console) and ``icon`` is embedded into the executable and the Start-menu
 shortcut.

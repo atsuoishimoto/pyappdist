@@ -768,6 +768,31 @@ def test_posix_allows_non_numeric_version(tmp_path: Path):
     assert cfg.version == "0.1.0a1"
 
 
+def test_msi_four_field_version_warns(tmp_path: Path, capsys):
+    # Accepted, but MSI compares only the first three fields for upgrades.
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'version = "0.1.0"', 'version = "1.2.3.4"'
+    )
+    cfg = load_configs(_write_text(tmp_path, text))[0]
+    assert cfg.version == "1.2.3.4"
+    err = capsys.readouterr().err
+    assert "four fields" in err and "1.2.3.4" in err
+
+
+def test_msi_three_field_version_does_not_warn(tmp_path: Path, capsys):
+    load_configs(_write(tmp_path))
+    assert capsys.readouterr().err == ""
+
+
+def test_msix_four_field_version_does_not_warn(tmp_path: Path, capsys):
+    # MSIX's Identity Version legitimately uses all four fields.
+    text = _BASE.format(fmt="msix", app_extra="", target_extra="").replace(
+        'version = "0.1.0"', 'version = "1.2.3.4"'
+    )
+    load_configs(_write_text(tmp_path, text))
+    assert capsys.readouterr().err == ""
+
+
 # An msi target and a linux target side by side, so select-scoped validation can be
 # exercised: the msi-only version check must not fire when only "lin" is selected.
 _MSI_PLUS_LINUX = """
