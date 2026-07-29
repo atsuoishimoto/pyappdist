@@ -83,7 +83,8 @@ Without the Store or Developer Mode, an unsigned MSIX cannot be installed (it wo
 need your own trusted code-signing certificate). For sideloading, the signing
 certificate's subject must match the manifest ``Publisher``.
 
-MSIX is **not** covered by the MSI ``code-sign`` key: the package is signed only
-when the ``PYAPPDIST_SIGN_CMD`` environment variable is set. The command receives
-the artifact's file name via the ``{file}`` token and runs from the artifact's
-directory, exactly as described in :ref:`msi-code-signing`.
+To sign yourself, set ``code-sign = true`` on the target (or pass ``--code-sign``
+to ``pyappdist build``): the launcher ``.exe``\ s and the ``.msix`` are then signed
+with the command resolved from ``PYAPPDIST_WIN_SIGN_CMD``, the target's
+``code-sign-command``, or the built-in ``signtool`` default — exactly as described
+in :ref:`msi-code-signing`.

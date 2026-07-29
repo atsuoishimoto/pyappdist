@@ -69,8 +69,8 @@ Configuration
    :ref:`msi-code-signing` below.
 
 ``code-sign-command``
-   Signing command used when ``code-sign`` is true, unless overridden by the
-   ``PYAPPDIST_SIGN_CMD`` environment variable. Defaults to a ``signtool``
+   Signing command used when signing is enabled, unless overridden by the
+   ``PYAPPDIST_WIN_SIGN_CMD`` environment variable. Defaults to a ``signtool``
    invocation. See :ref:`msi-code-signing` below.
 
 ``allow-same-version-upgrades``
@@ -148,9 +148,13 @@ Windows Installer icon there.
 Code signing
 ------------
 
-MSI targets are unsigned by default. Enable signing with ``code-sign = true`` on the
-target; ``pyappdist build`` then signs each launcher ``.exe`` after it is compiled and
-the ``.msi`` after it is built.
+Windows targets are unsigned by default. Enable signing with ``code-sign = true`` on
+the target, or force it from the command line with ``pyappdist build --code-sign``
+(``--no-code-sign`` forces it off, for example on a machine without a certificate);
+``pyappdist build`` then signs each launcher ``.exe`` after it is compiled and the
+``.msi`` after it is built. The same keys work identically on ``msix`` targets (the
+launcher ``.exe``\ s and the ``.msix``) and on Windows ``image`` targets (the launcher
+``.exe``\ s).
 
 .. code-block:: toml
 
@@ -161,16 +165,16 @@ the ``.msi`` after it is built.
    code-sign = true
    # code-sign-command = 'signtool.exe sign ... "{file}"'   # optional; default used if omitted
 
-With ``code-sign = true`` the signing command is resolved in this order:
+With signing enabled the signing command is resolved in this order:
 
-1. the ``PYAPPDIST_SIGN_CMD`` environment variable (highest priority);
+1. the ``PYAPPDIST_WIN_SIGN_CMD`` environment variable (highest priority);
 2. the target's ``code-sign-command``;
 3. a built-in default:
    ``signtool.exe sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /a "{file}"``.
 
 The default uses ``/a`` to auto-select the best certificate from the Windows certificate
 store, so a non-secret command line can live in ``pyproject.toml``; use
-``PYAPPDIST_SIGN_CMD`` to override per machine (for example a ``.pfx`` whose password
+``PYAPPDIST_WIN_SIGN_CMD`` to override per machine (for example a ``.pfx`` whose password
 must not be committed). The command runs with the artifact's directory as the working
 directory, and the token ``{file}`` is replaced with the artifact's file name (appended
 to the command if absent) — this is what makes signing work when cross-building from
@@ -178,8 +182,11 @@ WSL, where ``signtool.exe`` cannot resolve Linux paths. Any other file reference
 the command (such as a ``.pfx``) must therefore be given as an absolute path — a
 Windows-side path like ``D:\certs\app.pfx`` when cross-building.
 
-When ``code-sign`` is unset (or ``false``), signing is skipped regardless of
-``PYAPPDIST_SIGN_CMD``.
+The environment variable only supplies the *command*: with ``code-sign`` unset (or
+``false``) and no ``--code-sign``, signing is skipped regardless of
+``PYAPPDIST_WIN_SIGN_CMD``. The retired ``PYAPPDIST_SIGN_CMD`` variable (which used
+to both enable signing and supply the command for some formats) is ignored with a
+warning.
 
 .. note::
 

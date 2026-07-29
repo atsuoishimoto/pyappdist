@@ -133,8 +133,11 @@ the ticket so it validates offline. Verify the result::
    xcrun stapler validate dist/MyApp-1.0.dmg
 
 Notarization runs only when **both** a Developer ID identity and a notary profile are
-set; an ad-hoc build skips it. ``PYAPPDIST_SIGN_CMD`` (see
-:ref:`msi-code-signing`) is also applied to the ``.dmg`` as an extra hook if set.
+set; an ad-hoc build skips it.
+
+The Windows-oriented ``code-sign`` key (:ref:`msi-code-signing`) does not apply to
+``macapp``/``dmg`` targets — the ``codesign`` flow above is the whole macOS signing
+story.
 
 Install behavior
 ----------------

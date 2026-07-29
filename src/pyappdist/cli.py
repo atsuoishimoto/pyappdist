@@ -43,7 +43,7 @@ from .macos.package import build_dmg
 from .macos.sign import deep_sign, resolve_sign_options, sign_file
 from .msix import build_msix
 from .runtime import fetch_runtime
-from .sign import env_sign_command, resolve_msi_sign_command, sign_artifact
+from .sign import resolve_sign_command, sign_artifact
 from .wheels import app_wheel_version, build_wheelhouse
 from .wix import build_msi, generate_wxs, scan_image
 
@@ -199,6 +199,19 @@ def cmd_gen_wix(args: argparse.Namespace) -> int:
     return 0
 
 
+def _note_unsignable(ctx: BuildContext) -> None:
+    """Note that ``--code-sign`` cannot act on this target and the build continues.
+
+    A skip rather than an error: ``--code-sign`` applies to every selected target, and
+    a multi-target build must not die because one target's format (a POSIX ``.run``, a
+    ``.app``/``.dmg`` with their own codesign flow, a non-Windows image of shell
+    wrappers) has nothing for the signing pass. Enabling it per target in config is
+    different — a ``code-sign = true`` there is rejected at load time.
+    """
+    print(f"note [{_tag(ctx)}]: --code-sign ignored (format "
+          f"{ctx.config.format!r} has no artifact for the signing pass)")
+
+
 def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
     # A full build starts from a clean intermediates tree (unlike the individual stages,
     # which stay incremental). The downloaded runtime cache lives elsewhere, so this does
@@ -214,11 +227,14 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
         # No installer: the image tree itself is the artifact. Launchers go into the
         # image first (MSVC .exe on a Windows target, POSIX shell wrappers otherwise,
         # nothing with no-launcher), then the tree is archived (.zip / .tar.gz).
-        # The Windows .exe launchers honor PYAPPDIST_SIGN_CMD, like MSIX.
+        # The Windows .exe launchers use the same code-sign resolution as msi/msix.
         exes = build_launchers(ctx.config, layout, ctx.launcher_build_dir)
-        sign_cmd = env_sign_command()
-        for exe in exes:
-            sign_artifact(exe, sign_cmd)
+        if ctx.config.target.os == "windows":
+            sign_cmd = resolve_sign_command(ctx.config, args.code_sign)
+            for exe in exes:
+                sign_artifact(exe, sign_cmd)
+        elif args.code_sign:
+            _note_unsignable(ctx)
         arts = build_archive(ctx.config, layout, ctx.dist_dir)
         print(f"OK [{_tag(ctx)}]: image -> {', '.join(str(a) for a in arts)}")
         return
@@ -227,6 +243,8 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
         # Linux/macOS launchers are shell wrappers (no MSVC); the builder writes them into
         # the image and produces the self-extracting .run installer.
         fmt = ctx.config.format
+        if args.code_sign:
+            _note_unsignable(ctx)
         build = build_linux if fmt == "linux" else build_macos
         # The builders return None for a target whose OS doesn't match the format —
         # a guard for direct API use that config loading (_FORMAT_OS) already rules
@@ -238,16 +256,12 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
     if ctx.config.format in ("macapp", "dmg"):
         # macOS .app bundle (GUI distribution). Native-only, so the host check happens
         # before clang runs; reuses the image built above.
-        _build_macos_bundle(ctx, layout)
+        _build_macos_bundle(ctx, layout, args.code_sign)
         return
 
-    # MSI signs the launcher .exe + .msi when code_sign is set (env > config > default);
-    # MSIX keeps the legacy env-only behaviour.
-    sign_cmd = (
-        resolve_msi_sign_command(ctx.config.wix)
-        if ctx.config.format == "msi"
-        else env_sign_command()
-    )
+    # msi/msix sign the launcher .exes and the package when signing is enabled
+    # (code-sign key, overridable with --code-sign/--no-code-sign).
+    sign_cmd = resolve_sign_command(ctx.config, args.code_sign)
     exes = build_launchers(ctx.config, layout, ctx.launcher_build_dir)
     for exe in exes:
         sign_artifact(exe, sign_cmd)
@@ -269,7 +283,9 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
     print(f"OK [{_tag(ctx)}]: msi -> {msi} ({len(exes)} launcher)")
 
 
-def _build_macos_bundle(ctx: BuildContext, layout: image_mod.ImageLayout) -> None:
+def _build_macos_bundle(
+    ctx: BuildContext, layout: image_mod.ImageLayout, cli_code_sign: bool | None
+) -> None:
     """Assemble, sign, and package the macOS ``.app``/``.dmg`` from an already-built image.
 
     Native-only (codesign/hdiutil/clang are macOS tools), so on a non-macOS host it skips
@@ -278,6 +294,10 @@ def _build_macos_bundle(ctx: BuildContext, layout: image_mod.ImageLayout) -> Non
     """
     cfg = ctx.config
     tag = _tag(ctx)
+    if cli_code_sign:
+        # The .app (and the .dmg wrapping it) are signed by the codesign-based
+        # signing-identity flow; the code-sign pass is Windows-only.
+        _note_unsignable(ctx)
     if sys.platform != "darwin":
         print(f"OK [{tag}]: image -> {layout.image_dir} ({cfg.format} skipped on non-macOS)")
         return
@@ -322,7 +342,6 @@ def _build_macos_bundle(ctx: BuildContext, layout: image_mod.ImageLayout) -> Non
     dmg = build_dmg(cfg, apps, ctx.dist_dir / f"{cfg.dist_name}-{cfg.version}.dmg")
     if not sign_opts.adhoc:
         sign_file(dmg, sign_opts)  # sign the disk image itself with the Developer ID
-    sign_artifact(dmg, env_sign_command())  # optional extra signing via PYAPPDIST_SIGN_CMD
     if notarize:
         notarize_and_staple(dmg, profile)
     print(f"OK [{tag}]: dmg -> {dmg} ({len(apps)} app)")
@@ -414,6 +433,11 @@ def build_parser() -> argparse.ArgumentParser:
     _add_common(p)
     _add_runtime_opts(p)
     p.add_argument("--no-compile", action="store_true")
+    p.add_argument(
+        "--code-sign", action=argparse.BooleanOptionalAction, default=None,
+        help="force code signing on (--code-sign) or off (--no-code-sign) for every "
+             "selected target, overriding each target's code-sign key",
+    )
     p.set_defaults(func=cmd_build)
 
     return parser

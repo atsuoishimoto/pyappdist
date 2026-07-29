@@ -143,11 +143,6 @@ class WixConfig:
     upgrade_code: str | None = None
     scope: str = "user"  # one of _WIX_SCOPES
     license: str | None = None  # optional path (relative to project_dir) to an RTF EULA
-    # Code-sign the launcher .exe and the .msi (off by default). When on, the command is
-    # resolved by sign.resolve_msi_sign_command: PYAPPDIST_SIGN_CMD > code-sign-command >
-    # a built-in signtool default.
-    code_sign: bool = False
-    code_sign_command: str | None = None
     # Emit MajorUpgrade@AllowSameVersionUpgrades="yes" so reinstalling the same version
     # upgrades in place instead of erroring/coexisting (handy while iterating). Off by default.
     allow_same_version_upgrades: bool = False
@@ -230,6 +225,14 @@ class Config:
     extras: tuple[str, ...] = ()
     linux: LinuxConfig = LinuxConfig()
     macos: MacosConfig = MacosConfig()
+    # Code-sign the target's Windows artifacts (off by default): the launcher .exes and
+    # the package for msi/msix, the launcher .exes for a Windows image target. Only
+    # valid on those formats — macOS signing is the separate signing-identity codesign
+    # flow. The command is resolved by sign.resolve_sign_command:
+    # PYAPPDIST_WIN_SIGN_CMD (env) > code-sign-command > a built-in signtool default.
+    # `pyappdist build --code-sign` / `--no-code-sign` overrides the code-sign key.
+    code_sign: bool = False
+    code_sign_command: str | None = None
     # Skip launcher generation entirely (image format only): the archive then contains
     # just the installed tree, for apps that ship their own entry mechanism.
     no_launcher: bool = False
@@ -375,10 +378,13 @@ def load_configs(
             extras=extras,
             linux=linux,
             macos=macos,
+            code_sign=code_sign,
+            code_sign_command=code_sign_command,
             no_launcher=no_launcher,
             version_from_wheel=version_from_wheel,
         )
-        for (target_name, target, fmt, wix, msix, extras, linux, macos, no_launcher) in specs
+        for (target_name, target, fmt, wix, msix, extras, linux, macos, no_launcher,
+             code_sign, code_sign_command) in specs
     ]
 
 
@@ -408,8 +414,20 @@ def check_msi_version(version: str, formats: Collection[str]) -> None:
 
 
 _TargetSpec = tuple[
-    str, Target, str, WixConfig, MsixConfig, tuple[str, ...], LinuxConfig, MacosConfig, bool
+    str, Target, str, WixConfig, MsixConfig, tuple[str, ...], LinuxConfig, MacosConfig,
+    bool, bool, str | None,
 ]
+
+# Formats whose build produces an artifact the code-sign pass can act on: the launcher
+# .exes + package for msi/msix, the launcher .exes for a Windows image target.
+# Everything else (the POSIX .run installers, the .app bundle and .dmg — signed by
+# their own codesign flow — and a non-Windows image of shell wrappers) has nothing
+# for the pass to sign.
+_CODE_SIGN_FORMATS = ("msi", "msix")
+
+
+def _code_signable(fmt: str, target: Target) -> bool:
+    return fmt in _CODE_SIGN_FORMATS or (fmt == "image" and target.os == "windows")
 
 
 def _parse_targets(raw: object) -> list[_TargetSpec]:
@@ -457,6 +475,19 @@ def _parse_targets(raw: object) -> list[_TargetSpec]:
                 f"targets[{i}].no-launcher is only supported with format=\"image\" "
                 f"(format is {fmt!r})"
             )
+        code_sign = item.get("code-sign", False)
+        if not isinstance(code_sign, bool):
+            raise ConfigError(f"targets[{i}].code-sign must be a boolean: {code_sign!r}")
+        # code-sign-command alone stays legal on any signable format (it only takes
+        # effect once signing is enabled by code-sign or --code-sign), but enabling
+        # signing where nothing can be signed is a config mistake worth failing on.
+        if code_sign and not _code_signable(str(fmt), target):
+            raise ConfigError(
+                f"targets[{i}].code-sign is not supported for format={fmt!r} on "
+                f"platform {target.name!r}: there is no artifact for the signing pass "
+                f"(supported: {', '.join(_CODE_SIGN_FORMATS)}, and image on Windows "
+                "platforms)"
+            )
         # allow-same-version-upgrades maps to WiX MajorUpgrade@AllowSameVersionUpgrades,
         # which is MSI-only; MSIX has no manifest equivalent, so it has no effect there.
         if fmt == "msix" and "allow-same-version-upgrades" in item:
@@ -470,6 +501,7 @@ def _parse_targets(raw: object) -> list[_TargetSpec]:
                 target_name, target, str(fmt),
                 _parse_wix(item, i), _parse_msix(item, i), _parse_extras(item, i),
                 _parse_linux(item, i), _parse_macos(item, i), no_launcher,
+                code_sign, _opt_str(item, "code-sign-command"),
             )
         )
 
@@ -498,9 +530,6 @@ def _parse_wix(raw: dict, index: int) -> WixConfig:
     license_ = raw.get("license")
     if license_ is not None and not str(license_).lower().endswith(".rtf"):
         raise ConfigError(f"{where}.license must be an .rtf file: {license_!r}")
-    code_sign = raw.get("code-sign", False)
-    if not isinstance(code_sign, bool):
-        raise ConfigError(f"{where}.code-sign must be a boolean: {code_sign!r}")
     allow_same = raw.get("allow-same-version-upgrades", False)
     if not isinstance(allow_same, bool):
         raise ConfigError(
@@ -514,8 +543,6 @@ def _parse_wix(raw: dict, index: int) -> WixConfig:
         upgrade_code=str(upgrade_code) if upgrade_code is not None else None,
         scope=str(scope),
         license=str(license_) if license_ is not None else None,
-        code_sign=code_sign,
-        code_sign_command=_opt_str(raw, "code-sign-command"),
         allow_same_version_upgrades=allow_same,
         add_to_path=add_to_path,
     )

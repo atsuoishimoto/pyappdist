@@ -23,8 +23,11 @@ The same as building the image for that platform. Launchers follow the target
 OS: a Windows target compiles the usual ``.exe`` launchers (MSVC build tools
 required, unless ``no-launcher`` is set), while Linux/macOS targets get the same
 relocatable shell-wrapper launchers as the ``.run`` installer (no toolchain).
-The Windows launcher ``.exe`` files are code-signed when ``PYAPPDIST_SIGN_CMD``
-is set.
+The Windows launcher ``.exe`` files are code-signed when the target sets
+``code-sign = true`` (or ``--code-sign`` is passed to ``pyappdist build``), with
+the same command resolution as MSI targets — see :ref:`msi-code-signing`.
+On Linux/macOS targets there is nothing to sign, so ``code-sign = true`` is
+rejected there.
 
 Configuration
 -------------

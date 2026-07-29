@@ -80,8 +80,11 @@ Unlike the individual pipeline stages (which default to *all* targets), ``build`
 builds the single defined target when no name is given and otherwise requires an
 explicit selection, so it never builds every target at once by accident.
 
-Extra options: ``--no-compile`` (skip byte-compilation). Plus the common and
-runtime options above.
+Extra options: ``--no-compile`` (skip byte-compilation), and
+``--code-sign`` / ``--no-code-sign`` — force code signing on or off for every
+selected target, overriding each target's ``code-sign`` key (see
+:ref:`msi-code-signing`; targets whose format has no signable artifact note the
+flag and continue). Plus the common and runtime options above.
 
 ``build-wheels``
 ~~~~~~~~~~~~~~~~
