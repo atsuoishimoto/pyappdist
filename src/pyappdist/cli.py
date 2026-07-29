@@ -176,12 +176,11 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
         # the image and produces the self-extracting .run installer.
         fmt = ctx.config.format
         build = build_linux if fmt == "linux" else build_macos
+        # The builders return None for a target whose OS doesn't match the format —
+        # a guard for direct API use that config loading (_FORMAT_OS) already rules
+        # out for anything reaching the CLI, so no skip case is handled here.
         arts = build(ctx.config, layout, ctx.dist_dir)
-        if arts is not None:
-            print(f"OK [{_tag(ctx)}]: {fmt} -> {', '.join(str(a) for a in arts)}")
-        else:
-            os_name = "Linux" if fmt == "linux" else "macOS"
-            print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} ({fmt} skipped on non-{os_name})")
+        print(f"OK [{_tag(ctx)}]: {fmt} -> {', '.join(str(a) for a in arts)}")
         return
 
     if ctx.config.format in ("macapp", "dmg"):
@@ -204,22 +203,18 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
     if ctx.config.format == "msix":
         # MSIX packs the image directly; no portable zip (the .msix is the deliverable).
         msix_name = f"{ctx.config.dist_name}-{ctx.config.version}.msix"
+        # As above: a non-Windows target cannot carry format="msix", so the packager's
+        # None return is unreachable from here.
         pkg = build_msix(ctx.config, ctx.image_dir, ctx.dist_dir / msix_name)
-        if pkg is not None:
-            sign_artifact(pkg, sign_cmd)
-            print(f"OK [{_tag(ctx)}]: msix -> {pkg} ({len(exes)} launcher)")
-        else:
-            print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} (msix skipped on non-Windows)")
+        sign_artifact(pkg, sign_cmd)
+        print(f"OK [{_tag(ctx)}]: msix -> {pkg} ({len(exes)} launcher)")
         return
 
     wxs = _write_wxs(ctx)
     msi_name = f"{ctx.config.dist_name}-{ctx.config.version}.msi"
     msi = build_msi(ctx.config, ctx.image_dir, wxs, ctx.dist_dir / msi_name)
-    if msi is not None:
-        sign_artifact(msi, sign_cmd)
-        print(f"OK [{_tag(ctx)}]: msi -> {msi} ({len(exes)} launcher)")
-    else:
-        print(f"OK [{_tag(ctx)}]: image -> {layout.image_dir} (msi skipped on non-Windows)")
+    sign_artifact(msi, sign_cmd)
+    print(f"OK [{_tag(ctx)}]: msi -> {msi} ({len(exes)} launcher)")
 
 
 def _build_macos_bundle(ctx: BuildContext, layout: image_mod.ImageLayout) -> None:
