@@ -398,6 +398,21 @@ def test_allow_same_version_upgrades_parsed(tmp_path: Path):
     assert cfg.wix.allow_same_version_upgrades is True
 
 
+def test_add_to_path_default_off(tmp_path: Path):
+    cfg = load_configs(_write(tmp_path))[0]
+    assert cfg.wix.add_to_path is False
+
+
+def test_add_to_path_parsed(tmp_path: Path):
+    cfg = load_configs(_write(tmp_path, target_extra="add-to-path = true"))[0]
+    assert cfg.wix.add_to_path is True
+
+
+def test_add_to_path_must_be_bool(tmp_path: Path):
+    with pytest.raises(ConfigError, match="add-to-path"):
+        load_configs(_write(tmp_path, target_extra='add-to-path = "yes"'))
+
+
 def test_allow_same_version_upgrades_must_be_bool(tmp_path: Path):
     with pytest.raises(ConfigError, match="allow-same-version-upgrades"):
         load_configs(_write(tmp_path, target_extra='allow-same-version-upgrades = "yes"'))
