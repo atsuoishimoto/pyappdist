@@ -129,6 +129,13 @@ shell wrapper on Linux/macOS).
 ``args``
    Fixed arguments as a single string, prepended to the program's argv.
 
+   The string is split into individual arguments with **POSIX shell quoting
+   rules**, at build time, on every platform — so ``args = "--path 'a b'"`` is
+   always the two arguments ``--path`` and ``a b``. Each launcher then embeds
+   that argument list in the form its own OS needs, and nothing is glob-expanded
+   or re-split when the app runs. An ``args`` value that cannot be parsed (an
+   unbalanced quote, say) is rejected at load time.
+
 .. code-block:: toml
 
    [[tool.pyappdist.launchers]]

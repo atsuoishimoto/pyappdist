@@ -10,6 +10,7 @@ so the rest of the build pipeline stays single-target.
 from __future__ import annotations
 
 import re
+import shlex
 import sys
 import tomllib
 from collections.abc import Sequence
@@ -94,6 +95,19 @@ class LauncherConfig:
             if key == os:
                 return path
         return None
+
+    @property
+    def argv(self) -> tuple[str, ...]:
+        """``args`` split into individual arguments.
+
+        POSIX shell quoting is the single canonical reading of ``args`` on every OS —
+        ``--path 'a b'`` is two arguments everywhere, and nothing is glob-expanded.
+        Each launcher kind renders this list in whatever form its own OS needs
+        (MSVC quoting on Windows, single quotes in the shell wrapper, a C array in
+        the macOS stub), rather than re-splitting the raw string by its own rules.
+        ``_validate_args`` has already rejected unparsable values at load time.
+        """
+        return tuple(shlex.split(self.args))
 
     @property
     def bootstrap(self) -> str:
@@ -549,6 +563,17 @@ def _validate_target_name(name: str, i: int) -> None:
         )
 
 
+def _validate_args(args: str, i: int) -> None:
+    """Reject an ``args`` string that POSIX shell quoting cannot parse."""
+    try:
+        shlex.split(args)
+    except ValueError as exc:
+        raise ConfigError(
+            f"launchers[{i}].args cannot be parsed ({exc}); arguments are split with "
+            f"POSIX shell quoting rules: {args!r}"
+        ) from None
+
+
 def _validate_entry(entry: str, i: int) -> None:
     """Validate a launcher ``entry`` (``"module:callable"`` or dotted ``"module.path"``)."""
     if ":" in entry:
@@ -580,6 +605,7 @@ def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:
             raise ConfigError(f"launchers[{i}].entry is required")
         _validate_launcher_name(str(name), i)
         _validate_entry(str(entry), i)
+        _validate_args(str(item.get("args", "")), i)
         out.append(
             LauncherConfig(
                 name=str(name),

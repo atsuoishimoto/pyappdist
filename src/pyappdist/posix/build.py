@@ -140,8 +140,10 @@ def write_launchers(
 def _wrapper(spec: LauncherConfig) -> str:
     """A relocatable POSIX wrapper that runs the entry point via the bundled python."""
     bootstrap = spec.bootstrap
-    args = spec.args.strip()
-    extra = f" {args}" if args else ""  # appended verbatim (subject to word splitting)
+    # Each fixed argument is emitted single-quoted, so the shell neither re-splits it
+    # on whitespace nor glob-expands it: the argv the app sees is exactly what
+    # ``args`` was split into, matching the Windows and macOS launchers.
+    extra = "".join(f" {_sq(arg)}" for arg in spec.argv)
     # Resolve $0 through any symlinks one level at a time (no `readlink -f`, which is a
     # GNU extension missing on macOS/BSD) so the wrapper finds python/ both when run in
     # place and when invoked via a symlink in <prefix>/bin.

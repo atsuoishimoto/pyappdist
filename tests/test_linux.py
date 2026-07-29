@@ -179,6 +179,24 @@ def test_sq_escapes_single_quotes():
     assert _sq("a'b") == "'a'\\''b'"
 
 
+@pytest.mark.parametrize(
+    "args,expected",
+    [
+        ("", ""),
+        ("--verbose", " '--verbose'"),
+        ("--path 'a b'", " '--path' 'a b'"),  # one argument, not two
+        ("-x *", " '-x' '*'"),                # quoted, so the shell never globs it
+    ],
+)
+def test_wrapper_quotes_each_fixed_arg(args, expected):
+    # The wrapper used to append args verbatim, leaving them to the shell's word
+    # splitting and glob expansion — a different meaning from the other launchers.
+    spec = LauncherConfig(name="app", entry="pkg.mod:main", args=args)
+    w = _wrapper(spec)
+    exec_line = next(ln for ln in w.splitlines() if ln.startswith("exec "))
+    assert exec_line.endswith(f'{expected} "$@"')
+
+
 @pytest.mark.parametrize("compression", ["gzip", "bzip2", "xz"])
 def test_compression_option(tmp_path, sample_config, compression):
     """Each compression sets the payload format, decompressor and sha256."""
