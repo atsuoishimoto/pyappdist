@@ -52,6 +52,7 @@ manufacturer = "Example Inc."
 code-sign = false
 allow-same-version-upgrades = false
 extras = ["gui"]
+add-to-path = true
 
 [[tool.pyappdist.targets]]
 name = "win32-store"
@@ -122,6 +123,7 @@ manufacturer = "Example Inc."
 code-sign = false
 allow-same-version-upgrades = false
 extras = ["gui"]
+add-to-path = true
 
 [[tool.pyappdist.targets]]
 name = "win32-arm-store"

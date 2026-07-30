@@ -27,6 +27,7 @@ format = "msi"
 manufacturer = "Example Inc."
 code-sign = false
 allow-same-version-upgrades = false
+add-to-path = true
 
 [[tool.pyappdist.targets]]
 name = "win32-store"
@@ -76,6 +77,7 @@ format = "msi"
 manufacturer = "Example Inc."
 code-sign = false
 allow-same-version-upgrades = false
+add-to-path = true
 
 [[tool.pyappdist.targets]]
 name = "win32-arm-store"
