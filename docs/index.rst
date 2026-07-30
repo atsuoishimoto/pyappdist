@@ -1,53 +1,42 @@
 pyappdist
 =========
 
-**Ship your Python app as a native installer straight from pyproject.toml.
-If it installs with pip, it ships with pyappdist.**
 
-pyappdist reads your Python application's ``pyproject.toml`` and builds setup
-packages for distribution: an ``.msi`` / ``.msix`` on Windows, a ``.dmg`` /
-``.app`` bundle or a self-extracting installer on macOS, and a self-extracting
-installer on Linux.
+**Ship your Python app as a native installer straight from `pyproject.toml`.
+If it installs with `pip`, it ships with pyappdist.**
 
-pyappdist creates a dedicated Python runtime directory and installs your
-application and its dependencies into it with ``pip``. That runtime directory
-itself becomes the setup package. The Python runtime comes from
-`python-build-standalone <https://github.com/astral-sh/python-build-standalone>`_,
-the same distribution Astral's uv uses to build its environments.
+pyappdist reads your Python application’s pyproject.toml and builds setup packages for distribution: an .msi / .msix on Windows, a .dmg / .app bundle or a self-extracting installer on macOS, and a self-extracting installer on Linux.
 
-With this approach, binary files such as a package's DLLs and related files
-such as images are placed in the proper directories according to the Python
-language specification and the PyPA specifications. Because this environment is
-used for the setup package as-is, most applications can be expected to run
-unmodified, with no per-application adjustments. If your app runs under
-``uv run``, it almost certainly runs after ``pyappdist build``.
+For example, to build a Windows MSI, configure `pyproject.toml` like this:
 
-Output formats
---------------
+.. code-block:: toml
 
-One ``pyproject.toml`` can describe several output packages at once — each is a
-:ref:`target <config-targets>` with its own platform and format:
+   [tool.pyappdist]
+   name = "My App"
+   python = "3.12"
 
-:doc:`msi <platforms/windows-msi>`
-   ``windows-x86_64`` / ``windows-arm64`` → ``.msi`` installer.
+   [[tool.pyappdist.launchers]]
+   name = "myapp"              # produces myapp.exe (or a shell wrapper on Linux/macOS)
+   entry = "myapp:main"        # module:callable
+   # gui = true                # use pythonw.exe (no console window) on Windows
+   # icon = { windows = "assets/app.ico" }   # per-OS launcher icon table
+   # args = "--serve"          # fixed leading arguments
 
-:doc:`msix <platforms/windows-msix>`
-   ``windows-x86_64`` / ``windows-arm64`` → ``.msix`` (Store / sideloading).
+   [[tool.pyappdist.targets]]
+   name = "windows"
+   platform = "windows-x86_64"
+   format = "msi"
+   manufacturer = "Example Inc."
+   # scope = "user"            # "user" (default, no admin) or "machine" (Program Files)
 
-:doc:`linux <platforms/linux>`
-   ``linux-x86_64`` / ``linux-aarch64`` → ``.run`` installer.
+Then build the MSI package (on Windows):
 
-:doc:`macos <platforms/macos-run>`
-   ``macos-aarch64`` → ``.run`` installer, for
-   **command-line tools**.
+.. code-block:: shell
 
-:doc:`macapp / dmg <platforms/macos-app>`
-   ``macos-aarch64`` → a signed/notarized ``.app`` bundle, optionally
-   inside a ``.dmg``, for **GUI apps**.
+   uvx pyappdist build
 
-:doc:`image <platforms/image>`
-   any platform → a ``.zip`` / ``.tar.gz`` of the image tree, with **no
-   installer**.
+The result lands under ``appdist/<target>/dist/``.
+
 
 Why pyappdist
 -------------
@@ -86,6 +75,35 @@ On Windows the launcher is a tiny C stub that starts the bundled ``python.exe`` 
 C-API version risk — the stub never changes when the Python version does. The macOS
 ``.app`` uses an equivalent compiled Mach-O stub; Linux and the macOS ``.run``
 use a relocatable shell wrapper. See :doc:`how-it-works`.
+
+
+Output formats
+--------------
+
+One ``pyproject.toml`` can describe several output packages at once — each is a
+:ref:`target <config-targets>` with its own platform and format:
+
+:doc:`msi <platforms/windows-msi>`
+   ``windows-x86_64`` / ``windows-arm64`` → ``.msi`` installer.
+
+:doc:`msix <platforms/windows-msix>`
+   ``windows-x86_64`` / ``windows-arm64`` → ``.msix`` (Store / sideloading).
+
+:doc:`linux <platforms/linux>`
+   ``linux-x86_64`` / ``linux-aarch64`` → ``.run`` installer.
+
+:doc:`macos <platforms/macos-run>`
+   ``macos-aarch64`` → ``.run`` installer, for
+   **command-line tools**.
+
+:doc:`macapp / dmg <platforms/macos-app>`
+   ``macos-aarch64`` → a signed/notarized ``.app`` bundle, optionally
+   inside a ``.dmg``, for **GUI apps**.
+
+:doc:`image <platforms/image>`
+   any platform → a ``.zip`` / ``.tar.gz`` of the image tree, with **no
+   installer**.
+
 
 Status
 --------------
