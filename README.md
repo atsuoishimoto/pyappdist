@@ -1,56 +1,16 @@
 # pyappdist
 
-**Build native installers for Python apps without hunting down hidden imports, data files, or plugins.**
+**Ship your Python app as a native installer straight from `pyproject.toml`.
+If it installs with `pip`, it ships with pyappdist.**
 
-pyappdist packages your Python application into a native installer:
+pyappdist reads your Python application's `pyproject.toml` and builds setup
+packages for distribution:
 
 - Windows: MSI / MSIX
-- macOS: `.app` bundle / DMG (notarization supported), or a self-extracting `.run` installer
-- Linux: Self-extracting `.run` installer
+- macOS: DMG / `.app` bundle, or a self-extracting installer
+- Linux: self-extracting installer
 
-pyappdist does **not** freeze your code. Instead of bundling Python and your app into a
-single executable (and fighting hidden imports, data files, and plugins along the way),
-it installs your app into a real, dedicated Python runtime — exactly the way `pip` would —
-and ships that.
-
-Because the runtime is a normal Python environment, **most apps run as-is**: no hooks, no
-`--hidden-import`, no `--add-data`, no per-library workarounds. If it runs under `uv run`,
-it almost certainly runs after `pyappdist build`. C extensions, `abi3` wheels, Qt plugins,
-and tkinter-based GUIs work unmodified because the install layout is real.
-
-Shipping a full runtime without selecting files makes packages larger, but against modern
-storage sizes that is a favorable trade for an environment that just runs.
-
-
-📖 **Documentation:** https://pyappdist.readthedocs.io/
-
-## Status
-
-**Alpha** — the pipeline works end-to-end, but expect breaking changes to the config
-schema, CLI, and output layout as it matures.
-
-## What it produces
-
-One `pyproject.toml` can describe several output packages — each is a
-`[[tool.pyappdist.targets]]` entry with its own `platform` and `format`:
-
-| `format` | Platform | Output |
-| --- | --- | --- |
-| `msi`   | `windows-x86_64`                | `.msi` installer (per-user or machine-wide) |
-| `msix`  | `windows-x86_64`                | `.msix` package for the Microsoft Store / sideloading |
-| `linux` | `linux-x86_64`                  | self-extracting `.run` installer (per-user, no root) |
-| `macos` | `macos-aarch64` / `macos-x86_64` | self-extracting `.run` installer (per-user, no root) |
-| `dmg`   | `macos-aarch64` / `macos-x86_64` | `.dmg` disk image (code-signing / notarization supported) |
-| `macapp` | `macos-aarch64` / `macos-x86_64` | `.app` bundle (code-signing / notarization supported) |
-| `image` | any of the above                | plain archive of the install tree — `.zip` (Windows) / `.tar.gz` (Linux, macOS), no installer |
-
-The `image` format skips the installer entirely: the run-in-place tree is archived
-as-is (with launchers, unless `no-launcher = true`), ready to extract and run — useful
-for deploying with your own tooling or unpacking into a container.
-
-## Quick start
-
-Add a `[tool.pyappdist]` section to your app's `pyproject.toml`:
+For example, to build a Windows MSI, configure `pyproject.toml` like this:
 
 ```toml
 [tool.pyappdist]
@@ -72,44 +32,70 @@ manufacturer = "Example Inc."
 # scope = "user"            # "user" (default, no admin) or "machine" (Program Files)
 ```
 
-Then add pyappdist and build:
+Then build the MSI package (on Windows):
 
-```bash
-uv add --dev pyappdist
-uv run pyappdist build      # builds the sole target: wheels -> runtime -> image -> launcher -> wix -> MSI
+```
+uvx pyappdist build
 ```
 
 The result lands under `appdist/<target>/dist/`.
 
-### Multiple targets
+📖 **Documentation: https://pyappdist.readthedocs.io/**
 
-Declare several targets to ship more than one package from the same config:
+## How it works
 
-```toml
-[[tool.pyappdist.targets]]
-name = "windows"
-platform = "windows-x86_64"
-format = "msi"
-manufacturer = "Example Inc."
+pyappdist creates a dedicated Python runtime directory and installs your
+application and its dependencies into it with `pip`. That runtime directory
+itself becomes the setup package. The Python runtime comes from
+[python-build-standalone](https://github.com/astral-sh/python-build-standalone),
+the same distribution Astral's uv uses to build its environments.
 
-[[tool.pyappdist.targets]]
-name = "linux"
-platform = "linux-x86_64"
-format = "linux"
+With this approach, binary files such as a package's DLLs and related files
+such as images are placed in the proper directories according to the Python
+language specification and the PyPA specifications. Because this environment
+is used for the setup package as-is, most applications can be expected to run
+unmodified, with no per-application adjustments. If your app runs under
+`uv run`, it almost certainly runs after `pyappdist build`.
 
-[[tool.pyappdist.targets]]
-name = "macos-arm"
-platform = "macos-aarch64"
-format = "macos"
-```
+## Why pyappdist
 
-When several targets are defined, `build` requires you to name the one(s) to build (so it
-doesn't build them all at once); the individual pipeline stages default to all targets:
+Tools such as PyInstaller and Nuitka analyze your code, select only the
+necessary files from the Python interpreter and dependency packages, and
+build an executable or a directory from that minimal set of files.
 
-```bash
-uv run pyappdist build linux           # build just the "linux" target
-uv run pyappdist build windows         # build the Windows MSI
-```
+The problem is that the selection is not always correct. Static analysis
+cannot reliably find dynamically imported modules, data files, or plugins,
+so these tools often need per-application adjustments — hidden-import
+declarations, data-file lists, and library-specific hooks — and adding a
+new dependency can break the build again.
+
+And is the size reduction worth it in the first place? The Python
+interpreter itself is only 100–150 MB. That used to be a size you couldn't
+ignore, but today, how much is it worth spending time trimming unnecessary
+files out of 100–150 MB?
+
+pyappdist builds the environment according to the Python and PyPA
+specifications and creates the distribution package from it. **What your
+application and its dependencies contain does not matter** — there is
+nothing to hunt down and nothing to adjust per application. It also does not
+build a one-binary executable — it only provides small launcher executables
+where needed. Through this design, pyappdist creates a stable application
+environment that end users can rely on.
+
+## What it produces
+
+One `pyproject.toml` can describe several output packages — each is a
+`[[tool.pyappdist.targets]]` entry with its own `platform` and `format`:
+
+| `format` | Platform | Output |
+| --- | --- | --- |
+| `msi`   | `windows-x86_64`                | `.msi` installer (per-user or machine-wide) |
+| `msix`  | `windows-x86_64`                | `.msix` package for the Microsoft Store / sideloading |
+| `linux` | `linux-x86_64`                  | self-extracting `.run` installer (per-user, no root) |
+| `macos` | `macos-aarch64` / `macos-x86_64` | self-extracting `.run` installer (per-user, no root) |
+| `dmg`   | `macos-aarch64` / `macos-x86_64` | `.dmg` disk image (code-signing / notarization supported) |
+| `macapp` | `macos-aarch64` / `macos-x86_64` | `.app` bundle (code-signing / notarization supported) |
+| `image` | any of the above                | plain archive of the install tree — `.zip` (Windows) / `.tar.gz` (Linux, macOS), no installer |
 
 ## Samples
 
@@ -128,5 +114,3 @@ extensions, GUI stacks, data files, per-target extras):
 | [`pygamedemo`](samples/pygamedemo) | GUI | A bouncing ball with pygame-ce (C extensions) collected as Windows wheels.|
 | [`pyside6demo`](samples/pyside6demo) | GUI | A Qt window with PySide6 — a large `abi3` wheel (`cp39-abi3`) installed into the cp312 runtime, Qt plugins and all. |
 | [`niceguidemo`](samples/niceguidemo) | GUI (web) | "Weather Panel" built with NiceGUI + pywebview + requests; uses per-target `extras` (`gtk`/`qt`/`gui`) to pick the webview backend per platform. |
-
-
