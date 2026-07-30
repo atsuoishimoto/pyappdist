@@ -114,3 +114,7 @@ extensions, GUI stacks, data files, per-target extras):
 | [`pygamedemo`](samples/pygamedemo) | GUI | A bouncing ball with pygame-ce (C extensions) collected as Windows wheels.|
 | [`pyside6demo`](samples/pyside6demo) | GUI | A Qt window with PySide6 — a large `abi3` wheel (`cp39-abi3`) installed into the cp312 runtime, Qt plugins and all. |
 | [`niceguidemo`](samples/niceguidemo) | GUI (web) | "Weather Panel" built with NiceGUI + pywebview + requests; uses per-target `extras` (`gtk`/`qt`/`gui`) to pick the webview backend per platform. |
+
+### Status
+
+Beta: Core packaging workflows are ready for real-world use, although configuration details may still change before 1.0.

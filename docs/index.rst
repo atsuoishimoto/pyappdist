@@ -4,11 +4,6 @@ pyappdist
 **Ship your Python app as a native installer straight from pyproject.toml.
 If it installs with pip, it ships with pyappdist.**
 
-.. warning::
-
-   **Alpha.** pyappdist is under active development. It works end-to-end today,
-   but the config schema, CLI, and output layout may still change without notice.
-
 pyappdist reads your Python application's ``pyproject.toml`` and builds setup
 packages for distribution: an ``.msi`` / ``.msix`` on Windows, a ``.dmg`` /
 ``.app`` bundle or a self-extracting installer on macOS, and a self-extracting
@@ -92,6 +87,12 @@ C-API version risk — the stub never changes when the Python version does. The 
 ``.app`` uses an equivalent compiled Mach-O stub; Linux and the macOS ``.run``
 use a relocatable shell wrapper. See :doc:`how-it-works`.
 
+Status
+--------------
+
+Beta: Core packaging workflows are ready for real-world use, although configuration details may still change before 1.0.
+
+
 .. toctree::
    :maxdepth: 2
    :caption: Getting started
@@ -127,15 +128,3 @@ use a relocatable shell wrapper. See :doc:`how-it-works`.
    history
    GitHub <https://github.com/atsuoishimoto/pyappdist>
 
-Status
-------
-
-**Alpha** — the pipeline works end-to-end, but expect breaking changes to the
-config schema, CLI, and output layout as it matures.
-
-Targets today are Windows x64/arm64 (``msi``, ``msix``), Linux x64/aarch64
-(``linux``), and
-macOS arm64/x64 (``macos``, ``macapp``, ``dmg``). Auto-update and code-signing
-certificates are out of scope for now; optional :ref:`code signing <msi-code-signing>` of the Windows
-artifacts is available. Distributed apps are not obfuscated, and unsigned Windows
-installers will trigger a SmartScreen warning.

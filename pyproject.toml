@@ -1,6 +1,6 @@
 [project]
 name = "pyappdist"
-version = "0.10.0"
+version = "0.11.0"
 description = "Build native installers for Python apps from pyproject.toml — Windows MSI/MSIX, macOS DMG/.app, Linux self-extracting"
 readme = "README.md"
 # 3.11.4+ because tarfile's extractall(filter=...) kwarg (used by runtime
@@ -16,7 +16,7 @@ keywords = [
     "windows", "msi", "msix", "wix", "linux", "macos",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Environment :: Win32 (MS Windows)",
     "Intended Audience :: Developers",
