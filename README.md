@@ -3,8 +3,9 @@
 **Ship your Python app as a native installer straight from `pyproject.toml`.
 If it installs with `pip`, it ships with pyappdist.**
 
-pyappdist reads your Python application's `pyproject.toml` and builds setup
-packages for distribution:
+pyappdist bridges the Python packaging ecosystem and native application
+distribution. It reads your application's `pyproject.toml` and builds setup
+packages for Windows, macOS, and Linux:
 
 - Windows: MSI / MSIX
 - macOS: DMG / `.app` bundle, or a self-extracting installer
