@@ -100,21 +100,21 @@ One `pyproject.toml` can describe several output packages — each is a
 
 ## Samples
 
-Runnable example apps live under [`samples/`](samples/), each with its own
+Runnable example apps live under [`samples/`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples), each with its own
 `[tool.pyappdist]` config. They double as smoke tests for tricky cases (C
 extensions, GUI stacks, data files, per-target extras):
 
 | Sample | Kind | What it shows |
 | --- | --- | --- |
-| [`helloworld`](samples/helloworld) | CLI | Smallest possible config — no dependencies. A good starting template; builds for every format (`msi`/`msix`/`linux`/`macos`/`dmg`). |
-| [`pandascli`](samples/pandascli) | CLI | pandas + numpy (C extensions) collected as binary wheels and installed into the runtime. Console launcher (`gui = false`). |
-| [`datafiles`](samples/datafiles) | CLI | Ships a bundled data file (`data/ebi.jpeg`) via `[tool.uv.build-backend].data` and reads it through `sysconfig`; opens it with Pillow. |
-| [`multiprocessingdemo`](samples/multiprocessingdemo) | CLI | Runs a `multiprocessing.Pool` across worker processes. The launcher runs the bundled interpreter directly, so `spawn` re-launches it correctly — no dependencies. |
-| [`pytorchdemo`](samples/pytorchdemo) | CLI | Ships PyTorch built for CUDA 13 (`cu130`) via a per-index `[tool.uv.sources]` pin; runs on the GPU when available, CPU otherwise. Windows/Linux only. |
-| [`matplotlibdemo`](samples/matplotlibdemo) | GUI | matplotlib plot with the **TkAgg** backend — uses the runtime's bundled tkinter/tcl-tk, no extra GUI deps. |
-| [`pygamedemo`](samples/pygamedemo) | GUI | A bouncing ball with pygame-ce (C extensions) collected as Windows wheels.|
-| [`pyside6demo`](samples/pyside6demo) | GUI | A Qt window with PySide6 — a large `abi3` wheel (`cp39-abi3`) installed into the cp312 runtime, Qt plugins and all. |
-| [`niceguidemo`](samples/niceguidemo) | GUI (web) | "Weather Panel" built with NiceGUI + pywebview + requests; uses per-target `extras` (`gtk`/`qt`/`gui`) to pick the webview backend per platform. |
+| [`helloworld`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/helloworld) | CLI | Smallest possible config — no dependencies. A good starting template; builds for every format (`msi`/`msix`/`linux`/`macos`/`dmg`). |
+| [`pandascli`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pandascli) | CLI | pandas + numpy (C extensions) collected as binary wheels and installed into the runtime. Console launcher (`gui = false`). |
+| [`datafiles`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/datafiles) | CLI | Ships a bundled data file (`data/ebi.jpeg`) via `[tool.uv.build-backend].data` and reads it through `sysconfig`; opens it with Pillow. |
+| [`multiprocessingdemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/multiprocessingdemo) | CLI | Runs a `multiprocessing.Pool` across worker processes. The launcher runs the bundled interpreter directly, so `spawn` re-launches it correctly — no dependencies. |
+| [`pytorchdemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pytorchdemo) | CLI | Ships PyTorch built for CUDA 13 (`cu130`) via a per-index `[tool.uv.sources]` pin; runs on the GPU when available, CPU otherwise. Windows/Linux only. |
+| [`matplotlibdemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/matplotlibdemo) | GUI | matplotlib plot with the **TkAgg** backend — uses the runtime's bundled tkinter/tcl-tk, no extra GUI deps. |
+| [`pygamedemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pygamedemo) | GUI | A bouncing ball with pygame-ce (C extensions) collected as Windows wheels.|
+| [`pyside6demo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pyside6demo) | GUI | A Qt window with PySide6 — a large `abi3` wheel (`cp39-abi3`) installed into the cp312 runtime, Qt plugins and all. |
+| [`niceguidemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/niceguidemo) | GUI (web) | "Weather Panel" built with NiceGUI + pywebview + requests; uses per-target `extras` (`gtk`/`qt`/`gui`) to pick the webview backend per platform. |
 
 ### Status
 
