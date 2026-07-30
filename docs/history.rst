@@ -19,6 +19,54 @@ MSIX/image/dmg artifacts by setting ``PYAPPDIST_SIGN_CMD`` alone must now
 enable signing with ``code-sign`` or ``--code-sign`` (Windows targets) and use
 the new variable name.
 
+**New target platforms** ``windows-arm64`` **and** ``linux-aarch64``. Each is
+built on a matching host (an ARM64 Windows machine, an aarch64 Linux machine);
+the MSVC launcher build picks the arm64 toolchain automatically, and the
+msi/msix/linux/image formats work unchanged.
+
+**MSI targets can put the install folder on** ``PATH``. A new target key
+``add-to-path`` (default false) appends the install folder to the user's
+``PATH`` for a per-user install or the system ``PATH`` for per-machine, so
+command-line launchers can be run by name; uninstall removes exactly the
+appended entry.
+
+**Dynamic project versions are resolved from the built app wheel.** A project
+declaring ``[project] dynamic = ["version"]`` (setuptools-scm, hatch-vcs, …)
+previously stamped every artifact 0.0.0; the version the build backend
+computes is now read back from the app wheel's filename.
+
+**Launcher** ``args`` **has one meaning on every platform.** The string form
+is POSIX-split once at build time instead of being re-parsed differently by
+each launcher kind (unparsable quoting is a ``ConfigError`` at load), and a
+new exec-form array passes the argument list verbatim.
+
+**The Windows launcher runs from beyond MAX_PATH.** An ``image`` zip
+extracted into a deep directory no longer fails silently: the launcher
+switches to extended-length (``\\?\``) paths as needed and every failure
+prints a diagnostic.
+
+**The MSI shows a product icon in Add/Remove Programs.** The first launcher's
+Windows ``.ico`` is emitted as the product icon; without one, nothing
+changes.
+
+**The .run and .tar.gz payloads are streamed instead of buffered.** The
+compressed payload no longer sits in memory while being written, roughly
+halving peak RAM when packaging large images (e.g. a PyTorch CUDA app).
+
+**Concurrent builds sharing a runtime cache no longer clash.** The runtime
+archive is verified and extracted through a single file handle and a lost
+cache-rename race is harmless, fixing spurious WinError 5 failures when
+parallel builds start with a cold cache.
+
+**Fixes and diagnostics.** ``.desktop`` ``Exec``/``Icon`` values are escaped
+per the Desktop Entry spec; Ctrl+C prints a short "interrupted" line and
+exits 130 instead of a traceback; a failing ``vcvars`` now fails the launcher
+build with its output; a non-directory runtime destination and
+``--appdist-dir``/``--build-dir`` on different drives are reported as errors
+at startup instead of crashing mid-build; building an ``msi`` from a
+four-field version warns (Windows Installer compares only three fields); a
+missing ``poetry export`` points at ``poetry-plugin-export``.
+
 0.10.0
 ------
 
