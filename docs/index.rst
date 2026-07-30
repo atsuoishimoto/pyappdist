@@ -1,24 +1,31 @@
 pyappdist
 =========
 
-**Build native installers for Python apps without hunting down hidden imports, data files, or plugins.**
+**Ship your Python app as a native installer straight from pyproject.toml.
+If it installs with pip, it ships with pyappdist.**
 
 .. warning::
 
    **Alpha.** pyappdist is under active development. It works end-to-end today,
    but the config schema, CLI, and output layout may still change without notice.
 
-pyappdist does **not** freeze your code. Instead of bundling Python and your app
-into a single executable (and fighting hidden imports, data files, and plugins
-along the way), it installs your app into a real, dedicated Python runtime —
-exactly the way ``pip`` would — and ships that.
+pyappdist reads your Python application's ``pyproject.toml`` and builds setup
+packages for distribution: an ``.msi`` / ``.msix`` on Windows, a ``.dmg`` /
+``.app`` bundle or a self-extracting installer on macOS, and a self-extracting
+installer on Linux.
 
-Because the runtime is a normal Python environment, **most apps run as-is**: no
-hooks, no ``--hidden-import``, no ``--add-data``, no per-library workarounds. If
-it runs under ``uv run``, it almost certainly runs after ``pyappdist build``.
+pyappdist creates a dedicated Python runtime directory and installs your
+application and its dependencies into it with ``pip``. That runtime directory
+itself becomes the setup package. The Python runtime comes from
+`python-build-standalone <https://github.com/astral-sh/python-build-standalone>`_,
+the same distribution Astral's uv uses to build its environments.
 
-Shipping a full runtime without selecting files makes packages larger, but against
-modern storage sizes that is a favorable trade for an environment that just runs.
+With this approach, binary files such as a package's DLLs and related files
+such as images are placed in the proper directories according to the Python
+language specification and the PyPA specifications. Because this environment is
+used for the setup package as-is, most applications can be expected to run
+unmodified, with no per-application adjustments. If your app runs under
+``uv run``, it almost certainly runs after ``pyappdist build``.
 
 Output formats
 --------------
@@ -47,11 +54,28 @@ One ``pyproject.toml`` can describe several output packages at once — each is 
    any platform → a ``.zip`` / ``.tar.gz`` of the image tree, with **no
    installer**.
 
-Why "just works"
-----------------
+Why pyappdist
+-------------
 
-Freezers reconstruct your app by static analysis, so anything dynamic tends to
-break and needs manual patching. pyappdist skips all of that:
+Tools such as PyInstaller and Nuitka analyze your code, select only the
+necessary files from the Python interpreter and dependency packages, and build
+an executable or a directory from that minimal set of files.
+
+The problem is that the selection is not always correct. Static analysis
+cannot reliably find dynamically imported modules, data files, or plugins, so
+these tools often need per-application adjustments — hidden-import
+declarations, data-file lists, and library-specific hooks — and adding a new
+dependency can break the build again.
+
+And is the size reduction worth it in the first place? The Python interpreter
+itself is only 100–150 MB. That used to be a size you couldn't ignore, but
+today, how much is it worth spending time trimming unnecessary files out of
+100–150 MB?
+
+pyappdist builds the environment according to the Python and PyPA
+specifications and creates the distribution package from it. **What your
+application and its dependencies contain does not matter** — there is nothing
+to hunt down and nothing to adjust per application:
 
 * **Real install layout** — ``dist-info``, entry points, ``.pth`` files, and
   package data are exactly where the package authors put them.

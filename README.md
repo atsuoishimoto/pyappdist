@@ -61,18 +61,18 @@ unmodified, with no per-application adjustments. If your app runs under
 
 Tools such as PyInstaller and Nuitka analyze your code, select only the
 necessary files from the Python interpreter and dependency packages, and
-build an executable or a directory from that minimal set of files. This
-file selection comes with two costs.
+build an executable or a directory from that minimal set of files.
 
-First, the selection is not always correct. Static analysis cannot reliably
-find dynamically imported modules, data files, or plugins, so these tools
-often need per-application adjustments — hidden-import declarations,
-data-file lists, and library-specific hooks — and adding a new dependency
-can break the build again.
+The problem is that the selection is not always correct. Static analysis
+cannot reliably find dynamically imported modules, data files, or plugins,
+so these tools often need per-application adjustments — hidden-import
+declarations, data-file lists, and library-specific hooks — and adding a
+new dependency can break the build again.
 
-Second, is the size reduction worth it? The Python interpreter itself is
-only 100–150 MB. That used to be a size you couldn't ignore, but today, how
-much is it worth spending time trimming unnecessary files out of 100–150 MB?
+And is the size reduction worth it in the first place? The Python
+interpreter itself is only 100–150 MB. That used to be a size you couldn't
+ignore, but today, how much is it worth spending time trimming unnecessary
+files out of 100–150 MB?
 
 pyappdist builds the environment according to the Python and PyPA
 specifications and creates the distribution package from it. **What your
