@@ -67,15 +67,14 @@ these tools often need per-application adjustments — hidden-import
 declarations, data-file lists, and library-specific hooks — and adding a new
 dependency can break the build again.
 
-And is the size reduction worth it in the first place? The Python interpreter
-itself is only 100–150 MB. That used to be a size you couldn't ignore, but
-today, how much is it worth spending time trimming unnecessary files out of
-100–150 MB?
+Those tools trade complexity for smaller distributions. A typical Python
+runtime adds roughly 100–150 MB. That used to matter more than it does today.
 
-pyappdist builds the environment according to the Python and PyPA
-specifications and creates the distribution package from it. **What your
-application and its dependencies contain does not matter** — there is nothing
-to hunt down and nothing to adjust per application:
+pyappdist makes the opposite trade-off: it builds a complete environment
+according to the Python and PyPA specifications and creates the distribution
+package from it. **What your application and its dependencies contain does
+not matter** — there is nothing to hunt down and nothing to adjust per
+application:
 
 * **Real install layout** — ``dist-info``, entry points, ``.pth`` files, and
   package data are exactly where the package authors put them.
