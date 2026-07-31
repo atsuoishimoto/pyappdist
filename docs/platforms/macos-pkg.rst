@@ -78,6 +78,22 @@ Two identities are involved:
 2. The ``.pkg`` itself is signed with the **Developer ID Installer** identity
    (``installer-identity``) via ``productbuild --sign``.
 
+Prerequisite (one-time): create the *Developer ID Installer* certificate, the
+same way as the Application one — in Xcode (Settings → Accounts → Manage
+Certificates → **+** → *Developer ID Installer*) or in the Developer portal
+(Certificates → **+**; downloading the ``.cer`` and double-clicking installs it
+into the login keychain). Only the Account Holder can create Developer ID
+certificates. Confirm it is installed::
+
+   security find-identity -v | grep "Developer ID Installer"
+   #  N) ... "Developer ID Installer: Your Name (TEAMID)"
+
+Note the plain ``-v`` — the ``-p codesigning`` filter used for the Application
+identity does not list Installer certificates, which sign packages, not code.
+Apple also caps Developer ID certificates at five per type per team, so to sign
+on another machine, export the existing certificate with its private key
+(Keychain Access → export as ``.p12``) instead of creating a new one.
+
 Notarization (``notary-profile``) submits the ``.pkg`` directly to Apple and
 staples the ticket. It runs only when *both* identities are configured — an
 unsigned package, or one containing ad-hoc-signed bundles, would be rejected by
