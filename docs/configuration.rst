@@ -390,7 +390,7 @@ from a target key. Details: :doc:`platforms/macos-app`.
 ``signing-identity``
    Developer ID identity for distribution signing, e.g.
    ``"Developer ID Application: Your Name (TEAMID)"`` (or the
-   ``PYAPPDIST_SIGNING_IDENTITY`` environment variable). When unset the bundle is **ad-hoc
+   ``PYAPPDIST_MACOS_SIGNING_IDENTITY`` environment variable). When unset the bundle is **ad-hoc
    signed** — it runs locally but Gatekeeper rejects it on other machines. See
    :ref:`macos-signing`.
 
@@ -398,7 +398,7 @@ from a target key. Details: :doc:`platforms/macos-app`.
    Apple Developer Team ID (informational).
 
 ``notary-profile``
-   ``notarytool`` keychain profile name (or ``PYAPPDIST_NOTARY_PROFILE``). When set
+   ``notarytool`` keychain profile name (or ``PYAPPDIST_MACOS_NOTARY_PROFILE``). When set
    **and** a Developer ID identity is configured, the artifact is notarized and stapled.
 
 ``entitlements``
@@ -419,7 +419,7 @@ above apply unchanged, plus one key specific to ``pkg``. Details:
 ``installer-identity``
    A **Developer ID Installer** identity, e.g.
    ``"Developer ID Installer: Your Name (TEAMID)"`` (or the
-   ``PYAPPDIST_INSTALLER_IDENTITY`` environment variable), used to sign the
+   ``PYAPPDIST_MACOS_INSTALLER_IDENTITY`` environment variable), used to sign the
    ``.pkg`` itself. This is a *different certificate type* from the
    ``Developer ID Application`` identity that signs the bundles — create both in
    the Apple Developer portal. When unset the package is left unsigned: it
@@ -465,3 +465,48 @@ A single project can declare several targets and produce all of these at once:
    name = "macos-arm"
    platform = "macos-aarch64"             # or "macos-x86_64" for Intel
    format = "macos"
+
+.. _config-env-vars:
+
+Environment variables
+---------------------
+
+Build-time settings that pyappdist reads from the environment. Platform-specific
+variables carry the platform in their name (``PYAPPDIST_WIN_*`` /
+``PYAPPDIST_MACOS_*``). The Windows signing command takes precedence over its
+config key; the macOS variables are fallbacks used only when the corresponding
+config key is unset.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 12 54
+
+   * - Variable
+     - Platform
+     - Meaning
+   * - ``PYAPPDIST_WIN_SIGN_CMD``
+     - Windows
+     - Signing command for Windows artifacts; overrides ``code-sign-command``.
+       Supplies the command only — it never enables signing by itself. See
+       :ref:`Windows code signing keys <config-win-code-sign>`.
+   * - ``PYAPPDIST_WIN_WIX``
+     - Windows
+     - Absolute path to the ``wix`` executable, instead of looking up
+       ``wix.exe`` on ``PATH`` (``msi`` format).
+   * - ``PYAPPDIST_WIN_MAKEAPPX``
+     - Windows
+     - Absolute path to ``makeappx.exe``, instead of searching ``PATH`` and the
+       Windows SDK install locations (``msix`` format).
+   * - ``PYAPPDIST_MACOS_SIGNING_IDENTITY``
+     - macOS
+     - Developer ID Application identity; fallback when ``signing-identity``
+       is unset (``macapp`` / ``dmg`` / ``pkg`` formats). See
+       :doc:`platforms/macos-app`.
+   * - ``PYAPPDIST_MACOS_NOTARY_PROFILE``
+     - macOS
+     - ``notarytool`` keychain profile name; fallback when ``notary-profile``
+       is unset.
+   * - ``PYAPPDIST_MACOS_INSTALLER_IDENTITY``
+     - macOS
+     - Developer ID Installer identity; fallback when ``installer-identity``
+       is unset (``pkg`` format). See :doc:`platforms/macos-pkg`.

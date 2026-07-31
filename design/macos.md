@@ -52,7 +52,7 @@ Mac 専用」という点。
 - **macOS 用ターゲットキー（案）**: `signing-identity`（"Developer ID Application: Name (TEAMID)"）、
   `team-id`、`notary-profile`（keychain プロファイル名）、`entitlements`（plist パス、既定は
   内蔵テンプレート）、`category`（LSApplicationCategoryType）、`min-macos`（LSMinimumSystemVersion）。
-  署名/公証は環境依存なので、CI/手元の差を吸収できるよう env 上書き（例 `PYAPPDIST_NOTARY_PROFILE`）も。
+  署名/公証は環境依存なので、CI/手元の差を吸収できるよう env 上書き（例 `PYAPPDIST_MACOS_NOTARY_PROFILE`）も。
 
 ## 2. パイプライン統合（既存ステージの再利用と差分）
 

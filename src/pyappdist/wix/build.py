@@ -93,7 +93,7 @@ def build_msi(config: Config, image_dir: Path, wxs_path: Path, out_msi: Path, *,
 
 
 def _find_wix(target) -> str:
-    override = os.environ.get("PYAPPDIST_WIX")
+    override = os.environ.get("PYAPPDIST_WIN_WIX")
     if override:
         return override
     found = shutil.which("wix.exe")
@@ -101,5 +101,5 @@ def _find_wix(target) -> str:
         return found
     raise BuildError(
         "wix not found. Run `dotnet tool install --global wix`, or "
-        "specify the absolute path to wix via PYAPPDIST_WIX."
+        "specify the absolute path to wix via PYAPPDIST_WIN_WIX."
     )

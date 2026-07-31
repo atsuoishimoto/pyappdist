@@ -6,6 +6,14 @@ Release history
 
 unreleased
 
+**Breaking: platform-specific environment variables are renamed to carry the
+platform in their name.** ``PYAPPDIST_WIX`` → ``PYAPPDIST_WIN_WIX``,
+``PYAPPDIST_MAKEAPPX`` → ``PYAPPDIST_WIN_MAKEAPPX``,
+``PYAPPDIST_SIGNING_IDENTITY`` → ``PYAPPDIST_MACOS_SIGNING_IDENTITY``,
+``PYAPPDIST_NOTARY_PROFILE`` → ``PYAPPDIST_MACOS_NOTARY_PROFILE``,
+``PYAPPDIST_INSTALLER_IDENTITY`` → ``PYAPPDIST_MACOS_INSTALLER_IDENTITY``.
+The old names are no longer read.
+
 **Breaking: one code-signing interface for the Windows formats.** The
 ``code-sign`` / ``code-sign-command`` target keys (previously MSI-only) now
 also govern ``msix`` and Windows ``image`` targets, and a new

@@ -16,7 +16,7 @@ bundle executable into ``/usr/local/bin`` (the script runs as root in the system
 domain, so creating the symlinks there is allowed).
 
 Signing uses a **Developer ID Installer** identity (``installer-identity`` /
-``PYAPPDIST_INSTALLER_IDENTITY``) — a different certificate type from the Developer
+``PYAPPDIST_MACOS_INSTALLER_IDENTITY``) — a different certificate type from the Developer
 ID Application identity that signs the bundles themselves (:mod:`.sign`). Without
 one the ``.pkg`` is left unsigned (installable locally, but not notarizable).
 """
@@ -34,7 +34,7 @@ from xml.sax.saxutils import escape, quoteattr
 from ..config import Config
 from ..errors import BuildError
 
-_INSTALLER_IDENTITY_ENV = "PYAPPDIST_INSTALLER_IDENTITY"
+_INSTALLER_IDENTITY_ENV = "PYAPPDIST_MACOS_INSTALLER_IDENTITY"
 
 
 def resolve_installer_identity(config: Config) -> str | None:

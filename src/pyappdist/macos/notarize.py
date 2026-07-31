@@ -6,7 +6,7 @@ service and, once accepted, the ticket is stapled so it validates offline.
 Credentials are supplied through a ``notarytool`` **keychain profile** created once with
 ``xcrun notarytool store-credentials <profile> --apple-id … --team-id … --password …``;
 pyappdist never handles the Apple ID password or API key directly. The profile name comes
-from ``notary-profile`` (or ``PYAPPDIST_NOTARY_PROFILE``).
+from ``notary-profile`` (or ``PYAPPDIST_MACOS_NOTARY_PROFILE``).
 
 ``notarytool`` accepts a ``.dmg``/``.pkg``/``.zip`` — not a bare ``.app`` — so a ``.app`` is
 zipped (``ditto``) for submission, then the **bundle** is stapled (you cannot staple a zip).
@@ -24,7 +24,7 @@ from pathlib import Path
 from ..config import Config
 from ..errors import BuildError
 
-_PROFILE_ENV = "PYAPPDIST_NOTARY_PROFILE"
+_PROFILE_ENV = "PYAPPDIST_MACOS_NOTARY_PROFILE"
 
 
 def resolve_notary_profile(config: Config) -> str | None:

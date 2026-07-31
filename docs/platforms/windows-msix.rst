@@ -18,7 +18,7 @@ Build requirements
 * **MSVC C++ build tools** (``cl.exe`` / ``rc.exe``) — to compile the launcher
   ``.exe`` (same as :doc:`MSI <windows-msi>`; see its
   :ref:`install steps <platforms/windows-msi:Build requirements>`).
-* **makeappx** (Windows SDK) — located automatically, or set ``PYAPPDIST_MAKEAPPX``
+* **makeappx** (Windows SDK) — located automatically, or set ``PYAPPDIST_WIN_MAKEAPPX``
   to its path. It is included in the Windows SDK that the MSVC Build Tools
   install pulls in; standalone, it comes with the Windows SDK installer or
 
