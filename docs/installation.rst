@@ -24,7 +24,8 @@ pyappdist builds the app wheel with ``python -m pip``, so producing the
   (Windows SDK).
 * :doc:`Linux <platforms/linux>` / :doc:`macOS <platforms/macos-run>` — none
   (the launchers are shell scripts).
-* :doc:`macapp / dmg <platforms/macos-app>` — the Xcode command-line tools.
+* :doc:`macapp / dmg <platforms/macos-app>` / :doc:`pkg <platforms/macos-pkg>` —
+  the Xcode command-line tools.
 * :doc:`image <platforms/image>` — the target platform's launcher toolchain
   (MSVC for Windows targets; none for Linux/macOS, or with ``no-launcher``).
 

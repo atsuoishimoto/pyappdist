@@ -3,10 +3,12 @@ macOS — .app / .dmg (GUI apps)
 
 .. note::
 
-   Two macOS distributions exist. **This page** (``format = "macapp"`` /
+   Three macOS distributions exist. **This page** (``format = "macapp"`` /
    ``"dmg"``) builds the double-click-to-launch, Dock-able ``.app`` bundle a
    GUI app is distributed in. For a **command-line tool** installed into
-   ``<prefix>/bin``, use :doc:`macos-run` instead.
+   ``<prefix>/bin``, use :doc:`macos-run`; for a system-wide **installer
+   package** that puts the ``.app`` into ``/Applications``, use
+   :doc:`macos-pkg`.
 
 ``format = "macapp"`` and ``format = "dmg"`` build a native macOS ``.app`` bundle:
 

@@ -97,8 +97,9 @@ The pipeline
 
 #. **Packaging.** The image is turned into the target's package: an ``.msi`` or
    ``.msix`` on Windows, a self-extracting ``.run`` on Linux/macOS, or a
-   ``.app`` bundle (optionally wrapped in a ``.dmg``) on macOS. See the
-   per-format pages under :ref:`Output formats <config-formats>`.
+   ``.app`` bundle (optionally wrapped in a ``.dmg``, or installed system-wide
+   by a ``.pkg``) on macOS. See the per-format pages under
+   :ref:`Output formats <config-formats>`.
 
 The launcher
 ------------
@@ -118,7 +119,7 @@ embedded interpreter:
   arguments, icon, and version resource) are baked into a generated header and
   ``.rc`` resource at build time; the C source is never edited.
 
-**macOS app bundle** (``.app`` / ``.dmg``) — a compiled Mach-O C stub (built with
+**macOS app bundle** (``.app`` / ``.dmg`` / ``.pkg``) — a compiled Mach-O C stub (built with
 ``clang``) at ``Contents/MacOS/<name>``. It execs the bundled interpreter under
 ``Contents/Resources/python`` with the same isolated-mode bootstrap. Like the
 Windows stub it embeds no interpreter, so it is decoupled from the Python C-API;

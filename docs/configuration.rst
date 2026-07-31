@@ -48,6 +48,8 @@ All keys at a glance
    * - targets, ``format = "macapp"`` / ``"dmg"`` — :doc:`platforms/macos-app`
      - ``min-macos`` · ``category`` · ``signing-identity`` · ``team-id`` ·
        ``notary-profile`` · ``entitlements``
+   * - targets, ``format = "pkg"`` — :doc:`platforms/macos-pkg`
+     - the ``macapp`` / ``dmg`` keys plus ``installer-identity``
    * - targets, ``format = "image"`` — :doc:`platforms/image`
      - ``no-launcher``
 
@@ -96,16 +98,16 @@ All keys at a glance
 
 ``identifier``
    CFBundleIdentifier in reverse-DNS form (e.g. ``"com.example.myapp"``).
-   **Required** when any target uses ``format = "macapp"`` or ``"dmg"``; unused by the
-   other formats. With multiple launchers each bundle derives
-   ``<identifier>.<launcher>``.
+   **Required** when any target uses ``format = "macapp"``, ``"dmg"``, or
+   ``"pkg"``; unused by the other formats. With multiple launchers each bundle
+   derives ``<identifier>.<launcher>``.
 
 .. code-block:: toml
 
    [tool.pyappdist]
    name = "My App"
    python = "3.12"
-   # identifier = "com.example.myapp"   # required for macapp/dmg targets
+   # identifier = "com.example.myapp"   # required for macapp/dmg/pkg targets
 
 .. _config-launchers:
 
@@ -196,10 +198,11 @@ These keys are common to every format; the format-specific keys live on the
 
 ``format`` (required)
    Output package. Must match the platform's OS: ``"msi"`` or ``"msix"`` on
-   Windows, ``"linux"`` on Linux, and on macOS either ``"macos"`` (a
-   ``.run`` installer, like Linux) or ``"macapp"`` / ``"dmg"`` (a ``.app`` bundle,
-   optionally inside a ``.dmg``, for GUI distribution). A mismatch (e.g. ``"msi"``
-   with ``linux-x86_64``) is rejected at load. ``"image"`` — an archive of the
+   Windows, ``"linux"`` on Linux, and on macOS ``"macos"`` (a ``.run``
+   installer, like Linux), ``"macapp"`` / ``"dmg"`` (a ``.app`` bundle,
+   optionally inside a ``.dmg``, for GUI distribution), or ``"pkg"`` (a
+   system-scope installer package). A mismatch (e.g. ``"msi"`` with
+   ``linux-x86_64``) is rejected at load. ``"image"`` — an archive of the
    image tree with no installer — is the exception: it is valid on every
    platform. See :ref:`Output formats <config-formats>`.
 
@@ -241,10 +244,12 @@ Every platform additionally accepts format ``image``.
    since the pipeline runs the target runtime's ``python``.
 
 ``macos-aarch64``
-   Triple ``aarch64-apple-darwin`` · OS macos · format ``macos`` / ``macapp`` / ``dmg``.
+   Triple ``aarch64-apple-darwin`` · OS macos · format ``macos`` / ``macapp`` /
+   ``dmg`` / ``pkg``.
 
 ``macos-x86_64``
-   Triple ``x86_64-apple-darwin`` · OS macos · format ``macos`` / ``macapp`` / ``dmg``.
+   Triple ``x86_64-apple-darwin`` · OS macos · format ``macos`` / ``macapp`` /
+   ``dmg`` / ``pkg``.
 
 .. _config-formats:
 
@@ -269,6 +274,11 @@ behavior:
 :doc:`macapp / dmg <platforms/macos-app>`
    A macOS ``.app`` bundle (``macapp``), optionally wrapped in a ``.dmg`` (``dmg``),
    for GUI apps; Developer-ID-signed and notarized when configured.
+
+:doc:`pkg <platforms/macos-pkg>`
+   A macOS ``.pkg`` installer that puts the ``.app`` bundle(s) into
+   ``/Applications`` (system-wide, MDM-deployable); signed and notarized when
+   configured.
 
 :doc:`image <platforms/image>`
    No installer — an archive of the image tree (``.zip`` on Windows, ``.tar.gz``

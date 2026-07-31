@@ -110,7 +110,7 @@ launcher(s). Options: ``--no-compile``.
 (Re)build the launcher(s) into an existing image. Requires a prior
 ``build-image``. The launcher kind follows the target's ``format``: a Windows
 ``launcher.exe`` (MSVC) for ``msi``/``msix``, or a compiled Mach-O stub (clang)
-for the macOS ``.app`` (``macapp``/``dmg``). For ``linux`` and ``macos``
+for the macOS ``.app`` (``macapp``/``dmg``/``pkg``). For ``linux`` and ``macos``
 (``.run``) the launcher is a shell wrapper written during packaging, so
 this command is a no-op.
 

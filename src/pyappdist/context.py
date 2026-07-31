@@ -36,6 +36,10 @@ class BuildContext:
         return self.build_dir / "_app_build"
 
     @property
+    def pkg_build_dir(self) -> Path:
+        return self.build_dir / "_pkg_build"
+
+    @property
     def wxs_path(self) -> Path:
         return self.build_dir / f"{self.config.dist_name}.wxs"
 

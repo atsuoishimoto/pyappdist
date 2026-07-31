@@ -8,7 +8,7 @@ distribution. It reads your application's `pyproject.toml` and builds setup
 packages for Windows, macOS, and Linux:
 
 - Windows: MSI / MSIX
-- macOS: DMG / `.app` bundle, or a self-extracting installer
+- macOS: DMG / `.app` bundle, PKG installer, or a self-extracting installer
 - Linux: self-extracting installer
 
 For example, to build a Windows MSI, configure `pyproject.toml` like this:
@@ -96,6 +96,7 @@ One `pyproject.toml` can describe several output packages — each is a
 | `macos` | `macos-aarch64` / `macos-x86_64` | self-extracting `.run` installer (per-user, no root) |
 | `dmg`   | `macos-aarch64` / `macos-x86_64` | `.dmg` disk image (code-signing / notarization supported) |
 | `macapp` | `macos-aarch64` / `macos-x86_64` | `.app` bundle (code-signing / notarization supported) |
+| `pkg`   | `macos-aarch64` / `macos-x86_64` | `.pkg` installer — installs the `.app` into `/Applications` system-wide (code-signing / notarization supported) |
 | `image` | any of the above                | plain archive of the install tree — `.zip` (Windows) / `.tar.gz` (Linux, macOS), no installer |
 
 ## Samples
@@ -106,7 +107,7 @@ extensions, GUI stacks, data files, per-target extras):
 
 | Sample | Kind | What it shows |
 | --- | --- | --- |
-| [`helloworld`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/helloworld) | CLI | Smallest possible config — no dependencies. A good starting template; builds for every format (`msi`/`msix`/`linux`/`macos`/`dmg`). |
+| [`helloworld`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/helloworld) | CLI | Smallest possible config — no dependencies. A good starting template; builds for every format (`msi`/`msix`/`linux`/`macos`/`dmg`/`pkg`). |
 | [`pandascli`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pandascli) | CLI | pandas + numpy (C extensions) collected as binary wheels and installed into the runtime. Console launcher (`gui = false`). |
 | [`datafiles`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/datafiles) | CLI | Ships a bundled data file (`data/ebi.jpeg`) via `[tool.uv.build-backend].data` and reads it through `sysconfig`; opens it with Pillow. |
 | [`multiprocessingdemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/multiprocessingdemo) | CLI | Runs a `multiprocessing.Pool` across worker processes. The launcher runs the bundled interpreter directly, so `spawn` re-launches it correctly — no dependencies. |
