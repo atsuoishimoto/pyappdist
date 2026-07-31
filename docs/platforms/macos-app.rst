@@ -60,17 +60,18 @@ from its launcher's ``icon`` table — the ``macos`` key (a ``.png``), resized i
 
 ``signing-identity``
    Developer ID identity for distribution signing, e.g.
-   ``"Developer ID Application: Your Name (TEAMID)"`` (or the
-   ``PYAPPDIST_MACOS_SIGNING_IDENTITY`` environment variable). When unset the bundle is **ad-hoc
-   signed** — it runs locally but Gatekeeper rejects it on other machines. See
-   :ref:`macos-signing` below.
+   ``"Developer ID Application: Your Name (TEAMID)"``. The
+   ``PYAPPDIST_MACOS_SIGNING_IDENTITY`` environment variable overrides this key.
+   When neither is set the bundle is **ad-hoc signed** — it runs locally but
+   Gatekeeper rejects it on other machines. See :ref:`macos-signing` below.
 
 ``team-id``
    Apple Developer Team ID (informational).
 
 ``notary-profile``
-   ``notarytool`` keychain profile name (or ``PYAPPDIST_MACOS_NOTARY_PROFILE``). When set
-   **and** a Developer ID identity is configured, the artifact is notarized and stapled.
+   ``notarytool`` keychain profile name (the ``PYAPPDIST_MACOS_NOTARY_PROFILE``
+   environment variable overrides this key). When set **and** a Developer ID
+   identity is configured, the artifact is notarized and stapled.
 
 ``entitlements``
    Path to a custom entitlements ``.plist``. The default grants only

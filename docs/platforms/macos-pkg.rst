@@ -40,7 +40,8 @@ because the payload *is* the same ``.app`` bundle. One key is specific to
 ``installer-identity``
    A **Developer ID Installer** identity, e.g.
    ``"Developer ID Installer: Your Name (TEAMID)"`` (or the
-   ``PYAPPDIST_MACOS_INSTALLER_IDENTITY`` environment variable), used to sign the
+   ``PYAPPDIST_MACOS_INSTALLER_IDENTITY`` environment variable, which overrides
+   this key), used to sign the
    ``.pkg`` itself. This is a *different certificate type* from the
    ``Developer ID Application`` identity that signs the bundles — create both in
    the Apple Developer portal. When unset the package is left unsigned: it
