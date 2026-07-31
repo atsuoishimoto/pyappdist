@@ -6,6 +6,10 @@ Release history
 
 unreleased
 
+**pyappdist is now beta.** The development status moves from alpha to beta:
+the config schema, CLI, and output layout are settling down and breaking
+changes will be called out explicitly in this history.
+
 **Breaking: platform-specific environment variables are renamed to carry the
 platform in their name.** ``PYAPPDIST_WIX`` → ``PYAPPDIST_WIN_WIX``,
 ``PYAPPDIST_MAKEAPPX`` → ``PYAPPDIST_WIN_MAKEAPPX``,
@@ -28,6 +32,16 @@ extra signing pass on the macOS ``.dmg`` is removed — the ``signing-identity``
 MSIX/image/dmg artifacts by setting ``PYAPPDIST_SIGN_CMD`` alone must now
 enable signing with ``code-sign`` or ``--code-sign`` (Windows targets) and use
 the new variable name.
+
+**New macOS** ``pkg`` **output format.** ``format = "pkg"`` builds a
+distribution ``.pkg`` that installs the app's ``.app`` bundle(s) into
+``/Applications`` (system scope by design; per-user distribution remains the
+``.run`` installer's job), with non-gui launchers symlinked into
+``/usr/local/bin``. It is signed with the Developer ID Installer identity
+from the new pkg-only ``installer-identity`` key (or
+``PYAPPDIST_MACOS_INSTALLER_IDENTITY``) — a different certificate type from
+``signing-identity`` — and, when installer-signed with a ``notary-profile``,
+notarized and stapled.
 
 **New target platforms** ``windows-arm64`` **and** ``linux-aarch64``. Each is
 built on a matching host (an ARM64 Windows machine, an aarch64 Linux machine);
