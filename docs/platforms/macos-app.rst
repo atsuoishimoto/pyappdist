@@ -115,17 +115,22 @@ Prerequisites (one-time):
       security find-identity -v -p codesigning
       # 1) ... "Developer ID Application: Your Name (TEAMID)"
 
-2. Create a ``notarytool`` keychain profile from an `app-specific password
-   <https://account.apple.com>`_ (Sign-In & Security → App-Specific Passwords). The
-   password authorizes the *tool*, not one app — one profile notarizes every build.
-   pyappdist never sees the password; it lives only in the keychain::
+2. Create an `app-specific password <https://account.apple.com>`_
+   (Sign-In & Security → App-Specific Passwords). The password authorizes the
+   *tool*, not one app — one password serves every build.
+
+3. Run ``notarytool store-credentials`` and enter that password when prompted;
+   it is stored in the keychain as a named profile. pyappdist never sees the
+   password; it lives only in the keychain::
 
       xcrun notarytool store-credentials your-notary-profile \
           --apple-id you@example.com --team-id TEAMID
 
-Then set ``signing-identity`` and ``notary-profile`` on the target (or use the
-``PYAPPDIST_MACOS_SIGNING_IDENTITY`` / ``PYAPPDIST_MACOS_NOTARY_PROFILE``
-environment variables), as in the configuration example above.
+4. Set ``notary-profile`` to that profile name — along with ``signing-identity`` —
+   on the target (or use the ``PYAPPDIST_MACOS_SIGNING_IDENTITY`` /
+   ``PYAPPDIST_MACOS_NOTARY_PROFILE`` environment variables), as in the
+   configuration example above; pyappdist then uses the keychain credentials at
+   notarization time.
 
 ``pyappdist build`` then deep-signs every Mach-O in the bundle with a hardened
 runtime, signs the ``.dmg``, submits it to Apple's notary service, waits, and staples
