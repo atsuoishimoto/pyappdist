@@ -61,7 +61,7 @@ from its launcher's ``icon`` table — the ``macos`` key (a ``.png``), resized i
 ``signing-identity``
    Developer ID identity for distribution signing, e.g.
    ``"Developer ID Application: Your Name (TEAMID)"`` (or the
-   ``PYAPPDIST_SIGNING_IDENTITY`` environment variable). When unset the bundle is **ad-hoc
+   ``PYAPPDIST_MACOS_SIGNING_IDENTITY`` environment variable). When unset the bundle is **ad-hoc
    signed** — it runs locally but Gatekeeper rejects it on other machines. See
    :ref:`macos-signing` below.
 
@@ -69,7 +69,7 @@ from its launcher's ``icon`` table — the ``macos`` key (a ``.png``), resized i
    Apple Developer Team ID (informational).
 
 ``notary-profile``
-   ``notarytool`` keychain profile name (or ``PYAPPDIST_NOTARY_PROFILE``). When set
+   ``notarytool`` keychain profile name (or ``PYAPPDIST_MACOS_NOTARY_PROFILE``). When set
    **and** a Developer ID identity is configured, the artifact is notarized and stapled.
 
 ``entitlements``
@@ -123,8 +123,8 @@ Prerequisites (one-time):
           --apple-id you@example.com --team-id TEAMID
 
 Then set ``signing-identity`` and ``notary-profile`` on the target (or use the
-``PYAPPDIST_SIGNING_IDENTITY`` / ``PYAPPDIST_NOTARY_PROFILE`` environment
-variables), as in the configuration example above.
+``PYAPPDIST_MACOS_SIGNING_IDENTITY`` / ``PYAPPDIST_MACOS_NOTARY_PROFILE``
+environment variables), as in the configuration example above.
 
 ``pyappdist build`` then deep-signs every Mach-O in the bundle with a hardened
 runtime, signs the ``.dmg``, submits it to Apple's notary service, waits, and staples

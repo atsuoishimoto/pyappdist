@@ -79,7 +79,7 @@ def _stage_logos(config: Config, image_dir: Path, *, log) -> None:
 
 
 def _find_makeappx(target) -> str:
-    override = os.environ.get("PYAPPDIST_MAKEAPPX")
+    override = os.environ.get("PYAPPDIST_WIN_MAKEAPPX")
     if override:
         return override
     import shutil
@@ -97,5 +97,5 @@ def _find_makeappx(target) -> str:
     if cands:
         return sorted(cands)[-1]  # newest SDK version
     raise BuildError(
-        "makeappx not found. Install the Windows SDK, or set PYAPPDIST_MAKEAPPX to its path."
+        "makeappx not found. Install the Windows SDK, or set PYAPPDIST_WIN_MAKEAPPX to its path."
     )

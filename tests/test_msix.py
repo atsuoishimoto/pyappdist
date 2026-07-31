@@ -87,7 +87,7 @@ def test_build_msix_invokes_makeappx_with_relative_paths(
     image = tmp_path / "image"
     image.mkdir()
     out = tmp_path / "dist" / "helloworld-1.2.3.msix"
-    monkeypatch.setenv("PYAPPDIST_MAKEAPPX", "makeappx.exe")
+    monkeypatch.setenv("PYAPPDIST_WIN_MAKEAPPX", "makeappx.exe")
 
     calls = {}
 

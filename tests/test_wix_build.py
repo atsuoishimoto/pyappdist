@@ -15,7 +15,7 @@ from pyappdist.wix.generate import ICON_STAGED_NAME, LICENSE_STAGED_NAME
 def _fake_wix(monkeypatch, out_msi: Path) -> dict:
     """Stub out wix.exe discovery, the Windows path lookup, and the build itself."""
     calls: dict = {}
-    monkeypatch.setenv("PYAPPDIST_WIX", "wix.exe")
+    monkeypatch.setenv("PYAPPDIST_WIN_WIX", "wix.exe")
     monkeypatch.setattr(wb, "windows_abspath", lambda path, python_exe: r"C:\image")
 
     def fake_run(cmd, **kwargs):

@@ -196,7 +196,7 @@ class MacosConfig:
     The remaining fields apply to ``format = "macapp"``/``"dmg"``/``"pkg"`` — assembling a
     ``.app`` bundle (and wrapping it in a disk image for ``dmg``, or in a system-scope
     installer package for ``pkg``). When ``signing-identity`` (or
-    ``PYAPPDIST_SIGNING_IDENTITY``) names a Developer ID identity the bundle is signed with
+    ``PYAPPDIST_MACOS_SIGNING_IDENTITY``) names a Developer ID identity the bundle is signed with
     a hardened runtime; with a ``notary-profile`` it is then notarized and stapled. With no
     identity the bundle is ad-hoc signed (runs locally, rejected by Gatekeeper elsewhere).
 

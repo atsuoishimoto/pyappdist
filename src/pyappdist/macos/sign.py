@@ -9,7 +9,7 @@ Two modes, selected by :func:`resolve_sign_options`:
 * **ad-hoc** (``--sign -``) — the default; runs locally but is rejected by Gatekeeper on
   other machines. python-build-standalone binaries already carry ad-hoc signatures, so
   ``--force`` is mandatory to re-sign them.
-* **Developer ID** — when ``signing-identity`` (or ``PYAPPDIST_SIGNING_IDENTITY``) is set:
+* **Developer ID** — when ``signing-identity`` (or ``PYAPPDIST_MACOS_SIGNING_IDENTITY``) is set:
   adds the hardened runtime (``--options runtime``), a secure ``--timestamp``, and
   entitlements. This is the signature notarization requires (see :mod:`.notarize`).
 """
@@ -25,7 +25,7 @@ from pathlib import Path
 from ..config import Config
 from ..errors import BuildError
 
-_IDENTITY_ENV = "PYAPPDIST_SIGNING_IDENTITY"
+_IDENTITY_ENV = "PYAPPDIST_MACOS_SIGNING_IDENTITY"
 
 # Hardened-runtime entitlements for a bundled CPython. The one entitlement a relocated
 # interpreter genuinely needs is disable-library-validation: it lets the hardened binary
@@ -70,14 +70,14 @@ def entitlements_plist() -> bytes:
 def resolve_sign_options(config: Config, build_dir: Path, *, log=print) -> SignOptions:
     """Decide ad-hoc vs Developer ID signing from the config + environment.
 
-    ``signing-identity`` (or ``PYAPPDIST_SIGNING_IDENTITY``) selects Developer ID, which
+    ``signing-identity`` (or ``PYAPPDIST_MACOS_SIGNING_IDENTITY``) selects Developer ID, which
     turns on the hardened runtime + secure timestamp and resolves entitlements (the
     configured ``entitlements`` plist, else a bundled-python default written into
     ``build_dir``). With no identity set, returns ad-hoc options.
     """
     identity = config.macos.signing_identity or os.environ.get(_IDENTITY_ENV)
     if not identity:
-        log("macos: signing ad-hoc (set signing-identity / PYAPPDIST_SIGNING_IDENTITY for Developer ID)")
+        log("macos: signing ad-hoc (set signing-identity / PYAPPDIST_MACOS_SIGNING_IDENTITY for Developer ID)")
         return SignOptions()
 
     if config.macos.entitlements:
