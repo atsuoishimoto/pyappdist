@@ -8,6 +8,13 @@ English is the working language of this repository. Write all repository
 artifacts — code comments, commit messages, PR descriptions, and
 documentation — in English. (Interactive chat may be in another language.)
 
+## Tables
+
+Use tables (Markdown / reST) only when they stay small — short cells, few
+columns, no line wrapping. Content whose cells would wrap belongs in a
+bulleted or definition list, or in prose. This applies to documentation and
+PR bodies alike.
+
 ## What this is
 
 pyappdist turns a Python app into a native package — a Windows `.msi`/`.msix`, a Linux or macOS self-extracting `.run` installer, or a macOS `.app`/`.dmg`/`.pkg`. It does **not** freeze code into an exe. Instead it installs the app into a real, dedicated python-build-standalone runtime exactly as `pip` would, then ships that tree. Because the install layout is real, most apps (C extensions, abi3 wheels, Qt plugins, tkinter) run unmodified.

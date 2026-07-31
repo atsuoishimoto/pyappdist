@@ -12,7 +12,9 @@ platform in their name.** ``PYAPPDIST_WIX`` → ``PYAPPDIST_WIN_WIX``,
 ``PYAPPDIST_SIGNING_IDENTITY`` → ``PYAPPDIST_MACOS_SIGNING_IDENTITY``,
 ``PYAPPDIST_NOTARY_PROFILE`` → ``PYAPPDIST_MACOS_NOTARY_PROFILE``,
 ``PYAPPDIST_INSTALLER_IDENTITY`` → ``PYAPPDIST_MACOS_INSTALLER_IDENTITY``.
-The old names are no longer read.
+The old names are no longer read. The macOS variables now also take
+precedence over their config keys (previously they were fallbacks used only
+when the key was unset), matching ``PYAPPDIST_WIN_SIGN_CMD``.
 
 **Breaking: one code-signing interface for the Windows formats.** The
 ``code-sign`` / ``code-sign-command`` target keys (previously MSI-only) now

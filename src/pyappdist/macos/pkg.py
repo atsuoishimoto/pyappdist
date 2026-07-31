@@ -15,8 +15,8 @@ Launchers with ``gui = false`` get a ``postinstall`` script that symlinks their
 bundle executable into ``/usr/local/bin`` (the script runs as root in the system
 domain, so creating the symlinks there is allowed).
 
-Signing uses a **Developer ID Installer** identity (``installer-identity`` /
-``PYAPPDIST_MACOS_INSTALLER_IDENTITY``) — a different certificate type from the Developer
+Signing uses a **Developer ID Installer** identity (``PYAPPDIST_MACOS_INSTALLER_IDENTITY``
+env, taking precedence over ``installer-identity``) — a different certificate type from the Developer
 ID Application identity that signs the bundles themselves (:mod:`.sign`). Without
 one the ``.pkg`` is left unsigned (installable locally, but not notarizable).
 """
@@ -38,8 +38,8 @@ _INSTALLER_IDENTITY_ENV = "PYAPPDIST_MACOS_INSTALLER_IDENTITY"
 
 
 def resolve_installer_identity(config: Config) -> str | None:
-    """The Developer ID Installer identity from config or environment, if any."""
-    return config.macos.installer_identity or os.environ.get(_INSTALLER_IDENTITY_ENV)
+    """The Developer ID Installer identity from environment (wins) or config, if any."""
+    return os.environ.get(_INSTALLER_IDENTITY_ENV) or config.macos.installer_identity
 
 
 def package_identifier(config: Config) -> str:
