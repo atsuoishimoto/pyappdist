@@ -39,6 +39,7 @@ jobs:
     # `secrets` context is not available in a step-level `if`, but `env` is.
     env:
       MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+      MACOS_INSTALLER_CERTIFICATE_P12: ${{ secrets.MACOS_INSTALLER_CERTIFICATE_P12 }}
     steps:
       - uses: actions/checkout@v4
 
@@ -54,7 +55,7 @@ jobs:
         run: dotnet tool install --global wix --version 5.0.2
 
       # --- macOS code-signing + notarization --------------------------------
-      # Only the dmg/macapp targets are signed & notarized; the .run (macos)
+      # Only the macapp/dmg/pkg targets are signed & notarized; the .run (macos)
       # format ships unsigned. Skipped automatically if the secrets below are
       # empty, so forks without an Apple Developer account still build.
       #
@@ -70,6 +71,23 @@ jobs:
       #     The identity's full name, e.g.
       #     "Developer ID Application: Your Name (TEAMID)".
       #     List yours with:  security find-identity -v -p codesigning
+      #
+      # Optional, for the `pkg` format only — a .pkg is signed with a *different*
+      # certificate type ("Developer ID Installer") than the .app bundles inside
+      # it. Without these three the .pkg still builds, but is left unsigned and
+      # is therefore not notarized either (an unsigned pkg is rejected by the
+      # notary service, so pyappdist skips submission with a note):
+      #
+      #   MACOS_INSTALLER_CERTIFICATE_P12
+      #     The "Developer ID Installer" certificate + private key, exported and
+      #     base64-encoded exactly like MACOS_CERTIFICATE_P12 above.
+      #   MACOS_INSTALLER_CERTIFICATE_PASSWORD
+      #     The password you set when exporting that .p12.
+      #   MACOS_INSTALLER_IDENTITY
+      #     Its full name, e.g. "Developer ID Installer: Your Name (TEAMID)".
+      #     Note `-p codesigning` does NOT list installer certificates — use
+      #     plain:  security find-identity -v
+      #
       #   MACOS_NOTARY_APPLE_ID
       #     Your Apple ID email (the Apple Developer account).
       #   MACOS_NOTARY_TEAM_ID
@@ -84,6 +102,7 @@ jobs:
         if: runner.os == 'macOS' && env.MACOS_CERTIFICATE_P12 != ''
         env:
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_INSTALLER_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_INSTALLER_CERTIFICATE_PASSWORD }}
           NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
           NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
           NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
@@ -103,7 +122,21 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security import "$CERT" -P "$MACOS_CERTIFICATE_PASSWORD" \
             -k "$KEYCHAIN" -T /usr/bin/codesign
-          # Let codesign use the private key without an interactive prompt.
+
+          # The Developer ID Installer certificate (pkg signing) is optional and
+          # lands in the same keychain; productbuild/productsign need explicit
+          # -T entries of their own to reach its private key.
+          if [ -n "${MACOS_INSTALLER_CERTIFICATE_P12:-}" ]; then
+            INSTALLER_CERT="$RUNNER_TEMP/installer-cert.p12"
+            echo "$MACOS_INSTALLER_CERTIFICATE_P12" | base64 --decode > "$INSTALLER_CERT"
+            security import "$INSTALLER_CERT" -P "$MACOS_INSTALLER_CERTIFICATE_PASSWORD" \
+              -k "$KEYCHAIN" -T /usr/bin/productbuild -T /usr/bin/productsign
+          fi
+
+          # Let codesign/productbuild use the private keys without an
+          # interactive prompt. This applies to every key in the keychain, so it
+          # runs once after both imports; `apple:` covers productbuild, which is
+          # an Apple-signed tool.
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
@@ -122,10 +155,13 @@ jobs:
           # signing (a code-sign key or --code-sign). The sample targets ship
           # unsigned, so this is a hook for a fork that flips code-sign on.
           PYAPPDIST_WIN_SIGN_CMD: ${{ secrets.PYAPPDIST_SIGN_CMD }}
-          # macOS: the Developer ID identity to sign with + the notarytool
+          # macOS: the Developer ID identities to sign with + the notarytool
           # profile created in the step above. Ignored on Windows/Linux runners
-          # and when unset (dmg/macapp then fall back to ad-hoc, unnotarized).
+          # and when unset (macapp/dmg/pkg then fall back to ad-hoc, unnotarized).
+          # The Application identity signs the .app bundles; the Installer one
+          # signs the .pkg itself — a pkg needs both to be notarized.
           PYAPPDIST_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          PYAPPDIST_INSTALLER_IDENTITY: ${{ secrets.MACOS_INSTALLER_IDENTITY }}
           PYAPPDIST_NOTARY_PROFILE: pyappdist-notary
         run: uv run uv-matrix run --max-jobs 4 --matrix ${{ matrix.matrix }}
 
