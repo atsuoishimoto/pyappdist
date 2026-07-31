@@ -399,8 +399,9 @@ def test_code_sign_on_signable_formats(tmp_path: Path):
         ("linux-x86_64", "linux"),
         ("linux-x86_64", "image"),  # non-Windows image: shell wrappers, nothing to sign
         ("macos-aarch64", "macos"),
-        ("macos-aarch64", "macapp"),  # .app/.dmg are signed by their own codesign flow
+        ("macos-aarch64", "macapp"),  # .app/.dmg/.pkg are signed by their own codesign flow
         ("macos-aarch64", "dmg"),
+        ("macos-aarch64", "pkg"),
     ],
 )
 def test_code_sign_rejected_without_signable_artifact(
@@ -586,7 +587,7 @@ def _macos_app_pyproject(fmt: str, *, app_extra: str = "", target_extra: str = "
 _IDENT = 'identifier = "com.example.helloworld"'
 
 
-@pytest.mark.parametrize("fmt", ["macapp", "dmg"])
+@pytest.mark.parametrize("fmt", ["macapp", "dmg", "pkg"])
 def test_format_app_dmg_accepted(tmp_path: Path, fmt: str):
     cfg = load_configs(
         _write_text(tmp_path, _macos_app_pyproject(fmt, app_extra=_IDENT))
@@ -596,14 +597,14 @@ def test_format_app_dmg_accepted(tmp_path: Path, fmt: str):
     assert cfg.identifier == "com.example.helloworld"
 
 
-@pytest.mark.parametrize("fmt", ["macapp", "dmg"])
+@pytest.mark.parametrize("fmt", ["macapp", "dmg", "pkg"])
 def test_app_dmg_require_identifier(tmp_path: Path, fmt: str):
     # No app-level identifier -> error (a .app needs a CFBundleIdentifier).
     with pytest.raises(ConfigError, match="identifier is required"):
         load_configs(_write_text(tmp_path, _macos_app_pyproject(fmt)))
 
 
-@pytest.mark.parametrize("fmt", ["macapp", "dmg"])
+@pytest.mark.parametrize("fmt", ["macapp", "dmg", "pkg"])
 def test_app_dmg_only_on_macos(tmp_path: Path, fmt: str):
     text = _BASE.format(fmt=fmt, app_extra=_IDENT, target_extra="")  # windows platform
     with pytest.raises(ConfigError, match="windows"):
@@ -683,6 +684,21 @@ def test_macos_app_fields_parsed(tmp_path: Path):
 def test_macos_min_macos_default(tmp_path: Path):
     cfg = load_configs(_write_text(tmp_path, _macos_app_pyproject("dmg", app_extra=_IDENT)))[0]
     assert cfg.macos.min_macos == "11.0"
+
+
+def test_pkg_installer_identity_parsed(tmp_path: Path):
+    extra = 'installer-identity = "Developer ID Installer: Me (TEAMID)"\n'
+    cfg = load_configs(
+        _write_text(
+            tmp_path, _macos_app_pyproject("pkg", app_extra=_IDENT, target_extra=extra)
+        )
+    )[0]
+    assert cfg.macos.installer_identity == "Developer ID Installer: Me (TEAMID)"
+
+
+def test_pkg_installer_identity_default_none(tmp_path: Path):
+    cfg = load_configs(_write_text(tmp_path, _macos_app_pyproject("pkg", app_extra=_IDENT)))[0]
+    assert cfg.macos.installer_identity is None
 
 
 def _icon_pyproject(icon_toml: str) -> str:

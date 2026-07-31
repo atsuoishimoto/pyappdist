@@ -35,9 +35,11 @@ _WIX_SCOPES = ("machine", "user")
 #   macos    - the same POSIX .run installer, for macOS (see MacosConfig)
 #   macapp/dmg - a macOS .app bundle (GUI distribution); dmg additionally wraps it in a
 #              disk image. Both Developer-ID-sign + notarize when configured (see MacosConfig).
+#   pkg      - a macOS .pkg installer that puts the .app bundle(s) into /Applications
+#              (system scope, admin install; see MacosConfig).
 #   image    - no installer: an archive of the run-in-place image tree (.zip on Windows,
 #              .tar.gz on Linux/macOS). Available on every platform.
-_FORMATS = ("msi", "msix", "linux", "macos", "macapp", "dmg", "image")
+_FORMATS = ("msi", "msix", "linux", "macos", "macapp", "dmg", "pkg", "image")
 
 # Each output format produces a package for exactly one OS; a target's platform must
 # match. "image" is deliberately absent — it archives the image tree as-is, which works
@@ -49,9 +51,14 @@ _FORMAT_OS = {
     "macos": "macos",
     "macapp": "macos",
     "dmg": "macos",
+    "pkg": "macos",
 }
 
-# reverse-DNS CFBundleIdentifier (e.g. "com.example.myapp"); required for macapp/dmg targets.
+# Formats that build a .app bundle, so they need the app-level `identifier` (and, with
+# multiple launchers, identifier-segment launcher names).
+_BUNDLE_FORMATS = ("macapp", "dmg", "pkg")
+
+# reverse-DNS CFBundleIdentifier (e.g. "com.example.myapp"); required for macapp/dmg/pkg targets.
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
 
 # One segment of a bundle identifier. With multiple launchers each .app gets
@@ -186,21 +193,28 @@ class MacosConfig:
     are ignored). The default is ``gzip`` (not ``xz``) because ``xz`` is not preinstalled on
     macOS.
 
-    The remaining fields apply to ``format = "macapp"``/``"dmg"`` — assembling a ``.app``
-    bundle (and, for ``dmg``, wrapping it in a disk image). When ``signing-identity`` (or
+    The remaining fields apply to ``format = "macapp"``/``"dmg"``/``"pkg"`` — assembling a
+    ``.app`` bundle (and wrapping it in a disk image for ``dmg``, or in a system-scope
+    installer package for ``pkg``). When ``signing-identity`` (or
     ``PYAPPDIST_SIGNING_IDENTITY``) names a Developer ID identity the bundle is signed with
     a hardened runtime; with a ``notary-profile`` it is then notarized and stapled. With no
     identity the bundle is ad-hoc signed (runs locally, rejected by Gatekeeper elsewhere).
+
+    ``installer-identity`` applies to ``pkg`` only: a **Developer ID Installer** identity
+    (a different certificate type from Developer ID Application) that signs the ``.pkg``
+    itself via ``productbuild --sign``. Unset = the package is left unsigned.
     """
 
     compression: str = "gzip"        # (.run) payload compression: "gzip" | "bzip2" | "xz"
-    # --- macapp/dmg ---  (the .app icon comes from each launcher's icon["macos"], not here)
+    # --- macapp/dmg/pkg ---  (the .app icon comes from each launcher's icon["macos"], not here)
     min_macos: str = "11.0"          # LSMinimumSystemVersion / clang -mmacosx-version-min
     signing_identity: str | None = None  # "Developer ID Application: Name (TEAMID)"; None=ad-hoc
     team_id: str | None = None       # Apple Developer Team ID (informational)
     notary_profile: str | None = None    # notarytool keychain profile name
     entitlements: str | None = None      # path (relative to project_dir) to an entitlements plist
     category: str | None = None          # LSApplicationCategoryType
+    # --- pkg ---
+    installer_identity: str | None = None  # "Developer ID Installer: Name (TEAMID)"; None=unsigned
 
 
 @dataclass(frozen=True)
@@ -333,10 +347,10 @@ def load_configs(
                 "[tool.pyappdist].identifier must be reverse-DNS "
                 f'(e.g. "com.example.myapp"): {identifier!r}'
             )
-    if any(fmt in ("macapp", "dmg") for (_, _, fmt, *_rest) in specs):
+    if any(fmt in _BUNDLE_FORMATS for (_, _, fmt, *_rest) in specs):
         if not identifier:
             raise ConfigError(
-                '[tool.pyappdist].identifier is required for macapp/dmg targets '
+                '[tool.pyappdist].identifier is required for macapp/dmg/pkg targets '
                 '(reverse-DNS, e.g. "com.example.myapp")'
             )
         # With multiple launchers each .app's CFBundleIdentifier is
@@ -348,7 +362,7 @@ def load_configs(
                 if not _IDENTIFIER_SEGMENT_RE.match(spec.name):
                     raise ConfigError(
                         f"launchers[{i}].name {spec.name!r} cannot be used with "
-                        "multiple launchers on a macapp/dmg target: each .app's "
+                        "multiple launchers on a macapp/dmg/pkg target: each .app's "
                         'bundle identifier is "<identifier>.<launcher name>", so '
                         "the name must contain only letters, digits, and hyphens"
                     )
@@ -420,8 +434,8 @@ _TargetSpec = tuple[
 
 # Formats whose build produces an artifact the code-sign pass can act on: the launcher
 # .exes + package for msi/msix, the launcher .exes for a Windows image target.
-# Everything else (the POSIX .run installers, the .app bundle and .dmg — signed by
-# their own codesign flow — and a non-Windows image of shell wrappers) has nothing
+# Everything else (the POSIX .run installers, the .app bundle and .dmg/.pkg — signed
+# by their own codesign flow — and a non-Windows image of shell wrappers) has nothing
 # for the pass to sign.
 _CODE_SIGN_FORMATS = ("msi", "msix")
 
@@ -590,6 +604,7 @@ def _parse_macos(raw: dict, index: int) -> MacosConfig:
         notary_profile=_opt_str(raw, "notary-profile"),
         entitlements=_opt_str(raw, "entitlements"),
         category=_opt_str(raw, "category"),
+        installer_identity=_opt_str(raw, "installer-identity"),
     )
 
 

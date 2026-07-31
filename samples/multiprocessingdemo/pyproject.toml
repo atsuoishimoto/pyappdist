@@ -59,6 +59,11 @@ platform = "macos-aarch64"
 format = "dmg"
 
 [[tool.pyappdist.targets]]
+name = "darwin-arm-pkg"
+platform = "macos-aarch64"
+format = "pkg"                        # a .pkg installer (installs the .app into /Applications)
+
+[[tool.pyappdist.targets]]
 name = "win32-image"
 platform = "windows-x86_64"
 format = "image"

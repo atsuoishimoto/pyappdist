@@ -40,6 +40,7 @@ from .macos import build_macos
 from .macos.bundle import build_macos_apps
 from .macos.notarize import notarize_and_staple, notarize_app, resolve_notary_profile
 from .macos.package import build_dmg
+from .macos.pkg import build_pkg, resolve_installer_identity
 from .macos.sign import deep_sign, resolve_sign_options, sign_file
 from .msix import build_msix
 from .runtime import fetch_runtime
@@ -253,9 +254,9 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
         print(f"OK [{_tag(ctx)}]: {fmt} -> {', '.join(str(a) for a in arts)}")
         return
 
-    if ctx.config.format in ("macapp", "dmg"):
-        # macOS .app bundle (GUI distribution). Native-only, so the host check happens
-        # before clang runs; reuses the image built above.
+    if ctx.config.format in ("macapp", "dmg", "pkg"):
+        # macOS .app bundle (bare, in a .dmg, or installed by a .pkg). Native-only, so
+        # the host check happens before clang runs; reuses the image built above.
         _build_macos_bundle(ctx, layout, args.code_sign)
         return
 
@@ -286,16 +287,18 @@ def _build_one(ctx: BuildContext, args: argparse.Namespace) -> None:
 def _build_macos_bundle(
     ctx: BuildContext, layout: image_mod.ImageLayout, cli_code_sign: bool | None
 ) -> None:
-    """Assemble, sign, and package the macOS ``.app``/``.dmg`` from an already-built image.
+    """Assemble, sign, and package the macOS ``.app``/``.dmg``/``.pkg`` from an
+    already-built image.
 
-    Native-only (codesign/hdiutil/clang are macOS tools), so on a non-macOS host it skips
-    with a note — the same courtesy msi/msix extend on non-Windows. The launchers are built
-    here (Mach-O via clang) rather than earlier, so the host check precedes the toolchain.
+    Native-only (codesign/hdiutil/pkgbuild/clang are macOS tools), so on a non-macOS host
+    it skips with a note — the same courtesy msi/msix extend on non-Windows. The launchers
+    are built here (Mach-O via clang) rather than earlier, so the host check precedes the
+    toolchain.
     """
     cfg = ctx.config
     tag = _tag(ctx)
     if cli_code_sign:
-        # The .app (and the .dmg wrapping it) are signed by the codesign-based
+        # The .app (and the .dmg/.pkg wrapping it) are signed by the codesign-based
         # signing-identity flow; the code-sign pass is Windows-only.
         _note_unsignable(ctx)
     if sys.platform != "darwin":
@@ -325,6 +328,24 @@ def _build_macos_bundle(
               "for Developer ID)")
 
     ctx.dist_dir.mkdir(parents=True, exist_ok=True)
+    if cfg.format == "pkg":
+        # System-scope installer: the .app bundles go into /Applications. Signed with a
+        # Developer ID *Installer* identity (a different certificate type from the
+        # Developer ID Application identity that signed the bundles above); notarytool
+        # accepts a .pkg directly, but only a signed one with signed content passes.
+        pkg = build_pkg(
+            cfg, apps, ctx.dist_dir / f"{cfg.dist_name}-{cfg.version}.pkg",
+            ctx.pkg_build_dir,
+        )
+        if notarize:
+            if resolve_installer_identity(cfg):
+                notarize_and_staple(pkg, profile)
+            else:
+                print(f"OK [{tag}]: notarization skipped (unsigned pkg; set "
+                      "installer-identity for Developer ID Installer)")
+        print(f"OK [{tag}]: pkg -> {pkg} ({len(apps)} app)")
+        return
+
     if cfg.format == "macapp":
         finals: list[Path] = []
         for app in apps:
@@ -400,7 +421,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pyappdist",
         description="Build a native package of a Python app "
-                    "(Windows .msi/.msix, Linux/macOS .run, macOS .app/.dmg, or a portable archive)",
+                    "(Windows .msi/.msix, Linux/macOS .run, macOS .app/.dmg/.pkg, "
+                    "or a portable archive)",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {_version()}")
     sub = parser.add_subparsers(dest="command", required=True)

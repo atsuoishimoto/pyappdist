@@ -3,11 +3,12 @@ macOS — .run installer (command-line tools)
 
 .. note::
 
-   Two macOS distributions exist. **This page** (``format = "macos"``) ships a
+   Three macOS distributions exist. **This page** (``format = "macos"``) ships a
    per-user ``.run`` installer whose launchers land in
-   ``<prefix>/bin`` — right for **command-line tools**. For a double-click
-   **GUI app** (a signed/notarized ``.app`` or ``.dmg``), use
-   :doc:`macos-app` instead.
+   ``<prefix>/bin`` — right for **command-line tools**, no admin rights needed.
+   For a double-click **GUI app** (a signed/notarized ``.app`` or ``.dmg``), use
+   :doc:`macos-app`; for a system-wide installer package (``.pkg``), use
+   :doc:`macos-pkg`.
 
 ``format = "macos"`` builds the same self-extracting ``.run`` installer as
 :doc:`linux` — with the same per-user install

@@ -62,6 +62,14 @@ format = "dmg"                        # a signed/notarizable .app inside a .dmg
 # notary-profile = "your-notary-profile"  # see docs/signing
 
 [[tool.pyappdist.targets]]
+name = "darwin-arm-pkg"
+platform = "macos-aarch64"
+format = "pkg"                        # a .pkg installer (installs the .app into /Applications)
+# installer-identity = "Developer ID Installer: Your Name (TEAMID)"
+# signing-identity = "Developer ID Application: Your Name (TEAMID)"
+# notary-profile = "your-notary-profile"
+
+[[tool.pyappdist.targets]]
 name = "win32-image"
 platform = "windows-x86_64"
 format = "image"

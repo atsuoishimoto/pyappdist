@@ -57,12 +57,12 @@ def _to_host_path(win_path: str) -> Path:
 def build_launchers(config: Config, layout: ImageLayout, workdir: Path, *, log=print) -> list[Path]:
     """Compile one launcher per spec into the image dir.
 
-    The launcher kind is chosen by the *format*, not just the OS: ``macapp``/``dmg`` need a
-    Mach-O stub for the ``.app`` bundle (built here with clang), while ``macos``/``linux``
-    (and ``image`` on a non-Windows target) use POSIX shell wrappers written by
-    ``posix/build.py`` (so this returns ``[]`` for them). Windows — including ``image`` on
-    a Windows target — is the MSVC ``launcher.exe`` path. ``no-launcher`` (image format)
-    skips launcher generation entirely.
+    The launcher kind is chosen by the *format*, not just the OS: ``macapp``/``dmg``/``pkg``
+    need a Mach-O stub for the ``.app`` bundle (built here with clang), while
+    ``macos``/``linux`` (and ``image`` on a non-Windows target) use POSIX shell wrappers
+    written by ``posix/build.py`` (so this returns ``[]`` for them). Windows — including
+    ``image`` on a Windows target — is the MSVC ``launcher.exe`` path. ``no-launcher``
+    (image format) skips launcher generation entirely.
     """
     if not config.launchers:
         log("launcher: none defined")
@@ -70,7 +70,7 @@ def build_launchers(config: Config, layout: ImageLayout, workdir: Path, *, log=p
     if config.no_launcher:
         log("launcher: skipped (no-launcher)")
         return []
-    if config.format in ("macapp", "dmg"):
+    if config.format in ("macapp", "dmg", "pkg"):
         return build_macos_launchers(config, layout, workdir, log=log)
     if config.target.os != "windows":
         log("launcher: skipping (shell-wrapper launchers are written by the posix builder)")

@@ -7,9 +7,9 @@ If it installs with `pip`, it ships with pyappdist.**
 
 pyappdist bridges the Python packaging ecosystem and native application
 distribution. It reads your application's pyproject.toml and builds setup
-packages for distribution: an .msi / .msix on Windows, a .dmg / .app bundle
-or a self-extracting installer on macOS, and a self-extracting installer on
-Linux.
+packages for distribution: an .msi / .msix on Windows, a .dmg / .app bundle,
+a .pkg installer, or a self-extracting installer on macOS, and a
+self-extracting installer on Linux.
 
 For example, to build a Windows MSI, configure `pyproject.toml` like this:
 
@@ -104,6 +104,10 @@ One ``pyproject.toml`` can describe several output packages at once — each is 
    ``macos-aarch64`` → a signed/notarized ``.app`` bundle, optionally
    inside a ``.dmg``, for **GUI apps**.
 
+:doc:`pkg <platforms/macos-pkg>`
+   ``macos-aarch64`` → a ``.pkg`` installer that puts the ``.app``
+   bundle(s) into ``/Applications`` (system-wide, MDM-deployable).
+
 :doc:`image <platforms/image>`
    any platform → a ``.zip`` / ``.tar.gz`` of the image tree, with **no
    installer**.
@@ -138,6 +142,7 @@ Beta: Core packaging workflows are ready for real-world use, although configurat
    platforms/linux
    platforms/macos-run
    platforms/macos-app
+   platforms/macos-pkg
    platforms/image
 
 .. toctree::

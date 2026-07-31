@@ -67,7 +67,7 @@ build-backend = "uv_build"
 project = ["datafiles", "helloworld", "matplotlibdemo", "niceguidemo",
            "pandascli", "pygamedemo", "pyside6demo", "pytorchdemo"]
 target = ["win32-msi", "win32-store", "win32-image", "linux", "linux-image",
-          "darwin-arm", "darwin-arm-dmg", "darwin-arm-image"]
+          "darwin-arm", "darwin-arm-dmg", "darwin-arm-pkg", "darwin-arm-image"]
 exclude = [
     {project = "niceguidemo", target = "linux"},
     {project = "niceguidemo", target = "linux-image"},

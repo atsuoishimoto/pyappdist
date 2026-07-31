@@ -2,6 +2,10 @@
 
 ## Context
 
+> **Status**: `.app`（`macapp`）/ `.dmg` / `.pkg` は実装済み。`.pkg` は
+> `macos/pkg.py` — app レイアウト（`.app` を `/Applications` へ）・システム
+> スコープ固定（`pkgbuild` + `productbuild`、`installer-identity` で署名）。
+
 Windows 向け（MSI / MSIX）が一通り揃ったので、次は macOS 配布物（`.app` / `.dmg` /
 `.pkg`）に着手する。**macOS のコード署名・公証（notarization）は macOS 上でしか実行
 できない**ため、開発環境を実機 Mac に移行する。本ドキュメントは移行後にゼロから迷わず

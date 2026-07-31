@@ -25,7 +25,7 @@ CLI samples
 `helloworld <https://github.com/atsuoishimoto/pyappdist/tree/main/samples/helloworld>`_
    The smallest possible config — a single ``main()`` and **no dependencies**.
    The best starting template; it defines a target for every format
-   (``msi``, ``msix``, ``linux``, ``macos``, ``dmg``).
+   (``msi``, ``msix``, ``linux``, ``macos``, ``dmg``, ``pkg``).
 
 `pandascli <https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pandascli>`_
    Formats and prints a DataFrame with pandas + numpy. Shows that C-extension
