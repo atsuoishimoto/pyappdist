@@ -3,6 +3,8 @@
 **Ship your Python app as a native installer straight from `pyproject.toml`.
 If it installs with `pip`, it ships with pyappdist.**
 
+📖 **Documentation: https://pyappdist.readthedocs.io/**
+
 pyappdist bridges the Python packaging ecosystem and native application
 distribution. It reads your application's `pyproject.toml` and builds setup
 packages for Windows, macOS, and Linux:
@@ -40,8 +42,6 @@ uvx pyappdist build
 ```
 
 The result lands under `appdist/<target>/dist/`.
-
-📖 **Documentation: https://pyappdist.readthedocs.io/**
 
 ## How it works
 
