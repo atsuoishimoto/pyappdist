@@ -10,48 +10,16 @@ It has three parts:
   display name, dependency manager).
 * :ref:`[[tool.pyappdist.launchers]] <config-launchers>` — one entry per executable
   to produce.
-* :ref:`[[tool.pyappdist.targets]] <config-targets>` — one entry per output package.
-  Format-specific keys are documented on each format's page (see
-  :ref:`Output formats <config-formats>`).
+* :ref:`[[tool.pyappdist.targets]] <config-targets>` — one entry per output package:
+  a few keys common to every format, plus the keys of the target's
+  :ref:`output format <config-formats>`.
+
+This page describes **every** configuration key. The per-format pages cover the
+rest — build requirements, install behavior, signing walkthroughs — and are
+linked from each :ref:`format section <config-formats>` below.
 
 Before configuring anything, make sure the project itself is packageable — see
 :ref:`What your project must satisfy <project-prereqs>`.
-
-All keys at a glance
---------------------
-
-.. list-table::
-   :header-rows: 1
-   :widths: 40 60
-
-   * - Where
-     - Keys
-   * - :ref:`[tool.pyappdist] <config-app>`
-     - ``python`` · ``name`` · ``version`` · ``manager`` · ``identifier``
-   * - :ref:`[[tool.pyappdist.launchers]] <config-launchers>`
-     - ``name`` · ``entry`` · ``gui`` · ``icon`` · ``args``
-   * - :ref:`[[tool.pyappdist.targets]] <config-targets>` (all formats)
-     - ``name`` · ``platform`` · ``format`` · ``extras``
-   * - targets with a signable Windows artifact (``msi`` / ``msix``, and
-       ``image`` on Windows platforms) — :ref:`msi-code-signing`
-     - ``code-sign`` · ``code-sign-command``
-   * - targets, ``format = "msi"`` — :doc:`platforms/windows-msi`
-     - ``manufacturer`` · ``scope`` · ``upgrade-code`` · ``license`` ·
-       ``allow-same-version-upgrades``
-   * - targets, ``format = "msix"`` — :doc:`platforms/windows-msix`
-     - ``manufacturer`` · ``identity-name`` · ``publisher`` · ``display-name`` ·
-       ``logo``
-   * - targets, ``format = "linux"`` — :doc:`platforms/linux`
-     - ``categories`` · ``compression``
-   * - targets, ``format = "macos"`` — :doc:`platforms/macos-run`
-     - ``compression``
-   * - targets, ``format = "macapp"`` / ``"dmg"`` — :doc:`platforms/macos-app`
-     - ``min-macos`` · ``category`` · ``signing-identity`` · ``team-id`` ·
-       ``notary-profile`` · ``entitlements``
-   * - targets, ``format = "pkg"`` — :doc:`platforms/macos-pkg`
-     - the ``macapp`` / ``dmg`` keys plus ``installer-identity``
-   * - targets, ``format = "image"`` — :doc:`platforms/image`
-     - ``no-launcher``
 
 .. _config-app:
 
@@ -127,9 +95,9 @@ shell wrapper on Linux/macOS).
 ``entry`` (required)
    Entry point, in one of two forms:
 
-   - ``"module:callable"`` — import ``callable`` from ``module`` and invoke it with
+   * ``"module:callable"`` — import ``callable`` from ``module`` and invoke it with
      no arguments; its return value becomes the process exit code.
-   - ``"module.path"`` (no colon) — run the module as ``python -m module.path``
+   * ``"module.path"`` (no colon) — run the module as ``python -m module.path``
      (executed with ``__name__ == "__main__"``). Use this for apps whose startup
      lives under an ``if __name__ == "__main__":`` guard (e.g. NiceGUI).
 
@@ -190,21 +158,30 @@ The individual pipeline stages apply to **all** targets by default; ``pyappdist
 build`` builds the sole target, or the ones you name: ``pyappdist build <name>
 <name>`` (see :doc:`cli`).
 
-These keys are common to every format; the format-specific keys live on the
-:ref:`format pages <config-formats>`.
+These keys are common to every format; the format-specific keys are described
+under :ref:`Output formats <config-formats>` below.
 
 ``platform`` (required)
    Distribution platform (see :ref:`Platform values <config-platforms>`).
 
 ``format`` (required)
-   Output package. Must match the platform's OS: ``"msi"`` or ``"msix"`` on
-   Windows, ``"linux"`` on Linux, and on macOS ``"macos"`` (a ``.run``
-   installer, like Linux), ``"macapp"`` / ``"dmg"`` (a ``.app`` bundle,
-   optionally inside a ``.dmg``, for GUI distribution), or ``"pkg"`` (a
-   system-scope installer package). A mismatch (e.g. ``"msi"`` with
-   ``linux-x86_64``) is rejected at load. ``"image"`` — an archive of the
-   image tree with no installer — is the exception: it is valid on every
-   platform. See :ref:`Output formats <config-formats>`.
+   Output package format. Must match the platform's OS — a mismatch (e.g.
+   ``"msi"`` with ``linux-x86_64``) is rejected at load:
+
+   * ``"msi"`` — Windows ``.msi`` installer. Windows platforms only.
+   * ``"msix"`` — Windows ``.msix`` package (Store / sideloading). Windows
+     platforms only.
+   * ``"linux"`` — self-extracting ``.run`` installer. Linux platforms only.
+   * ``"macos"`` — self-extracting ``.run`` installer, like the Linux one, for
+     command-line tools. macOS platforms only.
+   * ``"macapp"`` — a ``.app`` bundle, for GUI distribution. macOS platforms
+     only.
+   * ``"dmg"`` — the same ``.app`` bundle(s), wrapped in a ``.dmg`` disk image.
+     macOS platforms only.
+   * ``"pkg"`` — a system-scope ``.pkg`` installer that puts the ``.app``
+     bundle(s) into ``/Applications``. macOS platforms only.
+   * ``"image"`` — no installer, an archive of the image tree. The exception:
+     valid on **every** platform.
 
 ``name`` (required)
    Label used to select this target on the command line and as its output
@@ -254,35 +231,219 @@ Every platform additionally accepts format ``image``.
 .. _config-formats:
 
 Output formats
-~~~~~~~~~~~~~~
+--------------
 
-Each format has its own configuration keys, build requirements, and install
-behavior:
+Each format adds its own keys to the target table, next to the common keys
+above; a key used on a format it is not valid for is rejected at load. This
+section describes every format-specific key. Each format's page covers what
+this page does not: build requirements, install behavior, and the signing /
+notarization walkthroughs.
 
-:doc:`msi <platforms/windows-msi>`
-   ``.msi`` installer.
+``msi`` — Windows installer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-:doc:`msix <platforms/windows-msix>`
-   ``.msix`` package (Store / sideloading).
+Builds ``dist/<name>-<version>.msi``. Details: :doc:`platforms/windows-msi`.
 
-:doc:`linux <platforms/linux>`
-   self-extracting ``.run``.
+``manufacturer`` (**required**)
+   Manufacturer / vendor name. Required to generate the MSI; also used as the
+   launcher's version-resource company name.
 
-:doc:`macos <platforms/macos-run>`
-   self-extracting ``.run``, for command-line tools.
+``scope``
+   Install scope:
 
-:doc:`macapp / dmg <platforms/macos-app>`
-   A macOS ``.app`` bundle (``macapp``), optionally wrapped in a ``.dmg`` (``dmg``),
-   for GUI apps; Developer-ID-signed and notarized when configured.
+   * ``"user"`` (default) — per-user package that installs into
+     ``%LocalAppData%\Programs\<name>`` with no administrator rights (registry
+     in ``HKCU``).
+   * ``"machine"`` — installs into ``Program Files`` and requires admin
+     (registry in ``HKLM``).
 
-:doc:`pkg <platforms/macos-pkg>`
-   A macOS ``.pkg`` installer that puts the ``.app`` bundle(s) into
-   ``/Applications`` (system-wide, MDM-deployable); signed and notarized when
-   configured.
+``upgrade-code``
+   Stable upgrade GUID. **If omitted, pyappdist generates a UUID and writes it
+   back into this target's table** on the first build. Must stay stable for the
+   life of the product, and is per target.
 
-:doc:`image <platforms/image>`
-   No installer — an archive of the image tree (``.zip`` on Windows, ``.tar.gz``
-   on Linux/macOS). Valid on every platform.
+``license``
+   Path (relative to the project) to an **RTF** end-user license agreement. When
+   set, the installer shows a one-page license dialog (WixUI_Minimal).
+
+``allow-same-version-upgrades``
+   Sets ``AllowSameVersionUpgrades="yes"`` on the WiX ``MajorUpgrade`` (default
+   ``false``). With it on, reinstalling the **same** version upgrades in place instead
+   of erroring or installing side-by-side — convenient while iterating on a build
+   without bumping the version. MSI-only; it has no effect on ``msix`` targets.
+
+``add-to-path``
+   Append the install folder — where the launcher ``.exe``\ s live — to ``PATH``
+   (default ``false``), so command-line launchers can be run by name from a
+   terminal. The scope follows the package scope: a ``user`` install edits the
+   per-user ``PATH``, a ``machine`` install the system one. Uninstalling removes
+   exactly the appended entry. Windows applies the change to processes started
+   *after* the install; already-open terminals must be reopened to see it.
+
+``code-sign`` / ``code-sign-command``
+   Sign the launcher ``.exe``\ s and the ``.msi`` — see
+   :ref:`Windows code signing <config-win-code-sign>`.
+
+``msix`` — Windows package (Store / sideloading)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Builds ``dist/<name>-<version>.msix``, left unsigned by default (the Microsoft
+Store signs it on submission). Details: :doc:`platforms/windows-msix`.
+
+``manufacturer``
+   Vendor name; used as the launcher's version-resource company name and as the
+   default publisher (``CN=<manufacturer>``; when unset, the app ``name`` is
+   used instead).
+
+``identity-name``
+   Package Identity Name (for the Store, the reserved ``Publisher.AppName``).
+   Defaults to ``[project].name``.
+
+``publisher``
+   Package Identity Publisher DN (e.g. ``"CN=Contoso"``). For the Store or
+   signing it must match. Defaults to ``CN=<manufacturer>``, or
+   ``CN=<app name>`` when ``manufacturer`` is also unset.
+
+``display-name``
+   App display name. Defaults to ``[tool.pyappdist].name``.
+
+``logo``
+   Path to a source ``.png`` used for the package logos. A placeholder is
+   generated if omitted.
+
+``code-sign`` / ``code-sign-command``
+   Sign the launcher ``.exe``\ s and the ``.msix`` yourself instead of relying
+   on the Store — see :ref:`Windows code signing <config-win-code-sign>`.
+
+.. _config-win-code-sign:
+
+Windows code signing keys
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These two keys are valid on any target with a signable Windows artifact —
+``msi``, ``msix``, and ``image`` on a Windows platform; anywhere else they are
+rejected at load. The full signing workflow is described in
+:ref:`msi-code-signing`.
+
+``code-sign``
+   Code-sign the Windows artifacts (default ``false``): each launcher ``.exe``
+   after it is compiled, and the ``.msi`` / ``.msix`` after it is built.
+   Overridable per build with ``pyappdist build --code-sign`` /
+   ``--no-code-sign``.
+
+``code-sign-command``
+   Signing command used when signing is enabled. The token ``{file}`` is
+   replaced with the artifact's file name (appended if absent). With signing
+   enabled, the command is resolved in this order:
+
+   1. the ``PYAPPDIST_WIN_SIGN_CMD`` environment variable (highest priority);
+   2. the target's ``code-sign-command``;
+   3. a built-in default:
+      ``signtool.exe sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /a "{file}"``.
+
+   The environment variable only supplies the *command* — it never enables
+   signing by itself.
+
+``linux`` — .run installer
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Builds a self-extracting per-user installer
+``dist/<name>-<version>-<target>.run``. Details: :doc:`platforms/linux`.
+
+``categories``
+   freedesktop ``.desktop`` ``Categories`` value (default ``"Utility;"``). Used
+   only for launchers that define an ``icon``.
+
+``compression``
+   Payload compression for the ``.run``: ``"gzip"``, ``"bzip2"`` or
+   ``"xz"`` (default ``"xz"``). The matching decompressor must be present on the
+   target machine at install time.
+
+``macos`` — .run installer (command-line tools)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Builds the same self-extracting per-user ``.run`` installer as ``linux``;
+launcher ``icon`` and ``gui`` are ignored (macOS has no freedesktop
+integration). Build on a macOS host. Details: :doc:`platforms/macos-run`.
+
+``compression``
+   Payload compression for the ``.run``: ``"gzip"``, ``"bzip2"`` or
+   ``"xz"`` (default ``"gzip"``, because ``xz`` is not preinstalled on macOS).
+
+``macapp`` / ``dmg`` — .app bundle (GUI apps)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Builds one code-signed ``.app`` bundle per launcher into ``dist/``
+(``macapp``), optionally wrapped in a ``dist/<name>-<version>.dmg`` disk image
+(``dmg``). Native-only — build on a macOS host. The app-level ``identifier``
+is **required**, and each ``.app``'s icon comes from its launcher's
+``icon = { macos = ... }`` key (see :ref:`launchers <config-launchers>`), not
+from a target key. Details: :doc:`platforms/macos-app`.
+
+``min-macos``
+   Minimum macOS version. Sets both the bundle's ``LSMinimumSystemVersion`` and clang's
+   ``-mmacosx-version-min``. Default ``"11.0"``.
+
+``category``
+   ``LSApplicationCategoryType`` (e.g. ``"public.app-category.utilities"``). Optional.
+
+``signing-identity``
+   Developer ID identity for distribution signing, e.g.
+   ``"Developer ID Application: Your Name (TEAMID)"`` (or the
+   ``PYAPPDIST_SIGNING_IDENTITY`` environment variable). When unset the bundle is **ad-hoc
+   signed** — it runs locally but Gatekeeper rejects it on other machines. See
+   :ref:`macos-signing`.
+
+``team-id``
+   Apple Developer Team ID (informational).
+
+``notary-profile``
+   ``notarytool`` keychain profile name (or ``PYAPPDIST_NOTARY_PROFILE``). When set
+   **and** a Developer ID identity is configured, the artifact is notarized and stapled.
+
+``entitlements``
+   Path to a custom entitlements ``.plist``. The default grants only
+   ``com.apple.security.cs.disable-library-validation`` (so the hardened interpreter can
+   load third-party extension modules); supply your own to add, e.g., JIT entitlements.
+
+``pkg`` — macOS installer package
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Builds the same signed ``.app`` bundle(s) as ``macapp`` / ``dmg``, then wraps
+them in a system-scope ``dist/<name>-<version>.pkg`` that installs into
+``/Applications`` (MDM-deployable). Native-only — build on a macOS host; the
+app-level ``identifier`` is **required**. All the ``macapp`` / ``dmg`` keys
+above apply unchanged, plus one key specific to ``pkg``. Details:
+:doc:`platforms/macos-pkg`.
+
+``installer-identity``
+   A **Developer ID Installer** identity, e.g.
+   ``"Developer ID Installer: Your Name (TEAMID)"`` (or the
+   ``PYAPPDIST_INSTALLER_IDENTITY`` environment variable), used to sign the
+   ``.pkg`` itself. This is a *different certificate type* from the
+   ``Developer ID Application`` identity that signs the bundles — create both in
+   the Apple Developer portal. When unset the package is left unsigned: it
+   installs locally, but Gatekeeper rejects it elsewhere and it cannot be
+   notarized.
+
+``image`` — archive, no installer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Archives the image tree itself into ``dist/<name>-<version>-<target>.zip``
+(Windows targets) or ``.tar.gz`` (Linux/macOS targets). Valid on **every**
+platform. Details: :doc:`platforms/image`.
+
+``no-launcher``
+   ``true`` skips launcher generation entirely, so the archive contains just the
+   installed tree (default ``false``). Only valid with ``format = "image"``.
+
+``code-sign`` / ``code-sign-command``
+   On Windows platforms only: sign the launcher ``.exe``\ s — see
+   :ref:`Windows code signing <config-win-code-sign>`. On Linux/macOS targets
+   there is nothing to sign, so ``code-sign = true`` is rejected there.
+
+Multi-target example
+~~~~~~~~~~~~~~~~~~~~
 
 A single project can declare several targets and produce all of these at once:
 
