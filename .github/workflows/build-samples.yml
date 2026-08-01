@@ -1,11 +1,9 @@
-name: Build installers
+name: Build samples
 
 # Manually (workflow_dispatch) build every project under samples/ on 5 runners
 # (Linux / Windows / macOS-arm, plus arm64 Linux / Windows). The build is driven
-# by uv-matrix's `build-installers` matrix (x86_64 + macOS targets) or
-# `build-installers-arm` (the arm64 Linux/Windows targets). Each cell runs only
-# the targets for its own OS via `when = "target.startswith(platform)"`, so the
-# same command runs on every runner.
+# by uv-matrix's `build-installers` matrix (x86_64 + macOS targets).
+
 on:
   workflow_dispatch:
 
@@ -17,19 +15,14 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact: installers-linux
-            matrix: build-installers
           - os: windows-latest
             artifact: installers-windows
-            matrix: build-installers
           - os: macos-14          # Apple Silicon (arm64) runner
             artifact: installers-macos-arm
-            matrix: build-installers
           - os: ubuntu-24.04-arm  # arm64 Linux runner
             artifact: installers-linux-arm
-            matrix: build-installers-arm
           - os: windows-11-arm    # arm64 Windows runner
             artifact: installers-windows-arm
-            matrix: build-installers-arm
     runs-on: ${{ matrix.os }}
     # The macOS signing secrets live in the `sign_macos` environment; only the
     # macOS cell enters it (an empty environment = none), so Linux/Windows runs
@@ -149,7 +142,7 @@ jobs:
             --team-id "$NOTARY_TEAM_ID" \
             --password "$NOTARY_PASSWORD"
 
-      - name: Build installers (${{ matrix.matrix }} matrix)
+      - name: Build samples
         env:
           # Windows signing command; it takes effect only for targets that enable
           # signing (a code-sign key or --code-sign). The sample targets ship
@@ -163,7 +156,7 @@ jobs:
           PYAPPDIST_MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
           PYAPPDIST_MACOS_INSTALLER_IDENTITY: ${{ secrets.MACOS_INSTALLER_IDENTITY }}
           PYAPPDIST_MACOS_NOTARY_PROFILE: pyappdist-notary
-        run: uv run uv-matrix run --max-jobs 4 --matrix ${{ matrix.matrix }}
+        run: uv run uv-matrix run --max-jobs 4 --matrix build-samples
 
       - name: Upload installers
         if: always()      # upload whatever built even if some cells failed

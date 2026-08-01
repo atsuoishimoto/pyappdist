@@ -273,7 +273,7 @@ wheels = [
 
 [[package]]
 name = "pyappdist"
-version = "0.10.0"
+version = "0.11.0"
 source = { editable = "." }
 dependencies = [
     { name = "tomlkit" },
@@ -300,7 +300,7 @@ dev = [
     { name = "pytest", specifier = ">=8" },
     { name = "sphinx", specifier = ">=9.0.4" },
     { name = "sphinx-rtd-theme", specifier = ">=3.1.0" },
-    { name = "uv-matrix", specifier = ">=0.0.5" },
+    { name = "uv-matrix", specifier = ">=0.0.6" },
 ]
 
 [[package]]
@@ -534,15 +534,15 @@ wheels = [
 
 [[package]]
 name = "uv-matrix"
-version = "0.0.5"
+version = "0.0.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jinja2" },
     { name = "python-dotenv" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/54/f9/1099bc7dcd0fced14d9e0af578798a8ffc7d150ddc1e7dc3664b665d26e0/uv_matrix-0.0.5.tar.gz", hash = "sha256:a6f2723986a290a5d79220a05178dca6887f2b5bce5215ebe78c396c9fcc98fb", size = 20411, upload-time = "2026-07-27T00:47:48.522Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/dc/cd/948dd0fdb7b82afba3239da1c5499ea37ea988d85dc94259c893e09c6548/uv_matrix-0.0.6.tar.gz", hash = "sha256:d67c70fec8ed5050a4e4a0a50de6570f15a7aec81a12e92ae8958ef960bf512e", size = 21534, upload-time = "2026-08-01T01:56:03.704Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0a/4b/4855042438c8d62ab92a8a314485313d8ef3ce5341a6a6a012555c75ff12/uv_matrix-0.0.5-py3-none-any.whl", hash = "sha256:2d8f7e7ed52102cbc02727dabdcb4ec6d0dbf85e4993e70e3171c00f61ad8f58", size = 23881, upload-time = "2026-07-27T00:47:47.302Z" },
+    { url = "https://files.pythonhosted.org/packages/11/5d/34ef798b4fe044350056cc9b549d6c27487704d58c50ba9ee273d8cd1416/uv_matrix-0.0.6-py3-none-any.whl", hash = "sha256:ee512418598511ca2e3c69cdc2d742e2f90ba422001a9257bc150fba1458884c", size = 24932, upload-time = "2026-08-01T01:56:02.446Z" },
 ]
 
 [[package]]
