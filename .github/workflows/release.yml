@@ -12,9 +12,9 @@ jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v9.0.0
 
       - name: Install WiX (v5, no OSMF fee)
         run: dotnet tool install --global wix --version 5.0.2
@@ -42,7 +42,7 @@ jobs:
           if ($out -notmatch "Hello from helloworld!") { throw "unexpected output: $out" }
           Start-Process msiexec -ArgumentList "/x `"$msi`" /qn" -Wait
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: helloworld-windows
           path: |

@@ -10,7 +10,7 @@ jobs:
     # Test the Linux-only logic (config / scan / guid / the WiX-generation golden test).
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v9.0.0
       - name: Run tests
         run: uv run pytest -q
