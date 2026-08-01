@@ -85,37 +85,39 @@ rely on.
 
 ## What it produces
 
-One `pyproject.toml` can describe several output packages — each is a
-`[[tool.pyappdist.targets]]` entry with its own `platform` and `format`:
+Each `[[tool.pyappdist.targets]]` entry describes one output package,
+selected by its `platform` and `format`:
 
 | `format` | Platform | Output |
 | --- | --- | --- |
-| `msi`   | `windows-x86_64`                | `.msi` installer (per-user or machine-wide) |
-| `msix`  | `windows-x86_64`                | `.msix` package for the Microsoft Store / sideloading |
-| `linux` | `linux-x86_64`                  | self-extracting `.run` installer (per-user, no root) |
-| `macos` | `macos-aarch64` / `macos-x86_64` | self-extracting `.run` installer (per-user, no root) |
-| `dmg`   | `macos-aarch64` / `macos-x86_64` | `.dmg` disk image (code-signing / notarization supported) |
-| `macapp` | `macos-aarch64` / `macos-x86_64` | `.app` bundle (code-signing / notarization supported) |
-| `pkg`   | `macos-aarch64` / `macos-x86_64` | `.pkg` installer — installs the `.app` into `/Applications` system-wide (code-signing / notarization supported) |
-| `image` | any of the above                | plain archive of the install tree — `.zip` (Windows) / `.tar.gz` (Linux, macOS), no installer |
+| `msi`    | Windows | `.msi` installer |
+| `msix`   | Windows | `.msix` package (Microsoft Store / sideloading) |
+| `linux`  | Linux   | self-extracting `.run` installer |
+| `macos`  | macOS   | self-extracting `.run` installer |
+| `macapp` | macOS   | `.app` bundle |
+| `dmg`    | macOS   | `.dmg` disk image |
+| `pkg`    | macOS   | `.pkg` installer |
+| `image`  | any     | plain `.zip` / `.tar.gz` archive of the install tree |
+
+Supported `platform` values: `windows-x86_64`, `windows-arm64`,
+`linux-x86_64`, `linux-aarch64`, `macos-x86_64`, `macos-aarch64`.
+The macOS formats (`macapp` / `dmg` / `pkg`) support code-signing and
+notarization.
 
 ## Samples
 
-Runnable example apps live under [`samples/`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples), each with its own
-`[tool.pyappdist]` config. They double as smoke tests for tricky cases (C
-extensions, GUI stacks, data files, per-target extras):
+Runnable example apps live under [`samples/`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples),
+each with its own `[tool.pyappdist]` config:
 
-| Sample | Kind | What it shows |
-| --- | --- | --- |
-| [`helloworld`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/helloworld) | CLI | Smallest possible config — no dependencies. A good starting template; builds for every format (`msi`/`msix`/`linux`/`macos`/`dmg`/`pkg`). |
-| [`pandascli`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pandascli) | CLI | pandas + numpy (C extensions) collected as binary wheels and installed into the runtime. Console launcher (`gui = false`). |
-| [`datafiles`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/datafiles) | CLI | Ships a bundled data file (`data/ebi.jpeg`) via `[tool.uv.build-backend].data` and reads it through `sysconfig`; opens it with Pillow. |
-| [`multiprocessingdemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/multiprocessingdemo) | CLI | Runs a `multiprocessing.Pool` across worker processes. The launcher runs the bundled interpreter directly, so `spawn` re-launches it correctly — no dependencies. |
-| [`pytorchdemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pytorchdemo) | CLI | Ships PyTorch built for CUDA 13 (`cu130`) via a per-index `[tool.uv.sources]` pin; runs on the GPU when available, CPU otherwise. Windows/Linux only. |
-| [`matplotlibdemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/matplotlibdemo) | GUI | matplotlib plot with the **TkAgg** backend — uses the runtime's bundled tkinter/tcl-tk, no extra GUI deps. |
-| [`pygamedemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pygamedemo) | GUI | A bouncing ball with pygame-ce (C extensions) collected as Windows wheels.|
-| [`pyside6demo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pyside6demo) | GUI | A Qt window with PySide6 — a large `abi3` wheel (`cp39-abi3`) installed into the cp312 runtime, Qt plugins and all. |
-| [`niceguidemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/niceguidemo) | GUI (web) | "Weather Panel" built with NiceGUI + pywebview + requests; uses per-target `extras` (`gtk`/`qt`/`gui`) to pick the webview backend per platform. |
+- [`helloworld`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/helloworld) — smallest config, no dependencies; a good starting template
+- [`pandascli`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pandascli) — pandas + numpy (C extensions)
+- [`datafiles`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/datafiles) — ships a bundled data file, located via `sysconfig`
+- [`multiprocessingdemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/multiprocessingdemo) — `multiprocessing` with `spawn` works unmodified
+- [`pytorchdemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pytorchdemo) — CUDA PyTorch via a per-index pin (Windows/Linux)
+- [`matplotlibdemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/matplotlibdemo) — TkAgg GUI using the bundled tkinter
+- [`pygamedemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pygamedemo) — pygame-ce GUI (C extensions)
+- [`pyside6demo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pyside6demo) — PySide6 (large abi3 wheel, Qt plugins)
+- [`niceguidemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/niceguidemo) — NiceGUI + pywebview, per-target `extras` for backend selection
 
 ### Status
 

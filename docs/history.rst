@@ -4,7 +4,7 @@ Release history
 0.11.0
 ------
 
-unreleased
+2026/08/01
 
 **pyappdist is now beta.** The development status moves from alpha to beta:
 the config schema, CLI, and output layout are settling down and breaking
