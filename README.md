@@ -1,7 +1,7 @@
 # pyappdist
 
 **Ship your Python app as a native installer straight from `pyproject.toml`.
-If it installs with `pip`, it ships with pyappdist.**
+If it installs with `pip`, it almost certainly ships with pyappdist.**
 
 📖 **Documentation: https://pyappdist.readthedocs.io/**
 
