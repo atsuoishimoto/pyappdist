@@ -202,20 +202,14 @@ With signing enabled the signing command is resolved in this order:
 3. a built-in default:
    ``signtool.exe sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /a "{file}"``.
 
+The command is run once per artifact, with the artifact's directory as the
+working directory; the token ``{file}`` is replaced with the artifact's file
+name (appended to the command if absent).
+
 The default uses ``/a`` to auto-select the best certificate from the Windows
 certificate store, so a non-secret command line can live in
 ``pyproject.toml``; use ``PYAPPDIST_WIN_SIGN_CMD`` to override per machine
-(for example a ``.pfx`` whose password must not be committed). The
-environment variable only supplies the *command*: with ``code-sign`` unset
-(or ``false``) and no ``--code-sign``, signing is skipped regardless of
-``PYAPPDIST_WIN_SIGN_CMD``. The retired ``PYAPPDIST_SIGN_CMD`` variable
-(which used to both enable signing and supply the command for some formats)
-is ignored with a warning.
-
-However the command is supplied, it runs with the artifact's directory as
-the working directory, and the token ``{file}`` is replaced with the
-artifact's file name (appended to the command if absent) — this is what makes
-signing work when cross-building from WSL, where ``signtool.exe`` cannot
-resolve Linux paths. Any other file referenced in the command (such as a
-``.pfx``) must therefore be given as an absolute path — a Windows-side path
-like ``D:\certs\app.pfx`` when cross-building.
+(for example a ``.pfx`` whose password must not be committed). Give any file
+the command references (such as that ``.pfx``) as an absolute path —
+relative paths would resolve against the per-artifact working directory
+above, not the project directory.
