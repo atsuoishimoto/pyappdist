@@ -5,11 +5,17 @@ Windows — MSI installer
 
 * ``appdist/<target>/dist/<name>-<version>.msi`` — the installer.
 
+The MSI is the direct-distribution path on Windows: users download the
+installer and run it — no Store account, no Developer Mode. By default it
+installs per-user, without administrator rights. The installer is unsigned
+unless you enable signing, and unsigned installers trigger a Windows
+SmartScreen warning — see :ref:`msi-code-signing` below.
+
 Only ``platform = "windows-x86_64"`` or ``"windows-arm64"`` may use this
 format. Building the ``windows-arm64`` variant requires an ARM64 Windows host
-(with the "MSVC C++ ARM64 build tools" component installed); x64 Windows cannot
-run the target runtime's ``python.exe``. The app ``version``
-must be dotted numeric (e.g. ``"1.2.3"``) — MSI's ProductVersion cannot express
+(with the "MSVC C++ ARM64 build tools" component installed); x64 Windows
+cannot run the target runtime's ``python.exe``. The app ``version`` must be
+dotted numeric (e.g. ``"1.2.3"``) — MSI's ProductVersion cannot express
 pre-releases such as ``"1.0.0rc1"``, so those are rejected at load time (same
 for ``msix``).
 
@@ -17,8 +23,8 @@ Build requirements
 ------------------
 
 * **MSVC C++ build tools** (``cl.exe`` / ``rc.exe``) — to compile the launcher
-  ``.exe``. Located automatically via ``vswhere``; no need to put ``cl.exe`` on
-  ``PATH``.
+  ``.exe``\ s. Located automatically via ``vswhere``; no need to put ``cl.exe``
+  on ``PATH``.
 * **WiX v5** — to build the MSI. Pin to **v5.0.2**: v6/v7 require accepting a
   EULA that blocks an unattended ``wix build``.
 * Only when you set ``license``, also add the WiX UI extension (once)::
@@ -26,8 +32,8 @@ Build requirements
      wix extension add -g WixToolset.UI.wixext/5.0.2
 
 If you don't have the toolchain yet, install both with ``winget`` from an
-**elevated** PowerShell — the build-only Build Tools (no full Visual Studio IDE)
-are enough:
+**elevated** PowerShell — the build-only Build Tools (no full Visual Studio
+IDE) are enough:
 
 .. code-block:: powershell
 
@@ -39,8 +45,8 @@ are enough:
    dotnet tool install --global wix --version 5.0.2
 
 (The full Visual Studio Community edition,
-``Microsoft.VisualStudio.2022.Community``, works too if you prefer the IDE — use
-the same ``--override`` workload arguments.)
+``Microsoft.VisualStudio.2022.Community``, works too if you prefer the IDE —
+use the same ``--override`` workload arguments.)
 
 Configuration
 -------------
@@ -51,41 +57,38 @@ Configuration
 
 ``scope``
    Install scope. ``"user"`` (default) makes a per-user package that installs
-   into ``%LocalAppData%\Programs\<name>`` with no administrator rights (registry
-   in ``HKCU``). ``"machine"`` installs into ``Program Files`` and requires admin
-   (registry in ``HKLM``).
+   into ``%LocalAppData%\Programs\<name>`` with no administrator rights
+   (registry in ``HKCU``). ``"machine"`` installs into ``Program Files`` and
+   requires admin (registry in ``HKLM``).
 
 ``upgrade-code``
    Stable upgrade GUID. **If omitted, pyappdist generates a UUID and writes it
-   back into this target's table** on the first build. Must stay stable for the
-   life of the product, and is per target.
+   back into this target's table** on the first build. Must stay stable for
+   the life of the product, and is per target. See `Upgrades`_.
 
 ``license``
-   Path (relative to the project) to an **RTF** end-user license agreement. When
-   set, the installer shows a one-page license dialog (WixUI_Minimal).
+   Path (relative to the project) to an **RTF** end-user license agreement.
+   When set, the installer shows a one-page license dialog (WixUI_Minimal).
 
-``code-sign``
-   Code-sign the launcher ``.exe`` and the ``.msi`` (default ``false``). See
-   :ref:`msi-code-signing` below.
-
-``code-sign-command``
-   Signing command used when signing is enabled, unless overridden by the
-   ``PYAPPDIST_WIN_SIGN_CMD`` environment variable. Defaults to a ``signtool``
-   invocation. See :ref:`msi-code-signing` below.
+``code-sign`` / ``code-sign-command``
+   Sign the launcher ``.exe``\ s and the ``.msi`` (default: unsigned). See
+   :ref:`msi-code-signing`.
 
 ``allow-same-version-upgrades``
-   Sets ``AllowSameVersionUpgrades="yes"`` on the WiX ``MajorUpgrade`` (default
-   ``false``). With it on, reinstalling the **same** version upgrades in place instead
-   of erroring or installing side-by-side — convenient while iterating on a build
-   without bumping the version. MSI-only; it has no effect on ``msix`` targets.
+   Sets ``AllowSameVersionUpgrades="yes"`` on the WiX ``MajorUpgrade``
+   (default ``false``). With it on, reinstalling the **same** version upgrades
+   in place instead of erroring or installing side-by-side — convenient while
+   iterating on a build without bumping the version. MSI-only; it has no
+   effect on ``msix`` targets.
 
 ``add-to-path``
-   Append the install folder — where the launcher ``.exe``\ s live — to ``PATH``
-   (default ``false``), so command-line launchers can be run by name from a
-   terminal. The scope follows the package scope: a ``user`` install edits the
-   per-user ``PATH``, a ``machine`` install the system one. Uninstalling removes
-   exactly the appended entry. Windows applies the change to processes started
-   *after* the install; already-open terminals must be reopened to see it.
+   Append the install folder — where the launcher ``.exe``\ s live — to
+   ``PATH`` (default ``false``), so command-line launchers can be run by name
+   from a terminal. The scope follows the package scope: a ``user`` install
+   edits the per-user ``PATH``, a ``machine`` install the system one.
+   Uninstalling removes exactly the appended entry. Windows applies the
+   change to processes started *after* the install; already-open terminals
+   must be reopened to see it.
 
 .. code-block:: toml
 
@@ -101,15 +104,28 @@ Configuration
    # allow-same-version-upgrades = false  # reinstall same version upgrades in place
    # add-to-path = true      # append the install folder to PATH
 
+Launchers
+---------
+
+Launchers are compiled native ``.exe`` stubs: ``gui = true`` uses
+``pythonw.exe`` (no console) and the launcher's ``icon = { windows = "*.ico" }``
+is embedded into the executable and the Start-menu shortcut.
+
+The **first** launcher that declares a Windows icon also supplies the product
+icon shown in Add/Remove Programs (Settings → Apps), via ``ARPPRODUCTICON``.
+With no Windows launcher icon the product keeps the generic Windows Installer
+icon there.
+
 Install behavior
 ----------------
 
 A ``machine`` install always requires elevation: an admin gets a UAC consent
-prompt, a standard user gets a UAC credential prompt (and cannot install without
-admin rights). A ``user`` install never needs elevation.
+prompt, a standard user gets a UAC credential prompt (and cannot install
+without admin rights). A ``user`` install never needs elevation.
 
-For unattended installs, suppress the UI with ``/qn`` (silent) or ``/qb`` (progress
-only); the license is then not shown and no acceptance step is required:
+For unattended installs, suppress the UI with ``/qn`` (silent) or ``/qb``
+(progress only); the license is then not shown and no acceptance step is
+required:
 
 .. code-block:: bat
 
@@ -118,42 +134,40 @@ only); the license is then not shown and no acceptance step is required:
 Upgrades
 --------
 
-The MSI uses WiX ``MajorUpgrade`` keyed on ``upgrade-code``. Component GUIDs are
-derived deterministically as ``uuid5(upgrade-code, install-relative-path)``, so the
-same layout and the same ``upgrade-code`` always produce the same component
-identity — installing a newer version cleanly replaces the old one. Keep
-``upgrade-code`` stable for the life of the product. The generated value is written
-back with ``tomlkit``, which preserves your file's existing formatting and comments.
+The MSI uses WiX ``MajorUpgrade`` keyed on ``upgrade-code``. Component GUIDs
+are derived deterministically as ``uuid5(upgrade-code,
+install-relative-path)``, so the same layout and the same ``upgrade-code``
+always produce the same component identity — installing a newer version
+cleanly replaces the old one. Keep ``upgrade-code`` stable for the life of
+the product. The generated value is written back with ``tomlkit``, which
+preserves your file's existing formatting and comments.
 
 Windows Installer compares only the **first three** fields of ProductVersion
 when deciding whether an install is an upgrade. A four-field version is
 accepted, but two releases differing solely in the fourth field
 (``1.2.3.4`` → ``1.2.3.5``) are the same version to it: ``MajorUpgrade`` does
-not fire, and without ``allow-same-version-upgrades`` the install errors or the
-two versions end up side by side. pyappdist prints a warning when an msi target
-is built from a four-field version. (``msix`` is unaffected — its Identity
-Version uses all four fields.)
-
-Launchers are compiled native ``.exe`` stubs: ``gui = true`` uses ``pythonw.exe``
-(no console) and ``icon`` is embedded into the executable and the Start-menu
-shortcut.
-
-The **first** launcher that declares ``icon = { windows = "*.ico" }`` also supplies
-the product icon shown in Add/Remove Programs (Settings → Apps), via
-``ARPPRODUCTICON``. With no Windows launcher icon the product keeps the generic
-Windows Installer icon there.
+not fire, and without ``allow-same-version-upgrades`` the install errors or
+the two versions end up side by side. pyappdist prints a warning when an msi
+target is built from a four-field version. (``msix`` is unaffected — its
+Identity Version uses all four fields.)
 
 .. _msi-code-signing:
 
 Code signing
 ------------
 
-Windows targets are unsigned by default. Enable signing with ``code-sign = true`` on
-the target, or force it from the command line with ``pyappdist build --code-sign``
-(``--no-code-sign`` forces it off, for example on a machine without a certificate);
-``pyappdist build`` then signs each launcher ``.exe`` after it is compiled and the
-``.msi`` after it is built. The same keys work identically on ``msix`` targets (the
-launcher ``.exe``\ s and the ``.msix``) and on Windows ``image`` targets (the launcher
+Windows targets are unsigned by default, and an unsigned installer triggers a
+Windows SmartScreen warning when users download and run it. Signing removes
+the warning (after the certificate builds reputation) but requires a
+code-signing certificate — obtaining and managing one is out of scope for
+pyappdist.
+
+Enable signing with ``code-sign = true`` on the target, or force it from the
+command line with ``pyappdist build --code-sign`` (``--no-code-sign`` forces
+it off, for example on a machine without a certificate). ``pyappdist build``
+then signs each launcher ``.exe`` after it is compiled and the ``.msi`` after
+it is built. The same keys work identically on ``msix`` targets (the launcher
+``.exe``\ s and the ``.msix``) and on Windows ``image`` targets (the launcher
 ``.exe``\ s).
 
 .. code-block:: toml
@@ -172,23 +186,20 @@ With signing enabled the signing command is resolved in this order:
 3. a built-in default:
    ``signtool.exe sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /a "{file}"``.
 
-The default uses ``/a`` to auto-select the best certificate from the Windows certificate
-store, so a non-secret command line can live in ``pyproject.toml``; use
-``PYAPPDIST_WIN_SIGN_CMD`` to override per machine (for example a ``.pfx`` whose password
-must not be committed). The command runs with the artifact's directory as the working
-directory, and the token ``{file}`` is replaced with the artifact's file name (appended
-to the command if absent) — this is what makes signing work when cross-building from
-WSL, where ``signtool.exe`` cannot resolve Linux paths. Any other file referenced in
-the command (such as a ``.pfx``) must therefore be given as an absolute path — a
-Windows-side path like ``D:\certs\app.pfx`` when cross-building.
+The default uses ``/a`` to auto-select the best certificate from the Windows
+certificate store, so a non-secret command line can live in
+``pyproject.toml``; use ``PYAPPDIST_WIN_SIGN_CMD`` to override per machine
+(for example a ``.pfx`` whose password must not be committed). The
+environment variable only supplies the *command*: with ``code-sign`` unset
+(or ``false``) and no ``--code-sign``, signing is skipped regardless of
+``PYAPPDIST_WIN_SIGN_CMD``. The retired ``PYAPPDIST_SIGN_CMD`` variable
+(which used to both enable signing and supply the command for some formats)
+is ignored with a warning.
 
-The environment variable only supplies the *command*: with ``code-sign`` unset (or
-``false``) and no ``--code-sign``, signing is skipped regardless of
-``PYAPPDIST_WIN_SIGN_CMD``. The retired ``PYAPPDIST_SIGN_CMD`` variable (which used
-to both enable signing and supply the command for some formats) is ignored with a
-warning.
-
-.. note::
-
-   Obtaining and managing code-signing certificates is out of scope for
-   pyappdist. Unsigned installers will trigger a Windows SmartScreen warning.
+However the command is supplied, it runs with the artifact's directory as
+the working directory, and the token ``{file}`` is replaced with the
+artifact's file name (appended to the command if absent) — this is what makes
+signing work when cross-building from WSL, where ``signtool.exe`` cannot
+resolve Linux paths. Any other file referenced in the command (such as a
+``.pfx``) must therefore be given as an absolute path — a Windows-side path
+like ``D:\certs\app.pfx`` when cross-building.
