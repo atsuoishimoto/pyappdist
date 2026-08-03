@@ -52,6 +52,14 @@ build-only Build Tools (no full Visual Studio IDE) are enough:
    # The "Desktop development with C++" workload
    winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
 
+To build the arm64 launcher from source yourself (a ``windows-arm64`` target
+with ``launcher-build = "source"``), use this command instead — it adds the
+ARM64 compiler component:
+
+.. code-block:: powershell
+
+   winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --add Microsoft.VisualStudio.Component.VC.Tools.ARM64"
+
 (The full Visual Studio Community edition,
 ``Microsoft.VisualStudio.2022.Community``, works too if you prefer the IDE —
 use the same ``--override`` workload arguments.)

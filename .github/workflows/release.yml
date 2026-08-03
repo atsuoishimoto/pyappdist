@@ -18,9 +18,11 @@ jobs:
       - uses: astral-sh/setup-uv@v9.0.0
 
       # The four Windows stubs ({x64, arm64} x {console, gui}); arm64 uses the
-      # x64-hosted cross compiler preinstalled on the runner image.
+      # x64-hosted cross compiler preinstalled on the runner image. The
+      # explicit selection makes a missing toolchain fail the release instead
+      # of being skipped with a note.
       - name: Build prebuilt launcher stubs
-        run: uv run pyappdist build-prebuilt
+        run: uv run pyappdist build-prebuilt windows-x86_64 windows-arm64
 
       - name: Install WiX (v5, no OSMF fee)
         run: dotnet tool install --global wix --version 5.0.2
@@ -64,9 +66,10 @@ jobs:
 
       - uses: astral-sh/setup-uv@v9.0.0
 
+      # Explicit selection, so a missing toolchain fails instead of skipping.
       - name: Build prebuilt launcher stub
         run: |
-          uv run pyappdist build-prebuilt
+          uv run pyappdist build-prebuilt macos
           lipo -info src/pyappdist/resources/prebuilt/launcher-macos-universal
 
       # Ad-hoc signed (no signing secrets here): builds the .app from the

@@ -36,8 +36,10 @@ cd samples/helloworld && uv run pyappdist build
 uv run pyappdist fetch-runtime | build-wheels | build-image | build-launchers | gen-wix | build
 
 # Compile the prebuilt launcher stubs into src/pyappdist/resources/prebuilt/
-# (dev/release tooling; needs MSVC via WSL interop, or clang on a macOS host)
-uv run pyappdist build-prebuilt
+# (dev/release tooling; needs MSVC via WSL interop, or clang on a macOS host).
+# Optional selectors: windows-x86_64 / windows-arm64 / macos — explicit
+# selection errors when unbuildable; no selection builds what the host can.
+uv run pyappdist build-prebuilt [windows-x86_64 windows-arm64 macos]
 ```
 
 Docs are Sphinx (`docs/`, published to readthedocs); build with `make -C docs html`.
