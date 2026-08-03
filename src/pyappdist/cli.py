@@ -15,6 +15,7 @@ Subcommands:
   build-launchers build the launchers inside the image (kind follows the format)
   gen-wix         scan the image and generate WiX XML (.wxs) — msi targets only
   build           run the full pipeline and package the selected target(s)
+  build-prebuilt  compile the bundled prebuilt launcher stubs (dev/release tooling)
 """
 
 from __future__ import annotations
@@ -35,6 +36,7 @@ from .context import BuildContext
 from .errors import BuildError, ConfigError, PyappdistError
 from .launcher import build_launchers
 from .launcher.build import macos_arch
+from .launcher.prebuilt import SELECTORS as PREBUILT_SELECTORS, build_prebuilt
 from .linux import build_linux
 from .macos import build_macos
 from .macos.bundle import build_macos_apps
@@ -368,6 +370,25 @@ def _build_macos_bundle(
     print(f"OK [{tag}]: dmg -> {dmg} ({len(apps)} app)")
 
 
+def cmd_build_prebuilt(args: argparse.Namespace) -> int:
+    """Compile the compiler-less launcher stubs.
+
+    A development/release tool, not a pipeline stage: it populates the
+    installed package's ``resources/prebuilt/`` (or ``--out``) with the stub
+    binaries that released wheels ship, which ``build-launchers`` then uses
+    instead of MSVC/clang. Positional arguments select what to build (an
+    unbuildable selection is an error); with none, everything the host's
+    toolchain can produce is built and the rest is skipped with a note.
+    """
+    out = Path(args.out).resolve() if args.out else None
+    paths = build_prebuilt(out, select=args.targets or None)
+    if paths:
+        print(f"OK: {len(paths)} prebuilt launcher stub(s) -> {paths[0].parent}")
+    else:
+        print("no prebuilt launcher stubs were built")
+    return 0
+
+
 def cmd_build(args: argparse.Namespace) -> int:
     """Run runtime -> wheelhouse -> image -> launcher -> package for each target.
 
@@ -453,6 +474,26 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("gen-wix", help="generate WiX XML (.wxs) from the image (msi targets)")
     _add_common(p)
     p.set_defaults(func=cmd_gen_wix)
+
+    p = sub.add_parser(
+        "build-prebuilt",
+        help="compile the bundled prebuilt launcher stubs "
+             "(for maintaining pyappdist itself, not an app-build stage)",
+    )
+    p.add_argument(
+        "targets", nargs="*", metavar="target",
+        help="stubs to build: "
+             f"{' / '.join(PREBUILT_SELECTORS)} (the windows selectors build "
+             "a console + gui .exe pair each, macos one universal Mach-O); "
+             "default: everything this host's toolchain can produce, "
+             "skipping the rest with a note",
+    )
+    p.add_argument(
+        "--out",
+        help="output directory (default: this pyappdist installation's "
+             "resources/prebuilt)",
+    )
+    p.set_defaults(func=cmd_build_prebuilt)
 
     p = sub.add_parser("build", help="run the full pipeline and package the target(s)")
     _add_common(p)

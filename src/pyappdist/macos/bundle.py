@@ -16,6 +16,7 @@ from pathlib import Path
 
 from ..config import Config
 from ..errors import BuildError
+from ..launcher.build import MAC_SIDECAR_NAME
 from .icns import make_icns
 from .sign import _MACHO_MAGIC
 
@@ -102,6 +103,14 @@ def _assemble_one(
     shutil.copy2(launcher_bin, macos / exe_name)
     (macos / exe_name).chmod(0o755)
     shutil.copy2(icns, resources / f"{_ICON_BASENAME}.icns")
+
+    # A prebuilt launcher stub keeps its per-app config in a sidecar written
+    # next to it in the image dir; stage it where the stub looks it up
+    # (Contents/Resources, sealed by the bundle's code signature). A
+    # source-built launcher has the config compiled in and no sidecar.
+    sidecar = launcher_bin.parent / f"{exe_name}.launcher.json"
+    if sidecar.is_file():
+        shutil.copy2(sidecar, resources / MAC_SIDECAR_NAME)
 
     plist = info_plist(config, executable=exe_name, identifier=identifier, display_name=label)
     (contents / "Info.plist").write_bytes(plist)

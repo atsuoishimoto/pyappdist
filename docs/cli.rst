@@ -109,10 +109,11 @@ launcher(s). Options: ``--no-compile``.
 
 (Re)build the launcher(s) into an existing image. Requires a prior
 ``build-image``. The launcher kind follows the target's ``format``: a Windows
-``launcher.exe`` (MSVC) for ``msi``/``msix``, or a compiled Mach-O stub (clang)
-for the macOS ``.app`` (``macapp``/``dmg``/``pkg``). For ``linux`` and ``macos``
-(``.run``) the launcher is a shell wrapper written during packaging, so
-this command is a no-op.
+``launcher.exe`` for ``msi``/``msix``, or a Mach-O stub for the macOS ``.app``
+(``macapp``/``dmg``/``pkg``) — both produced from the bundled prebuilt stubs
+when available, else compiled with MSVC / clang (see the ``launcher-build``
+target key). For ``linux`` and ``macos`` (``.run``) the launcher is a shell
+wrapper written during packaging, so this command is a no-op.
 
 ``gen-wix``
 ~~~~~~~~~~~

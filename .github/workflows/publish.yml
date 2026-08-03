@@ -1,6 +1,10 @@
 name: Publish to PyPI
 
-# Publish to PyPI manually (workflow_dispatch).
+# Manually (workflow_dispatch) publish a GitHub release's wheel + sdist to
+# PyPI. Nothing is rebuilt: the files attached to the release (created by
+# release.yml, with the prebuilt launcher stubs bundled) are uploaded as-is,
+# so the GitHub release and PyPI always match.
+#
 # Auth uses OIDC Trusted Publishing, so no API token is needed.
 # Register the Trusted Publisher on PyPI beforehand:
 #   - PyPI Project: pyappdist
@@ -9,37 +13,28 @@ name: Publish to PyPI
 #   - Environment: pypi
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish (e.g. 0.12.0)"
+        required: true
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: astral-sh/setup-uv@v9.0.0
-
-      - name: Build sdist and wheel
-        run: uv build
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: dist
-          path: dist/
-          retention-days: 1
-
   publish:
-    needs: build
     runs-on: ubuntu-latest
     environment:
       name: pypi
       url: https://pypi.org/p/pyappdist
     permissions:
       id-token: write   # required to mint the OIDC token (Trusted Publishing)
+      contents: read    # gh release download
     steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: dist
-          path: dist/
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ inputs.tag }}" --repo "${{ github.repository }}" \
+            --pattern '*.whl' --pattern '*.tar.gz' --dir dist
+          ls -l dist/
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1

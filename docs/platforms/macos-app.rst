@@ -31,7 +31,7 @@ packed into a single ``.dmg``.
 Build requirements
 ------------------
 
-The whole toolchain (``clang``, ``codesign``, ``hdiutil``, ``sips`` / ``iconutil``
+The whole toolchain (``codesign``, ``hdiutil``, ``sips`` / ``iconutil``
 for the icon, and ``xcrun notarytool`` / ``stapler`` for notarization) ships with
 the **Xcode Command Line Tools**. If they are not installed yet, install them from
 a terminal — a dialog confirms the download; the full Xcode IDE is not required:
@@ -39,6 +39,10 @@ a terminal — a dialog confirms the download; the full Xcode IDE is not require
 .. code-block:: console
 
    $ xcode-select --install
+
+A C compiler is optional: ``clang`` (from the same package) is used only for
+launcher source builds — the prebuilt launcher stub bundled with pyappdist
+needs no compiler (see the ``launcher-build`` target key).
 
 In the configuration, ``identifier`` (app-level) is **required** — the reverse-DNS
 CFBundleIdentifier (e.g. ``"com.example.myapp"``).
@@ -53,7 +57,9 @@ from its launcher's ``icon`` table — the ``macos`` key (a ``.png``), resized i
 
 ``min-macos``
    Minimum macOS version. Sets both the bundle's ``LSMinimumSystemVersion`` and clang's
-   ``-mmacosx-version-min``. Default ``"11.0"``.
+   ``-mmacosx-version-min``. Default ``"11.0"``. The prebuilt launcher stub is
+   compiled for macOS 11.0+; use ``launcher-build = "source"`` if the launcher
+   itself must target a different deployment version.
 
 ``category``
    ``LSApplicationCategoryType`` (e.g. ``"public.app-category.utilities"``). Optional.
