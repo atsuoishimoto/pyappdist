@@ -24,14 +24,18 @@ such as ``"1.0.0rc1"`` are rejected at load time.
 Build requirements
 ------------------
 
-* **MSVC C++ build tools** (``cl.exe`` / ``rc.exe``) — **only for launcher
-  source builds**; the bundled prebuilt launcher stubs need no compiler
-  (same as :doc:`MSI <windows-msi>`; see its
-  :ref:`install steps <platforms/windows-msi:Build requirements>`).
-* **makeappx** (Windows SDK) — to pack the ``.msix``. Located automatically,
-  or set ``PYAPPDIST_WIN_MAKEAPPX`` to its path. An MSVC Build Tools install
-  already brings it in via the Windows SDK; to install the Windows SDK
-  on its own:
+The one required tool is **makeappx** (Windows SDK) — it packs the ``.msix``.
+It is located automatically, or set ``PYAPPDIST_WIN_MAKEAPPX`` to its path.
+Two ways to get it:
+
+* **Recommended for a development environment: install the MSVC C++ build
+  tools** (see the :doc:`MSI <windows-msi>` page's
+  :ref:`install steps <platforms/windows-msi:Build requirements>`). The
+  install brings ``makeappx`` in via the bundled Windows SDK, and also
+  enables launcher source builds (``launcher-build = "source"``).
+* **If you'd rather not install MSVC** — on CI runners, or over toolchain
+  licensing concerns — **the Windows SDK alone is enough**: the prebuilt
+  launcher stubs bundled with pyappdist need no compiler.
 
   .. code-block:: powershell
 

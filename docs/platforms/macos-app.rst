@@ -33,15 +33,16 @@ Build requirements
 
 The whole toolchain (``codesign``, ``hdiutil``, ``sips`` / ``iconutil``
 for the icon, and ``xcrun notarytool`` / ``stapler`` for notarization) ships with
-the **Xcode Command Line Tools**; ``clang`` from the same package is used only
-for launcher source builds — the bundled prebuilt launcher stub needs no
-compiler (see the ``launcher-build`` target key). If the tools are not
-installed yet, install them from a terminal — a dialog confirms the download;
-the full Xcode IDE is not required:
+the **Xcode Command Line Tools**. If they are not installed yet, install them from
+a terminal — a dialog confirms the download; the full Xcode IDE is not required:
 
 .. code-block:: console
 
    $ xcode-select --install
+
+A C compiler is optional: ``clang`` (from the same package) is used only for
+launcher source builds — the prebuilt launcher stub bundled with pyappdist
+needs no compiler (see the ``launcher-build`` target key).
 
 In the configuration, ``identifier`` (app-level) is **required** — the reverse-DNS
 CFBundleIdentifier (e.g. ``"com.example.myapp"``).

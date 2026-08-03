@@ -16,28 +16,27 @@ Build-time toolchain
 --------------------
 
 pyappdist builds the app wheel with ``python -m pip``, so producing the
-*wheelhouse* and the runtime image needs nothing beyond pip. The compiled
-launchers need **no C compiler**: released pyappdist wheels bundle prebuilt
-launcher stubs that the build configures per app (see the ``launcher-build``
-target key). A compiler is only used as a fallback when no stub is bundled
-(e.g. an install from a git checkout) or with ``launcher-build = "source"``.
-Producing the final **package** needs a per-format toolchain, documented on
-each format's page:
+*wheelhouse* and the runtime image needs nothing beyond pip. Producing the
+final **package** needs a per-format toolchain, documented on each format's
+page:
 
-* :doc:`MSI <platforms/windows-msi>` — WiX v5 (MSVC build tools only for
-  launcher source builds).
-* :doc:`MSIX <platforms/windows-msix>` — ``makeappx`` (Windows SDK; MSVC build
-  tools only for launcher source builds).
+* :doc:`MSI <platforms/windows-msi>` — WiX v5.
+* :doc:`MSIX <platforms/windows-msix>` — ``makeappx`` (Windows SDK).
 * :doc:`Linux <platforms/linux>` / :doc:`macOS <platforms/macos-run>` — none
   (the launchers are shell scripts).
 * :doc:`macapp / dmg <platforms/macos-app>` / :doc:`pkg <platforms/macos-pkg>` —
-  the Xcode command-line tools (``codesign`` etc.; ``clang`` only for launcher
-  source builds).
-* :doc:`image <platforms/image>` — a Windows target uses the usual ``.exe``
-  launchers (prebuilt stubs, or MSVC as fallback); none for Linux/macOS, or
-  with ``no-launcher``.
+  the Xcode command-line tools.
+* :doc:`image <platforms/image>` — none (a Windows target gets the usual
+  ``.exe`` launchers; Linux/macOS targets get shell wrappers).
 
 Each format is built on its own OS.
+
+**A C compiler is optional.** Released pyappdist wheels bundle prebuilt
+launcher stubs that the build configures per app, so the compiled launchers
+(the Windows ``.exe``\ s and the macOS ``.app`` stub) need no compiler. MSVC /
+``clang`` are used only as a fallback when no stub is bundled (e.g. pyappdist
+installed from a git checkout) or when a target opts into
+``launcher-build = "source"`` — see the ``launcher-build`` target key.
 
 Package manager (for dependency pinning)
 ----------------------------------------
