@@ -56,7 +56,11 @@ def macos_stub() -> Path:
 
 
 def build_prebuilt(
-    out_dir: Path | None = None, select: Sequence[str] | None = None, *, log=print
+    out_dir: Path | None = None,
+    select: Sequence[str] | None = None,
+    *,
+    build_dir: Path | None = None,
+    log=print,
 ) -> list[Path]:
     """Compile prebuilt stubs into ``out_dir`` (default: the installed
     package's ``resources/prebuilt/``, so a subsequent build picks them up).
@@ -67,41 +71,54 @@ def build_prebuilt(
     host cannot build is an error. With no selection, everything the host's
     toolchain can produce is built, and what it cannot is skipped with a
     message — not an error — so the command is safe to run on any host.
+
+    ``build_dir`` overrides where the build intermediates go (default:
+    ``<out>/.build``). Each stub gets its own subdirectory in there, removed
+    when its build finishes; the default ``.build`` directory is removed as a
+    whole, while a caller-supplied ``build_dir`` itself is left in place. On
+    WSL the intermediates must live on a Windows volume (the MSVC tools run
+    with their cwd inside them), which is what this override is for when
+    ``out_dir`` is not on one.
     """
     out = out_dir if out_dir is not None else PREBUILT_DIR
     out.mkdir(parents=True, exist_ok=True)
-    if select is None:
-        return _build_auto(out, log)
+    workdir = build_dir if build_dir is not None else out / ".build"
+    try:
+        if select is None:
+            return _build_auto(workdir, out, log)
 
-    unknown = [s for s in select if s not in SELECTORS]
-    if unknown:
-        raise ConfigError(
-            f"unknown build-prebuilt target(s): {unknown} "
-            f"(supported: {', '.join(SELECTORS)})"
-        )
-    exes: list[Path] = []
-    seen: set[str] = set()
-    for sel in select:
-        if sel in seen:
-            continue
-        seen.add(sel)
-        if sel == "macos":
-            if sys.platform != "darwin":
-                raise BuildError(
-                    "the macos prebuilt stub can only be built on a macOS host"
-                )
-            exes.append(_build_macos(out, log))
-        else:
-            if not _windows_capable():
-                raise BuildError(
-                    f"the {sel} prebuilt stubs can only be built on Windows, "
-                    "or on WSL with Visual Studio"
-                )
-            exes.extend(_build_windows_pair(TARGETS[sel], out, log))
-    return exes
+        unknown = [s for s in select if s not in SELECTORS]
+        if unknown:
+            raise ConfigError(
+                f"unknown build-prebuilt target(s): {unknown} "
+                f"(supported: {', '.join(SELECTORS)})"
+            )
+        exes: list[Path] = []
+        seen: set[str] = set()
+        for sel in select:
+            if sel in seen:
+                continue
+            seen.add(sel)
+            if sel == "macos":
+                if sys.platform != "darwin":
+                    raise BuildError(
+                        "the macos prebuilt stub can only be built on a macOS host"
+                    )
+                exes.append(_build_macos(workdir, out, log))
+            else:
+                if not _windows_capable():
+                    raise BuildError(
+                        f"the {sel} prebuilt stubs can only be built on Windows, "
+                        "or on WSL with Visual Studio"
+                    )
+                exes.extend(_build_windows_pair(TARGETS[sel], workdir, out, log))
+        return exes
+    finally:
+        if build_dir is None:
+            shutil.rmtree(workdir, ignore_errors=True)
 
 
-def _build_auto(out: Path, log) -> list[Path]:
+def _build_auto(workdir: Path, out: Path, log) -> list[Path]:
     """Build what this host's toolchain allows; skip the rest with a message."""
     from .build import _find_vcvars
 
@@ -109,7 +126,7 @@ def _build_auto(out: Path, log) -> list[Path]:
         if not shutil.which("clang"):
             log("skip: macos (clang not found; install the Xcode Command Line Tools)")
             return []
-        return [_build_macos(out, log)]
+        return [_build_macos(workdir, out, log)]
     if _windows_capable():
         exes: list[Path] = []
         for target_name in _WINDOWS_TARGETS:
@@ -119,7 +136,7 @@ def _build_auto(out: Path, log) -> list[Path]:
             except BuildError:
                 log(f"skip: {target_name} (MSVC build tools for this target not found)")
                 continue
-            exes.extend(_build_windows_pair(target, out, log))
+            exes.extend(_build_windows_pair(target, workdir, out, log))
         return exes
     log(
         "skip: no launcher toolchain on this host (Windows or WSL with Visual "
@@ -134,23 +151,15 @@ def _windows_capable() -> bool:
     return sys.platform == "win32" or _vswhere_path().is_file()
 
 
-def _build_windows_pair(target: Target, out: Path, log) -> list[Path]:
+def _build_windows_pair(target: Target, workdir: Path, out: Path, log) -> list[Path]:
     """The console + gui stubs for one Windows platform."""
     from .build import _find_vcvars
 
     vcvars = _find_vcvars(target)
-    # Build intermediates live under the output dir (not the system temp dir):
-    # on WSL the tools run through interop, and cmd.exe cannot use a
-    # Linux-filesystem cwd — the output dir is expected to be on a Windows
-    # volume there, exactly like the rest of a cross-build tree.
-    workdir = out / ".build"
-    try:
-        return [
-            _build_windows(target, gui, vcvars, workdir, out, log)
-            for gui in (False, True)
-        ]
-    finally:
-        shutil.rmtree(workdir, ignore_errors=True)
+    return [
+        _build_windows(target, gui, vcvars, workdir, out, log)
+        for gui in (False, True)
+    ]
 
 
 def _build_windows(
@@ -160,25 +169,32 @@ def _build_windows(
 
     dest = out / windows_stub(target, gui).name
     log(f"prebuilt: build {dest.name}")
+    # Build intermediates live under workdir (not the system temp dir): on WSL
+    # the tools run through interop, and cmd.exe cannot use a Linux-filesystem
+    # cwd — workdir is expected to be on a Windows volume there, exactly like
+    # the rest of a cross-build tree.
     gen = workdir / dest.stem
     gen.mkdir(parents=True, exist_ok=True)
-    (gen / "pyappdist_launcher_config.h").write_text(_STUB_HEADER, encoding="utf-8")
-    shutil.copy2(_LAUNCHER_C, gen / "launcher.c")
-    built = run_msvc(
-        gen, vcvars, "WINDOWS" if gui else "CONSOLE", with_rc=False, label=dest.name
-    )
-    shutil.move(str(built), str(dest))
-    return dest
+    try:
+        (gen / "pyappdist_launcher_config.h").write_text(_STUB_HEADER, encoding="utf-8")
+        shutil.copy2(_LAUNCHER_C, gen / "launcher.c")
+        built = run_msvc(
+            gen, vcvars, "WINDOWS" if gui else "CONSOLE", with_rc=False, label=dest.name
+        )
+        shutil.move(str(built), str(dest))
+        return dest
+    finally:
+        shutil.rmtree(gen, ignore_errors=True)
 
 
-def _build_macos(out: Path, log) -> Path:
+def _build_macos(workdir: Path, out: Path, log) -> Path:
     from .build import _LAUNCHER_MAC_C
 
     if not shutil.which("clang"):
         raise BuildError("clang not found (install the Xcode Command Line Tools)")
     dest = out / macos_stub().name
     log(f"prebuilt: build {dest.name} ({'/'.join(_MACOS_ARCHS)})")
-    gen = out / ".build"
+    gen = workdir / dest.stem
     gen.mkdir(parents=True, exist_ok=True)
     try:
         (gen / "pyappdist_launcher_config.h").write_text(_STUB_HEADER, encoding="utf-8")
