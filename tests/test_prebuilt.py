@@ -134,3 +134,41 @@ def test_default_workdir_under_out_and_removed(tmp_path: Path, monkeypatch):
     prebuilt.build_prebuilt(out_dir, select=["windows-x86_64"], log=lambda m: None)
     assert seen == [out_dir / ".build", out_dir / ".build"]
     assert not (out_dir / ".build").exists()
+
+
+def _run_cli_build_prebuilt(monkeypatch, argv: list[str]) -> dict:
+    """Run the build-prebuilt CLI with build_prebuilt stubbed; return its kwargs."""
+    from pyappdist import cli
+
+    received: dict = {}
+
+    def fake_build_prebuilt(out, select=None, *, build_dir=None, log=print):
+        received.update(out=out, select=select, build_dir=build_dir)
+        return []
+
+    monkeypatch.setattr(cli, "build_prebuilt", fake_build_prebuilt)
+    args = cli.build_parser().parse_args(["build-prebuilt", *argv])
+    assert args.func(args) == 0
+    return received
+
+
+def test_cli_build_dir_env_var_is_the_default(tmp_path: Path, monkeypatch):
+    # PYAPPDIST_BUILD_DIR supplies the intermediates dir when --build-dir is absent;
+    # like an explicit --build-dir, it is treated as caller-supplied (kept afterwards).
+    monkeypatch.setenv("PYAPPDIST_BUILD_DIR", str(tmp_path / "envbld"))
+    received = _run_cli_build_prebuilt(monkeypatch, [])
+    assert received["build_dir"] == (tmp_path / "envbld").resolve()
+
+
+def test_cli_build_dir_option_beats_env_var(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("PYAPPDIST_BUILD_DIR", str(tmp_path / "envbld"))
+    received = _run_cli_build_prebuilt(
+        monkeypatch, ["--build-dir", str(tmp_path / "bld")]
+    )
+    assert received["build_dir"] == (tmp_path / "bld").resolve()
+
+
+def test_cli_no_build_dir_without_env_var(tmp_path: Path, monkeypatch):
+    monkeypatch.delenv("PYAPPDIST_BUILD_DIR", raising=False)
+    received = _run_cli_build_prebuilt(monkeypatch, [])
+    assert received["build_dir"] is None

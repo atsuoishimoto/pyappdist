@@ -24,10 +24,10 @@ Available on every command:
 
 ``--build-dir DIR``
    Base directory for build intermediates (runtime, wheelhouse, image, launcher build,
-   ``.wxs``). Defaults to ``<project>/.appdist-build``. Each target uses
-   ``<build-dir>/<target>/``. A full ``build`` removes this per-target directory first
-   for a clean build (the downloaded runtime cache is kept separately, so this does not
-   re-download).
+   ``.wxs``). Defaults to the ``PYAPPDIST_BUILD_DIR`` environment variable if set, else
+   ``<project>/.appdist-build``. Each target uses ``<build-dir>/<target>/``. A full
+   ``build`` removes this per-target directory first for a clean build (the downloaded
+   runtime cache is kept separately, so this does not re-download).
 
 Commands that fetch the runtime (``build``, ``build-wheels``,
 ``fetch-runtime``, ``build-image``) also accept:

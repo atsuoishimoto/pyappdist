@@ -5,7 +5,7 @@ Positional arguments select targets by name. With none given, the pipeline stage
 default to all targets, while ``build`` builds the sole target if only one is defined
 and otherwise requires an explicit selection (so it doesn't build every target at once).
 Build intermediates go to ``<build-dir>/<target-name>/`` (default
-``<project>/.appdist-build/<target-name>``); final artifacts go to
+``$PYAPPDIST_BUILD_DIR``, else ``<project>/.appdist-build``); final artifacts go to
 ``<appdist-dir>/<target-name>/dist/`` (default ``<project>/appdist/<target-name>/dist``).
 
 Subcommands:
@@ -76,7 +76,11 @@ def _contexts(args: argparse.Namespace) -> list[BuildContext]:
     project_dir = Path(args.project).resolve()
     configs = load_configs(project_dir, select=args.targets or None)
     appdist_base = Path(args.appdist_dir).resolve() if args.appdist_dir else project_dir / "appdist"
-    build_base = Path(args.build_dir).resolve() if args.build_dir else project_dir / ".appdist-build"
+    build_base = (
+        Path(args.build_dir).resolve() if args.build_dir
+        else Path(env).resolve() if (env := os.environ.get("PYAPPDIST_BUILD_DIR"))
+        else project_dir / ".appdist-build"
+    )
     _check_common_root(appdist_base, build_base)
     return [
         BuildContext(
@@ -381,7 +385,12 @@ def cmd_build_prebuilt(args: argparse.Namespace) -> int:
     toolchain can produce is built and the rest is skipped with a note.
     """
     out = Path(args.out).resolve() if args.out else None
-    build_dir = Path(args.build_dir).resolve() if args.build_dir else None
+    env = os.environ.get("PYAPPDIST_BUILD_DIR")
+    build_dir = (
+        Path(args.build_dir).resolve() if args.build_dir
+        else Path(env).resolve() if env
+        else None
+    )
     paths = build_prebuilt(out, select=args.targets or None, build_dir=build_dir)
     if paths:
         print(f"OK: {len(paths)} prebuilt launcher stub(s) -> {paths[0].parent}")
@@ -424,7 +433,8 @@ def _add_common(p: argparse.ArgumentParser) -> None:
     )
     p.add_argument(
         "--build-dir",
-        help="build intermediates base directory (default: <project>/.appdist-build)",
+        help="build intermediates base directory "
+             "(default: $PYAPPDIST_BUILD_DIR, else <project>/.appdist-build)",
     )
 
 
@@ -496,8 +506,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--build-dir",
-        help="build intermediates directory (default: <out>/.build; "
-             "on WSL it must be on a Windows volume)",
+        help="build intermediates directory (default: $PYAPPDIST_BUILD_DIR, "
+             "else <out>/.build; on WSL it must be on a Windows volume)",
     )
     p.set_defaults(func=cmd_build_prebuilt)
 
