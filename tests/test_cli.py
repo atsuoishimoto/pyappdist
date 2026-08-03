@@ -73,6 +73,34 @@ def test_appdist_and_build_dir_options_override(tmp_path: Path):
     assert ctx.build_dir == tmp_path / "bld" / "win-user"
 
 
+def test_build_dir_env_var_is_the_default(tmp_path: Path, monkeypatch):
+    # PYAPPDIST_BUILD_DIR supplies the intermediates base when --build-dir is absent.
+    (tmp_path / "pyproject.toml").write_text(_MULTI, encoding="utf-8")
+    monkeypatch.setenv("PYAPPDIST_BUILD_DIR", str(tmp_path / "envbld"))
+    args = build_parser().parse_args(["build", "-C", str(tmp_path), "win-user"])
+    (ctx,) = _contexts(args)
+    assert ctx.build_dir == tmp_path / "envbld" / "win-user"
+    assert ctx.out_dir == tmp_path / "appdist" / "win-user"
+
+
+def test_build_dir_option_beats_env_var(tmp_path: Path, monkeypatch):
+    (tmp_path / "pyproject.toml").write_text(_MULTI, encoding="utf-8")
+    monkeypatch.setenv("PYAPPDIST_BUILD_DIR", str(tmp_path / "envbld"))
+    args = build_parser().parse_args(
+        ["build", "-C", str(tmp_path), "--build-dir", str(tmp_path / "bld"), "win-user"]
+    )
+    (ctx,) = _contexts(args)
+    assert ctx.build_dir == tmp_path / "bld" / "win-user"
+
+
+def test_empty_build_dir_env_var_is_ignored(tmp_path: Path, monkeypatch):
+    (tmp_path / "pyproject.toml").write_text(_MULTI, encoding="utf-8")
+    monkeypatch.setenv("PYAPPDIST_BUILD_DIR", "")
+    args = build_parser().parse_args(["build", "-C", str(tmp_path), "win-user"])
+    (ctx,) = _contexts(args)
+    assert ctx.build_dir == tmp_path / ".appdist-build" / "win-user"
+
+
 def test_split_drive_dirs_rejected_at_startup(tmp_path: Path, monkeypatch):
     # On a native Windows host, --appdist-dir and --build-dir on different drives make
     # os.path.commonpath raise ValueError deep inside the packagers. Simulate the

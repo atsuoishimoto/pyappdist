@@ -73,7 +73,8 @@ def build_prebuilt(
     message — not an error — so the command is safe to run on any host.
 
     ``build_dir`` overrides where the build intermediates go (default:
-    ``<out>/.build``). Each stub gets its own subdirectory in there, removed
+    ``<out>/.build``; the CLI also fills it from the ``PYAPPDIST_BUILD_DIR``
+    environment variable). Each stub gets its own subdirectory in there, removed
     when its build finishes; the default ``.build`` directory is removed as a
     whole, while a caller-supplied ``build_dir`` itself is left in place. On
     WSL the intermediates must live on a Windows volume (the MSVC tools run
