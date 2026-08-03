@@ -156,7 +156,7 @@ jobs:
           PYAPPDIST_MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
           PYAPPDIST_MACOS_INSTALLER_IDENTITY: ${{ secrets.MACOS_INSTALLER_IDENTITY }}
           PYAPPDIST_MACOS_NOTARY_PROFILE: pyappdist-notary
-        run: uv run uv-matrix run --max-jobs 4 --matrix build-samples
+        run: uv run uv-matrix run --max-jobs 2 --matrix build-samples
 
       - name: Upload installers
         if: always()      # upload whatever built even if some cells failed
