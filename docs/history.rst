@@ -1,6 +1,15 @@
 Release history
 ===============
 
+0.12.0
+------
+
+(not yet)
+
+**New** ``--no-compile`` **option to skip byte-compilation.** ``pyappdist
+build`` and ``pyappdist build-image`` accept ``--no-compile`` to skip the
+``compileall`` step, producing an image without pre-built ``.pyc`` files.
+
 0.11.0
 ------
 

@@ -440,7 +440,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("build-image", help="image into <target>/image")
     _add_common(p)
     _add_runtime_opts(p)
-    p.add_argument("--no-compile", action="store_true", help="skip compileall")
+    p.add_argument(
+        "--no-compile", action="store_true",
+        help="skip byte-compilation (compileall) of the Python files in the image",
+    )
     p.set_defaults(func=cmd_build_image)
 
     p = sub.add_parser("build-launchers", help="build the launchers into the image")
@@ -454,7 +457,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("build", help="run the full pipeline and package the target(s)")
     _add_common(p)
     _add_runtime_opts(p)
-    p.add_argument("--no-compile", action="store_true")
+    p.add_argument(
+        "--no-compile", action="store_true",
+        help="skip byte-compilation (compileall) of the Python files in the image",
+    )
     p.add_argument(
         "--code-sign", action=argparse.BooleanOptionalAction, default=None,
         help="force code signing on (--code-sign) or off (--no-code-sign) for every "
