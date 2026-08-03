@@ -4,7 +4,7 @@ Release history
 0.12.0
 ------
 
-unreleased
+(not yet)
 
 **Launchers now build without a C compiler.** Released wheels bundle
 prebuilt launcher stubs for Windows (x64 / arm64, console / gui) and macOS
@@ -16,6 +16,10 @@ targets.
 **New target key ``launcher-build``.** ``"auto"`` (default) uses the bundled
 prebuilt stub and falls back to a source build; ``"prebuilt"`` requires the
 stub; ``"source"`` always compiles with MSVC / clang.
+
+**New** ``--no-compile`` **option to skip byte-compilation.** ``pyappdist
+build`` and ``pyappdist build-image`` accept ``--no-compile`` to skip the
+``compileall`` step, producing an image without pre-built ``.pyc`` files.
 
 0.11.0
 ------
