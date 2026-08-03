@@ -60,7 +60,7 @@ jobs:
           if-no-files-found: error
 
   prebuilt-macos:
-    runs-on: macos-14   # Apple Silicon; the stub is universal (arm64 + x86_64)
+    runs-on: macos-26   # Apple Silicon; the stub is universal (arm64 + x86_64)
     steps:
       - uses: actions/checkout@v7
 
