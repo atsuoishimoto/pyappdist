@@ -122,24 +122,6 @@ Scan an existing image and generate the WiX ``.wxs`` file. Requires a prior
 ``build-image``. This also generates and persists the target's ``upgrade-code`` if it
 is unset.
 
-``build-prebuilt``
-~~~~~~~~~~~~~~~~~~
-
-Compile the prebuilt launcher stubs that released wheels bundle (development /
-release tooling, not a pipeline stage). Positional arguments select what to
-build — ``windows-x86_64`` / ``windows-arm64`` (a console + gui ``.exe`` pair
-each; Windows or WSL with Visual Studio) and ``macos`` (one universal Mach-O;
-a macOS host) — and a selection this host cannot build is an error::
-
-   pyappdist build-prebuilt windows-x86_64
-
-With no selection, everything the host's toolchain can produce is built, and
-anything it cannot is skipped with a note rather than an error. The stubs are
-written into this pyappdist installation's ``resources/prebuilt/`` (override
-with ``--out``), where ``build-launchers`` picks them up. Installs from a
-released wheel already bundle the stubs, so app authors normally never run
-this.
-
 Examples
 --------
 

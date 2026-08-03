@@ -1,6 +1,22 @@
 Release history
 ===============
 
+0.12.0
+------
+
+unreleased
+
+**Launchers now build without a C compiler.** Released wheels bundle
+prebuilt launcher stubs for Windows (x64 / arm64, console / gui) and macOS
+(universal); the build configures a copy per app — patched in as Windows
+resources, or a sidecar JSON sealed into the ``.app`` — so MSVC / clang are
+no longer required to build msi / msix / macapp / dmg / pkg / Windows image
+targets.
+
+**New target key ``launcher-build``.** ``"auto"`` (default) uses the bundled
+prebuilt stub and falls back to a source build; ``"prebuilt"`` requires the
+stub; ``"source"`` always compiles with MSVC / clang.
+
 0.11.0
 ------
 

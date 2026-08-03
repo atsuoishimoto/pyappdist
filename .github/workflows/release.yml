@@ -3,9 +3,9 @@ name: Release
 # Manually (workflow_dispatch) produce a release: compile the prebuilt launcher
 # stubs on native Windows/macOS runners, run an E2E smoke test that uses them
 # (the helloworld sample), build the wheel + sdist with the stubs bundled, and
-# create the GitHub release (tag v<version> from pyproject.toml) with those
-# files attached. Publishing to PyPI is the separate manual publish.yml, which
-# uploads the release's files as-is.
+# create the GitHub release (tag <version> from pyproject.toml, no "v" prefix,
+# matching the existing tags) with those files attached. Publishing to PyPI is
+# the separate manual publish.yml, which uploads the release's files as-is.
 on:
   workflow_dispatch:
 
@@ -123,5 +123,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version=$(uv run python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
-          gh release create "v$version" dist/* \
-            --target "$GITHUB_SHA" --title "v$version" --generate-notes
+          gh release create "$version" dist/* \
+            --target "$GITHUB_SHA" --title "$version" --generate-notes

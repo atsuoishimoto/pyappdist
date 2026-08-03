@@ -475,7 +475,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "build-prebuilt",
         help="compile the bundled prebuilt launcher stubs "
-             "(dev/release tooling, not a pipeline stage)",
+             "(for maintaining pyappdist itself, not an app-build stage)",
     )
     p.add_argument(
         "targets", nargs="*", metavar="target",
