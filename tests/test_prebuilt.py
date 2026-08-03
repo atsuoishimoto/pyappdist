@@ -99,3 +99,38 @@ def test_explicit_selection_missing_toolchain_is_an_error(tmp_path: Path, monkey
         prebuilt.build_prebuilt(
             tmp_path, select=["windows-arm64"], log=lambda m: None
         )
+
+
+def _capture_workdirs(monkeypatch) -> list[Path]:
+    """Replace _build_windows with a fake that records the workdir it was given."""
+    seen: list[Path] = []
+
+    def fake_build(target: Target, gui: bool, vcvars: str, workdir, out, log):
+        seen.append(workdir)
+        return out / prebuilt.windows_stub(target, gui).name
+
+    monkeypatch.setattr(prebuilt, "_build_windows", fake_build)
+    return seen
+
+
+def test_build_dir_overrides_workdir_and_is_kept(tmp_path: Path, monkeypatch):
+    _fake_windows_host(monkeypatch, tmp_path, arm64=True)
+    seen = _capture_workdirs(monkeypatch)
+    build_dir = tmp_path / "scratch"
+    build_dir.mkdir()
+    prebuilt.build_prebuilt(
+        tmp_path / "out", select=["windows-x86_64"],
+        build_dir=build_dir, log=lambda m: None,
+    )
+    assert seen == [build_dir, build_dir]  # console + gui
+    # A caller-supplied build dir itself is left in place.
+    assert build_dir.is_dir()
+
+
+def test_default_workdir_under_out_and_removed(tmp_path: Path, monkeypatch):
+    _fake_windows_host(monkeypatch, tmp_path, arm64=True)
+    seen = _capture_workdirs(monkeypatch)
+    out_dir = tmp_path / "out"
+    prebuilt.build_prebuilt(out_dir, select=["windows-x86_64"], log=lambda m: None)
+    assert seen == [out_dir / ".build", out_dir / ".build"]
+    assert not (out_dir / ".build").exists()

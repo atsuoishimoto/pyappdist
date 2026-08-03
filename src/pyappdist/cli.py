@@ -381,7 +381,8 @@ def cmd_build_prebuilt(args: argparse.Namespace) -> int:
     toolchain can produce is built and the rest is skipped with a note.
     """
     out = Path(args.out).resolve() if args.out else None
-    paths = build_prebuilt(out, select=args.targets or None)
+    build_dir = Path(args.build_dir).resolve() if args.build_dir else None
+    paths = build_prebuilt(out, select=args.targets or None, build_dir=build_dir)
     if paths:
         print(f"OK: {len(paths)} prebuilt launcher stub(s) -> {paths[0].parent}")
     else:
@@ -492,6 +493,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--out",
         help="output directory (default: this pyappdist installation's "
              "resources/prebuilt)",
+    )
+    p.add_argument(
+        "--build-dir",
+        help="build intermediates directory (default: <out>/.build; "
+             "on WSL it must be on a Windows volume)",
     )
     p.set_defaults(func=cmd_build_prebuilt)
 
