@@ -58,6 +58,13 @@ _FORMAT_OS = {
 # multiple launchers, identifier-segment launcher names).
 _BUNDLE_FORMATS = ("macapp", "dmg", "pkg")
 
+# How the compiled launchers are produced (targets whose launcher is a native
+# binary — Windows .exe or macOS Mach-O — rather than a shell wrapper):
+#   auto     - use the bundled prebuilt stub when present, else compile (default)
+#   prebuilt - require the prebuilt stub (fail rather than compile)
+#   source   - always compile with MSVC / clang
+_LAUNCHER_BUILDS = ("auto", "prebuilt", "source")
+
 # reverse-DNS CFBundleIdentifier (e.g. "com.example.myapp"); required for macapp/dmg/pkg targets.
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
 
@@ -247,6 +254,9 @@ class Config:
     # `pyappdist build --code-sign` / `--no-code-sign` overrides the code-sign key.
     code_sign: bool = False
     code_sign_command: str | None = None
+    # How to produce the compiled launchers (one of _LAUNCHER_BUILDS); only
+    # meaningful on formats with a native launcher binary.
+    launcher_build: str = "auto"
     # Skip launcher generation entirely (image format only): the archive then contains
     # just the installed tree, for apps that ship their own entry mechanism.
     no_launcher: bool = False
@@ -394,11 +404,12 @@ def load_configs(
             macos=macos,
             code_sign=code_sign,
             code_sign_command=code_sign_command,
+            launcher_build=launcher_build,
             no_launcher=no_launcher,
             version_from_wheel=version_from_wheel,
         )
         for (target_name, target, fmt, wix, msix, extras, linux, macos, no_launcher,
-             code_sign, code_sign_command) in specs
+             code_sign, code_sign_command, launcher_build) in specs
     ]
 
 
@@ -429,7 +440,7 @@ def check_msi_version(version: str, formats: Collection[str]) -> None:
 
 _TargetSpec = tuple[
     str, Target, str, WixConfig, MsixConfig, tuple[str, ...], LinuxConfig, MacosConfig,
-    bool, bool, str | None,
+    bool, bool, str | None, str,
 ]
 
 # Formats whose build produces an artifact the code-sign pass can act on: the launcher
@@ -442,6 +453,19 @@ _CODE_SIGN_FORMATS = ("msi", "msix")
 
 def _code_signable(fmt: str, target: Target) -> bool:
     return fmt in _CODE_SIGN_FORMATS or (fmt == "image" and target.os == "windows")
+
+
+def _compiled_launcher(fmt: str, target: Target) -> bool:
+    """Whether the target's launchers are native binaries (vs shell wrappers).
+
+    Only those formats compile (or patch a prebuilt stub), so only they honor
+    the ``launcher-build`` key: the Windows formats plus the macOS bundle
+    formats. ``linux``/``macos`` (.run) and a non-Windows ``image`` ship shell
+    wrappers.
+    """
+    if fmt in ("msi", "msix") or fmt in _BUNDLE_FORMATS:
+        return True
+    return fmt == "image" and target.os == "windows"
 
 
 def _parse_targets(raw: object) -> list[_TargetSpec]:
@@ -502,6 +526,18 @@ def _parse_targets(raw: object) -> list[_TargetSpec]:
                 f"(supported: {', '.join(_CODE_SIGN_FORMATS)}, and image on Windows "
                 "platforms)"
             )
+        launcher_build = item.get("launcher-build", "auto")
+        if launcher_build not in _LAUNCHER_BUILDS:
+            raise ConfigError(
+                f"targets[{i}].launcher-build must be one of {_LAUNCHER_BUILDS}: "
+                f"{launcher_build!r}"
+            )
+        if "launcher-build" in item and not _compiled_launcher(str(fmt), target):
+            raise ConfigError(
+                f"targets[{i}].launcher-build has no effect for format={fmt!r} on "
+                f"platform {target.name!r}: its launchers are shell wrappers, not "
+                "compiled binaries"
+            )
         # allow-same-version-upgrades maps to WiX MajorUpgrade@AllowSameVersionUpgrades,
         # which is MSI-only; MSIX has no manifest equivalent, so it has no effect there.
         if fmt == "msix" and "allow-same-version-upgrades" in item:
@@ -515,7 +551,7 @@ def _parse_targets(raw: object) -> list[_TargetSpec]:
                 target_name, target, str(fmt),
                 _parse_wix(item, i), _parse_msix(item, i), _parse_extras(item, i),
                 _parse_linux(item, i), _parse_macos(item, i), no_launcher,
-                code_sign, _opt_str(item, "code-sign-command"),
+                code_sign, _opt_str(item, "code-sign-command"), str(launcher_build),
             )
         )
 

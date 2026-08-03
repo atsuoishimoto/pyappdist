@@ -151,3 +151,155 @@ def test_macos_fixed_args_array():
 def test_macos_fixed_args_empty():
     spec = LauncherConfig(name="app", entry="m:main")
     assert launcher_build._fixed_args_initializer(spec) == "{ NULL }"
+
+
+# --- prebuilt stubs ----------------------------------------------------------
+
+
+def test_use_prebuilt_modes(sample_config: Config, tmp_path: Path):
+    stub = tmp_path / "stub.exe"
+    logs: list[str] = []
+
+    # auto: prefer the stub when bundled, fall back (with a note) when not.
+    assert launcher_build._use_prebuilt(sample_config, stub, logs.append) is False
+    assert any("compiling from source" in m for m in logs)
+    stub.write_bytes(b"MZ")
+    assert launcher_build._use_prebuilt(sample_config, stub, logs.append) is True
+
+    source = dataclasses.replace(sample_config, launcher_build="source")
+    assert launcher_build._use_prebuilt(source, stub, logs.append) is False
+
+    required = dataclasses.replace(sample_config, launcher_build="prebuilt")
+    assert launcher_build._use_prebuilt(required, stub, logs.append) is True
+    stub.unlink()
+    with pytest.raises(BuildError, match="bundle a prebuilt launcher"):
+        launcher_build._use_prebuilt(required, stub, logs.append)
+
+
+class _CapturedRun:
+    def __init__(self) -> None:
+        self.calls: list[tuple[list[str], str]] = []
+
+    def __call__(self, cmd, *, cwd, **kw):
+        self.calls.append((cmd, cwd))
+        return _FakeProc(0)
+
+
+def test_patch_prebuilt_windows(sample_config: Config, tmp_path: Path, monkeypatch):
+    """The stub is copied, the manifest lists config + version resources, and the
+    patch script runs with the image runtime's python (cwd = the gen dir)."""
+    import json
+
+    spec = sample_config.launchers[0]
+    layout = ImageLayout(
+        image_dir=tmp_path / "image", target=sample_config.target,
+        minor=sample_config.python_minor,
+    )
+    layout.image_dir.mkdir(parents=True)
+    stub = tmp_path / "launcher-windows-x86_64-console.exe"
+    stub.write_bytes(b"MZ-stub")
+    run = _CapturedRun()
+    monkeypatch.setattr(launcher_build.subprocess, "run", run)
+
+    workdir = tmp_path / "_launcher_build"
+    exe = launcher_build._patch_prebuilt_windows(
+        sample_config, spec, layout, stub, workdir, lambda m: None
+    )
+
+    assert exe == layout.image_dir / "helloworld.exe"
+    assert exe.read_bytes() == b"MZ-stub"
+
+    gen = workdir / spec.name
+    (cmd, cwd) = run.calls[0]
+    assert cmd == [str(layout.python_exe), "patch_resources.py", "patch_manifest.json"]
+    assert cwd == str(gen)
+    assert (gen / "patch_resources.py").is_file()
+
+    manifest = json.loads((gen / "patch_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["exe"] == "launcher_out.exe"
+    types = [entry["type"] for entry in manifest["resources"]]
+    assert types == ["PYAPPDIST", 16]  # config + VERSIONINFO (no icon configured)
+    for entry in manifest["resources"]:
+        assert (gen / entry["file"]).is_file()
+
+    cfg = (gen / manifest["resources"][0]["file"]).read_bytes().decode("utf-16-le")
+    assert cfg.split("\0")[:2] == ["PADL1", "python\\python.exe"]
+
+
+def test_patch_prebuilt_windows_failure_raises(
+    sample_config: Config, tmp_path: Path, monkeypatch
+):
+    spec = sample_config.launchers[0]
+    layout = ImageLayout(
+        image_dir=tmp_path / "image", target=sample_config.target,
+        minor=sample_config.python_minor,
+    )
+    layout.image_dir.mkdir(parents=True)
+    stub = tmp_path / "stub.exe"
+    stub.write_bytes(b"MZ")
+    monkeypatch.setattr(
+        launcher_build.subprocess, "run", lambda *a, **kw: _FakeProc(1)
+    )
+    with pytest.raises(BuildError, match="resource patching failed"):
+        launcher_build._patch_prebuilt_windows(
+            sample_config, spec, layout, stub, tmp_path / "wd", lambda m: None
+        )
+
+
+def _macos_config(sample_config: Config) -> Config:
+    from pyappdist.targets import get_target
+
+    return dataclasses.replace(
+        sample_config, target=get_target("macos-aarch64"), format="dmg",
+        launchers=(
+            LauncherConfig(name="app", entry="pkg.mod:main", args="--fixed 'a b'"),
+        ),
+    )
+
+
+def test_prebuilt_one_macos_writes_sidecar(
+    sample_config: Config, tmp_path: Path, monkeypatch
+):
+    import json
+
+    config = _macos_config(sample_config)
+    spec = config.launchers[0]
+    layout = ImageLayout(image_dir=tmp_path / "image", target=config.target, minor="3.12")
+    layout.image_dir.mkdir(parents=True)
+    stub = tmp_path / "launcher-macos-universal"
+    stub.write_bytes(b"\xcf\xfa\xed\xfe")
+    monkeypatch.setattr(launcher_build, "macos_stub", lambda: stub)
+
+    exe = launcher_build._prebuilt_one_macos(config, spec, layout, lambda m: None)
+
+    assert exe == layout.image_dir / "app"
+    assert exe.read_bytes() == stub.read_bytes()
+    sidecar = json.loads(
+        (layout.image_dir / "app.launcher.json").read_text(encoding="utf-8")
+    )
+    assert sidecar == {
+        "pyrel": "../Resources/python/bin/python3",
+        "bootstrap": spec.bootstrap,
+        "args": ["--fixed", "a b"],
+    }
+
+
+def test_macos_source_build_removes_stale_sidecar(
+    sample_config: Config, tmp_path: Path, monkeypatch
+):
+    """Switching prebuilt -> source must not leave a sidecar that would
+    override the compiled-in config (the launcher prefers the sidecar)."""
+    config = _macos_config(sample_config)
+    spec = config.launchers[0]
+    layout = ImageLayout(image_dir=tmp_path / "image", target=config.target, minor="3.12")
+    layout.image_dir.mkdir(parents=True)
+    stale = layout.image_dir / "app.launcher.json"
+    stale.write_text("{}", encoding="utf-8")
+
+    def fake_clang(cmd, *, cwd, **kw):
+        Path(cmd[cmd.index("-o") + 1]).write_bytes(b"macho")
+        return _FakeProc(0)
+
+    monkeypatch.setattr(launcher_build.subprocess, "run", fake_clang)
+    launcher_build._build_one_macos(config, spec, layout, tmp_path / "wd", lambda m: None)
+    assert not stale.exists()

@@ -90,10 +90,12 @@ The pipeline
    byte-compiled. The result is a self-contained, ready-to-run directory.
 
 #. **Launcher.** One launcher per ``[[tool.pyappdist.launchers]]`` entry. On
-   Windows it is a small C stub (``launcher.exe``) compiled with MSVC; for a macOS
-   ``.app`` it is a compiled Mach-O stub (clang); for Linux and the macOS
-   ``.run`` it is a relocatable shell wrapper. Either way it starts the
-   bundled interpreter and runs your entry point.
+   Windows it is a small C stub (``launcher.exe``); for a macOS ``.app`` it is
+   a Mach-O stub. Both normally come from prebuilt stubs bundled with
+   pyappdist and configured per app without a compiler (MSVC / clang are only
+   a fallback — see the ``launcher-build`` target key); for Linux and the
+   macOS ``.run`` the launcher is a relocatable shell wrapper. Either way it
+   starts the bundled interpreter and runs your entry point.
 
 #. **Packaging.** The image is turned into the target's package: an ``.msi`` or
    ``.msix`` on Windows, a self-extracting ``.run`` on Linux/macOS, or a
@@ -116,14 +118,18 @@ embedded interpreter:
 * Because it never embeds ``pythonXX.dll``, there is no C-API version coupling —
   the same stub works across Python versions.
 * App-specific values (the interpreter path, the bootstrap program, fixed
-  arguments, icon, and version resource) are baked into a generated header and
-  ``.rc`` resource at build time; the C source is never edited.
+  arguments, icon, and version resource) are patched into the prebuilt stub as
+  Windows resources at build time — no compiler involved; a source build
+  (``launcher-build = "source"``) bakes the same values in via a generated
+  header and ``.rc`` resource instead. The C source is never edited.
 
-**macOS app bundle** (``.app`` / ``.dmg`` / ``.pkg``) — a compiled Mach-O C stub (built with
-``clang``) at ``Contents/MacOS/<name>``. It execs the bundled interpreter under
+**macOS app bundle** (``.app`` / ``.dmg`` / ``.pkg``) — a Mach-O C stub at
+``Contents/MacOS/<name>``. It execs the bundled interpreter under
 ``Contents/Resources/python`` with the same isolated-mode bootstrap. Like the
-Windows stub it embeds no interpreter, so it is decoupled from the Python C-API;
-app-specific values are baked into a generated header at build time.
+Windows stub it embeds no interpreter, so it is decoupled from the Python C-API.
+App-specific values live in a sidecar ``Contents/Resources/pyappdist-launcher.json``
+next to the prebuilt stub (sealed by the bundle's code signature); a source
+build (``clang``) bakes them into a generated header instead.
 
 **Linux, and macOS** ``.run`` — a relocatable shell wrapper that
 resolves its own location and execs the bundled interpreter with the same

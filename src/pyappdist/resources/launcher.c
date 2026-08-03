@@ -2,8 +2,10 @@
  *
  * A thin stub that merely launches python.exe / pythonw.exe inside the image
  * via CreateProcess. Isolation is twofold: python's -I (=-E -s) plus an
- * environment block with PYTHON* removed. App-specific values are embedded at
- * build time via a generated header.
+ * environment block with PYTHON* removed. App-specific values come from a
+ * custom resource (type "PYAPPDIST", patched into a prebuilt stub by the build
+ * pipeline without a compiler); a source-built launcher embeds them via a
+ * generated header instead, and the resource, when present, wins.
  *
  * Lifetime: the child is placed in a Job Object with KILL_ON_JOB_CLOSE, so if
  * this launcher is terminated (e.g. killed by a parent or task manager) the
@@ -37,6 +39,46 @@
 #endif
 
 #define CMD_MAX 32768
+
+/* Runtime configuration. The defaults are the compile-time macros; a
+   "PYAPPDIST" resource (see load_resource_config) overrides them. A prebuilt
+   stub is compiled with PYAPPDIST_REQUIRE_CONFIG, so it refuses to run until
+   the pipeline has patched the resource in. */
+static const WCHAR *cfg_pyexe = PYAPPDIST_PYEXE;
+static const WCHAR *cfg_bootstrap = PYAPPDIST_BOOTSTRAP;
+static const WCHAR *cfg_fixed_args = PYAPPDIST_FIXED_ARGS;
+
+/* Load the per-app config from our own resource (type L"PYAPPDIST", id 1,
+   language-neutral). Layout: UTF-16LE, four NUL-terminated fields back to
+   back -- L"PADL1" (format magic), pyexe, bootstrap, fixed args. Returns 1
+   when a valid resource was loaded. Resource memory stays mapped for the
+   process lifetime, so the field pointers remain valid. */
+static int load_resource_config(void) {
+    HRSRC res = FindResourceW(NULL, MAKEINTRESOURCEW(1), L"PYAPPDIST");
+    if (!res) return 0;
+    HGLOBAL blk = LoadResource(NULL, res);
+    if (!blk) return 0;
+    const WCHAR *data = (const WCHAR *)LockResource(blk);
+    DWORD bytes = SizeofResource(NULL, res);
+    if (!data || bytes < sizeof(WCHAR)) return 0;
+
+    const WCHAR *fields[4];
+    size_t n = bytes / sizeof(WCHAR);
+    size_t start = 0;
+    int nfields = 0;
+    for (size_t i = 0; i < n && nfields < 4; ++i) {
+        if (data[i] == L'\0') {
+            fields[nfields++] = data + start;
+            start = i + 1;
+        }
+    }
+    if (nfields != 4 || wcscmp(fields[0], L"PADL1") != 0)
+        return 0;
+    cfg_pyexe = fields[1];
+    cfg_bootstrap = fields[2];
+    cfg_fixed_args = fields[3];
+    return 1;
+}
 
 /* Ceiling on a \\?\ path, and so on any path we build. */
 #define PATH_MAX_EXTENDED 32767
@@ -140,17 +182,18 @@ static WCHAR *module_dir(void) {
     return buf;
 }
 
-/* "<dir>\<PYAPPDIST_PYEXE>", as a heap string the caller frees.
+/* "<dir>\<pyrel>" (pyrel = the configured interpreter path relative to the
+   launcher), as a heap string the caller frees.
 
    Beyond MAX_PATH the result is returned in extended-length form: CreateProcessW
    applies the traditional limit to its application name, so a deep install would
    otherwise fail to start with no way to say why. \\?\ needs a fully-qualified
    path, which GetModuleFileNameW always returns; a UNC path takes the \\?\UNC\
    spelling instead. NULL if the path cannot be represented at all. */
-static WCHAR *interpreter_path(const WCHAR *dir) {
+static WCHAR *interpreter_path(const WCHAR *dir, const WCHAR *pyrel) {
     const WCHAR *prefix = L"";
     const WCHAR *body = dir;
-    size_t len = wcslen(dir) + 1 + wcslen(PYAPPDIST_PYEXE);  /* + separator */
+    size_t len = wcslen(dir) + 1 + wcslen(pyrel);  /* + separator */
 
     if (len >= MAX_PATH && wcsncmp(dir, L"\\\\?\\", 4) != 0) {
         if (dir[0] == L'\\' && dir[1] == L'\\') {
@@ -169,18 +212,28 @@ static WCHAR *interpreter_path(const WCHAR *dir) {
     if (!out) return NULL;
     /* _snwprintf_s with _TRUNCATE guarantees null-termination on truncation
        (plain _snwprintf does not, hence the C4996 deprecation warning). */
-    _snwprintf_s(out, size, _TRUNCATE, L"%ls%ls\\%ls", prefix, body, PYAPPDIST_PYEXE);
+    _snwprintf_s(out, size, _TRUNCATE, L"%ls%ls\\%ls", prefix, body, pyrel);
     return out;
 }
 
 static int run(void) {
+    if (!load_resource_config()) {
+#ifdef PYAPPDIST_REQUIRE_CONFIG
+        /* A prebuilt stub whose config was never patched in: the compiled-in
+           defaults are placeholders, so running would silently do nothing. */
+        fwprintf(stderr, L"error: this pyappdist launcher has no embedded "
+                         L"configuration (unpatched prebuilt stub)\n");
+        return 125;
+#endif
+    }
+
     WCHAR *self = module_dir();
     if (!self) {
         fwprintf(stderr, L"error: cannot determine the launcher's own location\n");
         return 125;
     }
 
-    WCHAR *pyexe = interpreter_path(self);
+    WCHAR *pyexe = interpreter_path(self, cfg_pyexe);
     free(self);
     if (!pyexe) {
         fwprintf(stderr, L"error: the path to the bundled interpreter is too long\n");
@@ -192,9 +245,9 @@ static int run(void) {
     cmd[0] = L'\0';
     append_quoted(cmd, &pos, pyexe);
     append(cmd, &pos, L" -I -c ");
-    append_quoted(cmd, &pos, PYAPPDIST_BOOTSTRAP);
+    append_quoted(cmd, &pos, cfg_bootstrap);
 
-    const WCHAR *fixed = PYAPPDIST_FIXED_ARGS;
+    const WCHAR *fixed = cfg_fixed_args;
     if (fixed[0]) { append_ch(cmd, &pos, L' '); append(cmd, &pos, fixed); }
 
     int argc = 0;

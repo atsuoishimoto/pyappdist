@@ -13,8 +13,8 @@ SmartScreen warning — see :ref:`msi-code-signing` below.
 
 Only ``platform = "windows-x86_64"`` or ``"windows-arm64"`` may use this
 format. Building the ``windows-arm64`` variant requires an ARM64 Windows host
-(with the "MSVC C++ ARM64 build tools" component installed); x64 Windows
-cannot run the target runtime's ``python.exe``. The app ``version`` must be
+(for launcher source builds, also the "MSVC C++ ARM64 build tools" component);
+x64 Windows cannot run the target runtime's ``python.exe``. The app ``version`` must be
 dotted numeric (e.g. ``"1.2.3"``) — MSI's ProductVersion cannot express
 pre-releases such as ``"1.0.0rc1"``, so those are rejected at load time (same
 for ``msix``).
@@ -22,27 +22,32 @@ for ``msix``).
 Build requirements
 ------------------
 
-* **MSVC C++ build tools** (``cl.exe`` / ``rc.exe``) — to compile the launcher
-  ``.exe``\ s. Located automatically via ``vswhere``; no need to put ``cl.exe``
-  on ``PATH``.
 * **WiX v5** — to build the MSI. Pin to **v5.0.2**: v6/v7 require accepting a
   EULA that blocks an unattended ``wix build``.
+* **MSVC C++ build tools** (``cl.exe`` / ``rc.exe``) — **only for launcher
+  source builds**. Released pyappdist wheels bundle prebuilt launcher stubs
+  that the build configures per app without a compiler; MSVC is used only when
+  no stub is bundled (e.g. pyappdist installed from a git checkout) or with
+  ``launcher-build = "source"``. Located automatically via ``vswhere``; no
+  need to put ``cl.exe`` on ``PATH``.
 * Only when you set ``license``, also add the WiX UI extension (once)::
 
      wix extension add -g WixToolset.UI.wixext/5.0.2
 
-If you don't have the toolchain yet, install both with ``winget`` from an
-**elevated** PowerShell — the build-only Build Tools (no full Visual Studio
-IDE) are enough:
+If you don't have the toolchain yet, install what you need with ``winget``
+from an **elevated** PowerShell — the build-only Build Tools (no full Visual
+Studio IDE) are enough, and the MSVC step can be skipped entirely when the
+bundled prebuilt launchers are used:
 
 .. code-block:: powershell
-
-   # MSVC C++ build tools (the "Desktop development with C++" workload)
-   winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
 
    # WiX v5 — a .NET tool, so install the .NET SDK first
    winget install --id Microsoft.DotNet.SDK.10 -e
    dotnet tool install --global wix --version 5.0.2
+
+   # MSVC C++ build tools (the "Desktop development with C++" workload)
+   # — launcher source builds only
+   winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
 
 (The full Visual Studio Community edition,
 ``Microsoft.VisualStudio.2022.Community``, works too if you prefer the IDE —

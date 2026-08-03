@@ -427,6 +427,84 @@ code-sign = true
         load_configs(_write_text(tmp_path, text))
 
 
+def test_launcher_build_default_auto(tmp_path: Path):
+    assert load_configs(_write(tmp_path))[0].launcher_build == "auto"
+
+
+def test_launcher_build_parsed(tmp_path: Path):
+    for value in ("auto", "prebuilt", "source"):
+        cfg = load_configs(
+            _write(tmp_path, target_extra=f'launcher-build = "{value}"')
+        )[0]
+        assert cfg.launcher_build == value
+
+
+def test_launcher_build_rejects_unknown_value(tmp_path: Path):
+    with pytest.raises(ConfigError, match="launcher-build must be one of"):
+        load_configs(_write(tmp_path, target_extra='launcher-build = "never"'))
+
+
+def test_launcher_build_on_compiled_launcher_formats(tmp_path: Path):
+    # msix and a Windows image target compile launchers like msi does.
+    for fmt in ("msix", "image"):
+        cfg = load_configs(
+            _write(tmp_path, fmt=fmt, target_extra='launcher-build = "source"')
+        )[0]
+        assert cfg.launcher_build == "source"
+
+
+@pytest.mark.parametrize(
+    "platform, fmt",
+    [
+        ("linux-x86_64", "linux"),
+        ("linux-x86_64", "image"),   # non-Windows image: shell wrappers
+        ("macos-aarch64", "macos"),
+        ("macos-aarch64", "image"),
+    ],
+)
+def test_launcher_build_rejected_on_shell_wrapper_formats(
+    tmp_path: Path, platform: str, fmt: str
+):
+    text = f"""
+[project]
+name = "helloworld"
+version = "0.1.0"
+
+[tool.pyappdist]
+python = "3.12"
+launchers = [ {{ name = "helloworld", entry = "helloworld:main" }} ]
+
+[[tool.pyappdist.targets]]
+name = "t"
+platform = "{platform}"
+format = "{fmt}"
+launcher-build = "prebuilt"
+"""
+    with pytest.raises(ConfigError, match="launcher-build has no effect"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_launcher_build_on_macos_bundle_formats(tmp_path: Path):
+    # macapp/dmg/pkg compile a Mach-O launcher, so the key applies there.
+    text = """
+[project]
+name = "helloworld"
+version = "0.1.0"
+
+[tool.pyappdist]
+python = "3.12"
+identifier = "com.example.helloworld"
+launchers = [ { name = "helloworld", entry = "helloworld:main" } ]
+
+[[tool.pyappdist.targets]]
+name = "t"
+platform = "macos-aarch64"
+format = "dmg"
+launcher-build = "source"
+"""
+    assert load_configs(_write_text(tmp_path, text))[0].launcher_build == "source"
+
+
 def test_code_sign_command_alone_is_inert(tmp_path: Path):
     # Without code-sign (or --code-sign) the command is stored but signing stays off.
     cfg = load_configs(

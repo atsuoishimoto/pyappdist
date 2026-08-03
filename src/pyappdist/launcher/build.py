@@ -1,12 +1,22 @@
-"""Build launcher.exe with MSVC (Windows target).
+"""Build the launchers into the image (Windows .exe / macOS Mach-O).
 
-A vcvars script (picked for the target architecture, see :func:`_find_vcvars`)
-+ cl.exe are invoked from WSL via cmd.exe. A config header is generated per
-launcher, and the same launcher.c is compiled with different subsystems.
+Two paths produce the same result:
+
+* **prebuilt** (the default when a stub is bundled): copy the compiler-less
+  prebuilt stub and give it its per-app config — patched in as Windows
+  resources (config blob, icon, VERSIONINFO; applied by ``patch_resources.py``
+  run with the image's ``python.exe``) or written as a sidecar JSON next to
+  the macOS stub. No MSVC / clang needed.
+* **source**: compile ``launcher.c`` with MSVC (a vcvars script picked for the
+  target architecture + cl.exe, invoked from WSL via cmd.exe, with a generated
+  config header) or ``launcher_mac.c`` with clang.
+
+The ``launcher-build`` target key ("auto"/"prebuilt"/"source") picks between them.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import platform
 import shutil
@@ -18,10 +28,18 @@ from ..config import Config, LauncherConfig
 from ..errors import BuildError
 from ..image.layout import ImageLayout
 from ..targets import Target
+from . import winres
+from .prebuilt import macos_stub, windows_stub
 
 _RESOURCES = Path(__file__).resolve().parent.parent / "resources"
 _LAUNCHER_C = _RESOURCES / "launcher.c"
 _LAUNCHER_MAC_C = _RESOURCES / "launcher_mac.c"
+_PATCH_SCRIPT = _RESOURCES / "patch_resources.py"
+
+# Basename of the macOS sidecar config, written next to a prebuilt stub in the
+# image dir as "<launcher>.launcher.json" and staged into each bundle as
+# Contents/Resources/pyappdist-launcher.json (see CONFIG_REL in launcher_mac.c).
+MAC_SIDECAR_NAME = "pyappdist-launcher.json"
 
 # Path to the bundled interpreter relative to a .app's Contents/MacOS/<name>.
 _MACOS_PYREL = "../Resources/python/bin/python3"
@@ -75,10 +93,18 @@ def build_launchers(config: Config, layout: ImageLayout, workdir: Path, *, log=p
     if config.target.os != "windows":
         log("launcher: skipping (shell-wrapper launchers are written by the posix builder)")
         return []
-    vcvars = _find_vcvars(config.target)
     workdir.mkdir(parents=True, exist_ok=True)
+    # vcvars (i.e. a Visual Studio install) is only required when some launcher
+    # actually compiles from source — a prebuilt build must work without MSVC.
+    vcvars: str | None = None
     out: list[Path] = []
     for spec in config.launchers:
+        stub = windows_stub(config.target, spec.gui)
+        if _use_prebuilt(config, stub, log):
+            out.append(_patch_prebuilt_windows(config, spec, layout, stub, workdir, log))
+            continue
+        if vcvars is None:
+            vcvars = _find_vcvars(config.target)
         out.append(_build_one(config, spec, layout, vcvars, workdir, log))
     return out
 
@@ -86,13 +112,136 @@ def build_launchers(config: Config, layout: ImageLayout, workdir: Path, *, log=p
 def build_macos_launchers(
     config: Config, layout: ImageLayout, workdir: Path, *, log=print
 ) -> list[Path]:
-    """Compile one Mach-O launcher per spec into the image dir (clang, native to the target).
+    """One Mach-O launcher per spec into the image dir.
 
-    Each binary resolves the bundled python relative to its own location, so it is
-    layout-independent at build time; the bundler relocates it into the ``.app``.
+    Either the bundled prebuilt (universal) stub plus its sidecar config, or a
+    clang compile native to the target. Each binary resolves the bundled python
+    relative to its own location, so it is layout-independent at build time;
+    the bundler relocates it (and the sidecar) into the ``.app``.
     """
     workdir.mkdir(parents=True, exist_ok=True)
-    return [_build_one_macos(config, spec, layout, workdir, log) for spec in config.launchers]
+    stub = macos_stub()
+    out: list[Path] = []
+    for spec in config.launchers:
+        if _use_prebuilt(config, stub, log):
+            out.append(_prebuilt_one_macos(config, spec, layout, log))
+        else:
+            out.append(_build_one_macos(config, spec, layout, workdir, log))
+    return out
+
+
+def _use_prebuilt(config: Config, stub: Path, log) -> bool:
+    """Whether to use the prebuilt stub, per the target's ``launcher-build`` key.
+
+    "auto" (the default) prefers the prebuilt stub whenever this pyappdist
+    install bundles one, falling back to a source build; "prebuilt" requires
+    the stub; "source" always compiles.
+    """
+    setting = config.launcher_build
+    if setting == "source":
+        return False
+    if stub.is_file():
+        return True
+    if setting == "prebuilt":
+        raise BuildError(
+            f'launcher-build = "prebuilt", but this pyappdist installation does not '
+            f"bundle a prebuilt launcher for the target ({stub.name}); install a "
+            "released wheel, run `pyappdist build-prebuilt`, or use "
+            'launcher-build = "source"'
+        )
+    log(f"launcher: no prebuilt stub ({stub.name}); compiling from source")
+    return False
+
+
+def _patch_prebuilt_windows(
+    config: Config, spec: LauncherConfig, layout: ImageLayout,
+    stub: Path, workdir: Path, log,
+) -> Path:
+    """Turn the prebuilt Windows stub into ``image/<name>.exe`` — no compiler.
+
+    The stub is copied into the build dir and its per-app resources (config
+    blob, optional icon, VERSIONINFO) are patched in by ``patch_resources.py``
+    run with the image runtime's ``python.exe`` (already fetched by earlier
+    stages), following the cwd + relative-path interop rule.
+    """
+    log(f"launcher: prebuilt {spec.name}.exe ({'gui' if spec.gui else 'console'})")
+    gen = workdir / spec.name
+    gen.mkdir(parents=True, exist_ok=True)
+    built = gen / "launcher_out.exe"
+    shutil.copy2(stub, built)
+
+    pyexe = "python\\pythonw.exe" if spec.gui else "python\\python.exe"
+    resources = [
+        winres.config_resource(pyexe, _bootstrap(spec, config), _windows_fixed_args(spec))
+    ]
+    icon_rel = spec.icon_for("windows")
+    if icon_rel:
+        icon = (config.project_dir / icon_rel).resolve()
+        if not icon.is_file():
+            raise BuildError(f"launcher icon not found ({spec.name}): {icon}")
+        resources.extend(winres.icon_resources(icon.read_bytes()))
+    resources.append(
+        winres.version_resource(_version_quad_ints(config.version),
+                                _version_strings(config, spec))
+    )
+
+    entries = []
+    for i, res in enumerate(resources):
+        payload = f"res{i}.bin"
+        (gen / payload).write_bytes(res.data)
+        entries.append(
+            {"type": res.type, "name": res.name, "lang": res.lang, "file": payload}
+        )
+    (gen / "patch_manifest.json").write_text(
+        json.dumps({"exe": built.name, "resources": entries}), encoding="utf-8"
+    )
+    shutil.copy2(_PATCH_SCRIPT, gen / "patch_resources.py")
+
+    proc = subprocess.run(
+        [str(layout.python_exe), "patch_resources.py", "patch_manifest.json"],
+        cwd=str(gen), capture_output=True, text=True, errors="replace",
+    )
+    if proc.returncode != 0:
+        raise BuildError(
+            f"launcher resource patching failed ({spec.name}):\n"
+            f"{proc.stdout}\n{proc.stderr}"
+        )
+
+    exe = layout.image_dir / f"{spec.name}.exe"
+    exe.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(built), str(exe))
+    return exe
+
+
+def _mac_sidecar(image_dir: Path, name: str) -> Path:
+    return image_dir / f"{name}.launcher.json"
+
+
+def _prebuilt_one_macos(
+    config: Config, spec: LauncherConfig, layout: ImageLayout, log
+) -> Path:
+    """Copy the prebuilt universal stub and write its sidecar config.
+
+    The stub itself stays byte-identical for every app (it is re-signed later
+    with the rest of the bundle); the per-app values go into a JSON the bundler
+    stages as ``Contents/Resources/pyappdist-launcher.json``, sealed by the
+    bundle's code signature. The prebuilt stub targets macOS 11.0+ regardless
+    of ``min-macos`` (which still sets LSMinimumSystemVersion).
+    """
+    log(f"launcher: prebuilt {spec.name} (macos universal)")
+    exe = layout.image_dir / spec.name
+    exe.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(macos_stub(), exe)
+    exe.chmod(0o755)
+    sidecar = {
+        "pyrel": _MACOS_PYREL,
+        "bootstrap": spec.bootstrap,
+        "args": list(spec.argv),
+    }
+    _mac_sidecar(layout.image_dir, spec.name).write_text(
+        json.dumps(sidecar, ensure_ascii=True), encoding="utf-8"
+    )
+    return exe
 
 
 def _build_one_macos(
@@ -113,6 +262,10 @@ def _build_one_macos(
     (gen / "pyappdist_launcher_config.h").write_text(header, encoding="utf-8")
     # Stage launcher_mac.c next to the generated header so clang runs with cwd=gen.
     shutil.copy2(_LAUNCHER_MAC_C, gen / "launcher_mac.c")
+
+    # A stale sidecar from an earlier prebuilt build would override the
+    # compiled-in config (the launcher prefers the sidecar when present).
+    _mac_sidecar(layout.image_dir, spec.name).unlink(missing_ok=True)
 
     exe = layout.image_dir / spec.name
     cmd = [
@@ -216,7 +369,22 @@ def _build_one(
 
     exe = layout.image_dir / f"{spec.name}.exe"
     subsystem = "WINDOWS" if spec.gui else "CONSOLE"
+    built = run_msvc(gen, vcvars, subsystem, with_rc=True, label=spec.name)
+    exe.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(built), str(exe))
+    return exe
 
+
+def run_msvc(
+    gen: Path, vcvars: str, subsystem: str, *, with_rc: bool, label: str
+) -> Path:
+    """Compile the staged ``launcher.c`` (+ optional ``launcher.rc``) with MSVC.
+
+    ``gen`` must already contain ``launcher.c``, ``pyappdist_launcher_config.h``,
+    and — with ``with_rc`` — ``launcher.rc`` plus its inputs. Returns the built
+    ``gen/launcher_out.exe``. Shared by the per-app source build and the
+    prebuilt-stub builder (which compiles without resources).
+    """
     # vcvars64.bat's path is passed as an argument rather than embedded, so the batch
     # file itself stays pure ASCII even when the VS install path contains non-ASCII
     # (cmd.exe receives argv as Unicode through interop; batch file bytes are read in
@@ -236,17 +404,20 @@ def _build_one(
         # code lets the Python side name the real one.
         'call %1 >nul',
         f"if errorlevel 1 exit /b {_VCVARS_EXIT}",
-        'rc /nologo /fo "launcher.res" "launcher.rc"',
-        "if errorlevel 1 exit /b 1",
-        (
-            'cl /nologo /O2 /W3 /utf-8 /I"." '
-            '"launcher.c" '
-            '"launcher.res" '
-            '/Fe:"launcher_out.exe" '
-            '/Fo:"launcher.obj" '
-            f"/link /SUBSYSTEM:{subsystem} Shell32.lib"
-        ),
     ]
+    if with_rc:
+        lines += [
+            'rc /nologo /fo "launcher.res" "launcher.rc"',
+            "if errorlevel 1 exit /b 1",
+        ]
+    lines.append(
+        'cl /nologo /O2 /W3 /utf-8 /I"." '
+        '"launcher.c" '
+        + ('"launcher.res" ' if with_rc else "")
+        + '/Fe:"launcher_out.exe" '
+        '/Fo:"launcher.obj" '
+        f"/link /SUBSYSTEM:{subsystem} Shell32.lib"
+    )
     bat.write_text("\r\n".join(lines) + "\r\n", encoding="ascii")
 
     # Use an explicit ".\" path: when Windows has NoDefaultCurrentDirectoryInExePath
@@ -269,11 +440,9 @@ def _build_one(
         )
     if proc.returncode != 0 or not built.exists():
         raise BuildError(
-            f"launcher build failed ({spec.name}):\n{proc.stdout}\n{proc.stderr}"
+            f"launcher build failed ({label}):\n{proc.stdout}\n{proc.stderr}"
         )
-    exe.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(built), str(exe))
-    return exe
+    return built
 
 
 def _render_rc(config: Config, spec: LauncherConfig, gen: Path) -> str:
@@ -296,8 +465,8 @@ def _render_rc(config: Config, spec: LauncherConfig, gen: Path) -> str:
         shutil.copy2(icon, gen / icon.name)
         parts.append(f'1 ICON "{_c_str(icon.name)}"')
 
-    quad = _version_quad(config.version)
-    company = config.wix.manufacturer or config.name
+    quad = ",".join(str(n) for n in _version_quad_ints(config.version))
+    strings = _version_strings(config, spec)
     parts.append(
         "\n".join(
             [
@@ -314,12 +483,10 @@ def _render_rc(config: Config, spec: LauncherConfig, gen: Path) -> str:
                 "  BEGIN",
                 '    BLOCK "040904b0"',
                 "    BEGIN",
-                f'      VALUE "CompanyName", "{_rc_str(company)}"',
-                f'      VALUE "FileDescription", "{_rc_str(config.name)}"',
-                f'      VALUE "FileVersion", "{_rc_str(config.version)}"',
-                f'      VALUE "ProductName", "{_rc_str(config.name)}"',
-                f'      VALUE "ProductVersion", "{_rc_str(config.version)}"',
-                f'      VALUE "OriginalFilename", "{_rc_str(spec.name)}.exe"',
+                *(
+                    f'      VALUE "{key}", "{_rc_str(value)}"'
+                    for key, value in strings.items()
+                ),
                 "    END",
                 "  END",
                 '  BLOCK "VarFileInfo"',
@@ -333,14 +500,27 @@ def _render_rc(config: Config, spec: LauncherConfig, gen: Path) -> str:
     return "\n".join(parts) + "\n"
 
 
-def _version_quad(version: str) -> str:
-    """"1.2.3" -> "1,2,3,0" (ignore non-digits, pad to 4 elements)."""
+def _version_strings(config: Config, spec: LauncherConfig) -> dict[str, str]:
+    """The StringFileInfo values, shared by the .rc and the patched VERSIONINFO."""
+    company = config.wix.manufacturer or config.name
+    return {
+        "CompanyName": company,
+        "FileDescription": config.name,
+        "FileVersion": config.version,
+        "ProductName": config.name,
+        "ProductVersion": config.version,
+        "OriginalFilename": f"{spec.name}.exe",
+    }
+
+
+def _version_quad_ints(version: str) -> tuple[int, int, int, int]:
+    """"1.2.3" -> (1, 2, 3, 0) (ignore non-digits, pad to 4 elements)."""
     nums: list[int] = []
     for token in version.split("."):
         digits = "".join(c for c in token if c.isdigit())
         nums.append(int(digits) if digits else 0)
     nums = (nums + [0, 0, 0, 0])[:4]
-    return ",".join(str(n) for n in nums)
+    return (nums[0], nums[1], nums[2], nums[3])
 
 
 def _rc_str(s: str) -> str:

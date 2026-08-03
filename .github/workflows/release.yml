@@ -1,25 +1,34 @@
 name: Release
 
-# On a tag push, run a clean-room (windows-latest) E2E build that produces and
-# verifies the release artifacts (MSI + portable zip). The helloworld sample is
-# used as the E2E fixture.
+# Manually (workflow_dispatch) produce a release: compile the prebuilt launcher
+# stubs on native Windows/macOS runners, run an E2E smoke test that uses them
+# (the helloworld sample), build the wheel + sdist with the stubs bundled, and
+# create the GitHub release (tag v<version> from pyproject.toml) with those
+# files attached. Publishing to PyPI is the separate manual publish.yml, which
+# uploads the release's files as-is.
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
 
 jobs:
-  build-windows:
+  prebuilt-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v9.0.0
 
+      # The four Windows stubs ({x64, arm64} x {console, gui}); arm64 uses the
+      # x64-hosted cross compiler preinstalled on the runner image.
+      - name: Build prebuilt launcher stubs
+        run: uv run pyappdist build-prebuilt
+
       - name: Install WiX (v5, no OSMF fee)
         run: dotnet tool install --global wix --version 5.0.2
 
-      - name: Build (wheels -> runtime -> image -> launcher -> wix -> MSI + zip)
+      # With the stubs in place, launcher-build's "auto" default takes the
+      # prebuilt path, so this E2E exercises exactly what released wheels do
+      # (resource patching instead of an MSVC compile).
+      - name: E2E build (wheels -> runtime -> image -> launcher -> wix -> MSI + zip)
         env:
           # Set this secret only to sign; unset means ship unsigned (signing is
           # enabled with --code-sign below only when the secret is present).
@@ -44,7 +53,72 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: helloworld-windows
-          path: |
-            samples/helloworld/appdist/win32-msi/dist/*.msi
-            samples/helloworld/appdist/win32-image/dist/*.zip
+          name: prebuilt-windows
+          path: src/pyappdist/resources/prebuilt/
+          if-no-files-found: error
+
+  prebuilt-macos:
+    runs-on: macos-14   # Apple Silicon; the stub is universal (arm64 + x86_64)
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v9.0.0
+
+      - name: Build prebuilt launcher stub
+        run: |
+          uv run pyappdist build-prebuilt
+          lipo -info src/pyappdist/resources/prebuilt/launcher-macos-universal
+
+      # Ad-hoc signed (no signing secrets here): builds the .app from the
+      # prebuilt stub + sidecar config, wraps it in a dmg, and runs it.
+      - name: E2E build + smoke test (.app in a dmg, prebuilt stub)
+        run: |
+          uv run pyappdist build darwin-arm-dmg -C samples/helloworld
+          dmg=$(ls samples/helloworld/appdist/darwin-arm-dmg/dist/*.dmg)
+          hdiutil attach "$dmg" -mountpoint /tmp/helloworld -nobrowse
+          out=$(/tmp/helloworld/*.app/Contents/MacOS/helloworld)
+          hdiutil detach /tmp/helloworld
+          echo "$out"
+          case "$out" in *"Hello from helloworld!"*) ;; *) echo "unexpected output" >&2; exit 1;; esac
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: prebuilt-macos
+          path: src/pyappdist/resources/prebuilt/
+          if-no-files-found: error
+
+  release:
+    needs: [prebuilt-windows, prebuilt-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the release + tag
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v9.0.0
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: prebuilt-*
+          path: src/pyappdist/resources/prebuilt/
+          merge-multiple: true
+
+      - name: Build wheel + sdist (with the prebuilt stubs bundled)
+        run: |
+          ls -l src/pyappdist/resources/prebuilt/
+          for stub in launcher-windows-x86_64-console.exe launcher-windows-x86_64-gui.exe \
+                      launcher-windows-arm64-console.exe launcher-windows-arm64-gui.exe \
+                      launcher-macos-universal; do
+            test -f "src/pyappdist/resources/prebuilt/$stub" || { echo "missing stub: $stub" >&2; exit 1; }
+          done
+          uv build
+          unzip -l dist/*.whl | grep resources/prebuilt/
+          test "$(unzip -l dist/*.whl | grep -c 'resources/prebuilt/launcher-')" -eq 5
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(uv run python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          gh release create "v$version" dist/* \
+            --target "$GITHUB_SHA" --title "v$version" --generate-notes

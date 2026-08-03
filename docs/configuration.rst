@@ -197,6 +197,26 @@ under :ref:`Output formats <config-formats>` below.
    empty list, i.e. production dependencies only (dev excluded). See
    :doc:`dependencies`.
 
+``launcher-build`` (optional)
+   How the compiled launchers are produced, on the formats whose launcher is a
+   native binary — ``msi`` / ``msix``, ``macapp`` / ``dmg`` / ``pkg``, and
+   ``image`` on Windows platforms (elsewhere the launchers are shell wrappers
+   and the key is rejected):
+
+   * ``"auto"`` (default) — use the prebuilt launcher stub bundled with
+     pyappdist when present (released wheels bundle stubs for every supported
+     target, so **no C compiler is needed**), else compile from source.
+   * ``"prebuilt"`` — require the bundled stub; fail rather than compile.
+   * ``"source"`` — always compile the launcher with MSVC / clang.
+
+   A prebuilt launcher is byte-identical to a source-built one in behavior:
+   the per-app values are patched into the ``.exe`` as Windows resources
+   (config, icon, version info), or written as a sidecar
+   ``Contents/Resources/pyappdist-launcher.json`` for the macOS ``.app``
+   (sealed by the bundle's code signature). The prebuilt macOS stub targets
+   macOS 11.0+; ``min-macos`` still sets ``LSMinimumSystemVersion``, but only
+   a source build compiles with a different deployment target.
+
 .. _config-platforms:
 
 Platform values

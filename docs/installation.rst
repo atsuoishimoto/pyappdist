@@ -16,18 +16,26 @@ Build-time toolchain
 --------------------
 
 pyappdist builds the app wheel with ``python -m pip``, so producing the
-*wheelhouse* and the runtime image needs nothing beyond pip. Producing the final
-**package** needs a per-format toolchain, documented on each format's page:
+*wheelhouse* and the runtime image needs nothing beyond pip. The compiled
+launchers need **no C compiler**: released pyappdist wheels bundle prebuilt
+launcher stubs that the build configures per app (see the ``launcher-build``
+target key). A compiler is only used as a fallback when no stub is bundled
+(e.g. an install from a git checkout) or with ``launcher-build = "source"``.
+Producing the final **package** needs a per-format toolchain, documented on
+each format's page:
 
-* :doc:`MSI <platforms/windows-msi>` — MSVC build tools + WiX v5.
-* :doc:`MSIX <platforms/windows-msix>` — MSVC build tools + ``makeappx``
-  (Windows SDK).
+* :doc:`MSI <platforms/windows-msi>` — WiX v5 (MSVC build tools only for
+  launcher source builds).
+* :doc:`MSIX <platforms/windows-msix>` — ``makeappx`` (Windows SDK; MSVC build
+  tools only for launcher source builds).
 * :doc:`Linux <platforms/linux>` / :doc:`macOS <platforms/macos-run>` — none
   (the launchers are shell scripts).
 * :doc:`macapp / dmg <platforms/macos-app>` / :doc:`pkg <platforms/macos-pkg>` —
-  the Xcode command-line tools.
-* :doc:`image <platforms/image>` — the target platform's launcher toolchain
-  (MSVC for Windows targets; none for Linux/macOS, or with ``no-launcher``).
+  the Xcode command-line tools (``codesign`` etc.; ``clang`` only for launcher
+  source builds).
+* :doc:`image <platforms/image>` — a Windows target uses the usual ``.exe``
+  launchers (prebuilt stubs, or MSVC as fallback); none for Linux/macOS, or
+  with ``no-launcher``.
 
 Each format is built on its own OS.
 

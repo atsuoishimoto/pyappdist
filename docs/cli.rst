@@ -109,10 +109,11 @@ launcher(s). Options: ``--no-compile``.
 
 (Re)build the launcher(s) into an existing image. Requires a prior
 ``build-image``. The launcher kind follows the target's ``format``: a Windows
-``launcher.exe`` (MSVC) for ``msi``/``msix``, or a compiled Mach-O stub (clang)
-for the macOS ``.app`` (``macapp``/``dmg``/``pkg``). For ``linux`` and ``macos``
-(``.run``) the launcher is a shell wrapper written during packaging, so
-this command is a no-op.
+``launcher.exe`` for ``msi``/``msix``, or a Mach-O stub for the macOS ``.app``
+(``macapp``/``dmg``/``pkg``) — both produced from the bundled prebuilt stubs
+when available, else compiled with MSVC / clang (see the ``launcher-build``
+target key). For ``linux`` and ``macos`` (``.run``) the launcher is a shell
+wrapper written during packaging, so this command is a no-op.
 
 ``gen-wix``
 ~~~~~~~~~~~
@@ -120,6 +121,18 @@ this command is a no-op.
 Scan an existing image and generate the WiX ``.wxs`` file. Requires a prior
 ``build-image``. This also generates and persists the target's ``upgrade-code`` if it
 is unset.
+
+``build-prebuilt``
+~~~~~~~~~~~~~~~~~~
+
+Compile the prebuilt launcher stubs that released wheels bundle (development /
+release tooling, not a pipeline stage). Runs on a host with a launcher
+toolchain — Windows (or WSL with Visual Studio) produces the four ``.exe``
+stubs ({x64, arm64} × {console, gui}), macOS the universal Mach-O stub — and
+writes them into this pyappdist installation's ``resources/prebuilt/``
+(override with ``--out``), where ``build-launchers`` picks them up. Installs
+from a released wheel already bundle the stubs, so app authors normally never
+run this.
 
 Examples
 --------

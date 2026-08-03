@@ -15,6 +15,7 @@ Subcommands:
   build-launchers build the launchers inside the image (kind follows the format)
   gen-wix         scan the image and generate WiX XML (.wxs) — msi targets only
   build           run the full pipeline and package the selected target(s)
+  build-prebuilt  compile the bundled prebuilt launcher stubs (dev/release tooling)
 """
 
 from __future__ import annotations
@@ -35,6 +36,7 @@ from .context import BuildContext
 from .errors import BuildError, ConfigError, PyappdistError
 from .launcher import build_launchers
 from .launcher.build import macos_arch
+from .launcher.prebuilt import build_prebuilt
 from .linux import build_linux
 from .macos import build_macos
 from .macos.bundle import build_macos_apps
@@ -368,6 +370,20 @@ def _build_macos_bundle(
     print(f"OK [{tag}]: dmg -> {dmg} ({len(apps)} app)")
 
 
+def cmd_build_prebuilt(args: argparse.Namespace) -> int:
+    """Compile the compiler-less launcher stubs this host can produce.
+
+    A development/release tool, not a pipeline stage: it populates the
+    installed package's ``resources/prebuilt/`` (or ``--out``) with the stub
+    binaries that released wheels ship, which ``build-launchers`` then uses
+    instead of MSVC/clang.
+    """
+    out = Path(args.out).resolve() if args.out else None
+    paths = build_prebuilt(out)
+    print(f"OK: {len(paths)} prebuilt launcher stub(s) -> {paths[0].parent}")
+    return 0
+
+
 def cmd_build(args: argparse.Namespace) -> int:
     """Run runtime -> wheelhouse -> image -> launcher -> package for each target.
 
@@ -450,6 +466,18 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("gen-wix", help="generate WiX XML (.wxs) from the image (msi targets)")
     _add_common(p)
     p.set_defaults(func=cmd_gen_wix)
+
+    p = sub.add_parser(
+        "build-prebuilt",
+        help="compile the bundled prebuilt launcher stubs for this host "
+             "(dev/release tooling, not a pipeline stage)",
+    )
+    p.add_argument(
+        "--out",
+        help="output directory (default: this pyappdist installation's "
+             "resources/prebuilt)",
+    )
+    p.set_defaults(func=cmd_build_prebuilt)
 
     p = sub.add_parser("build", help="run the full pipeline and package the target(s)")
     _add_common(p)
