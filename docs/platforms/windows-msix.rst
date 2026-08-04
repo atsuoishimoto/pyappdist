@@ -147,8 +147,6 @@ install.
 
 Set ``code-sign = true`` on the target (or pass ``--code-sign`` to
 ``pyappdist build``): the launcher ``.exe``\ s and the ``.msix`` are then
-signed with the command resolved from ``PYAPPDIST_WIN_SIGN_CMD``, the
-target's ``code-sign-command``, or the built-in ``signtool`` default — see
-:ref:`msi-code-signing` for the details. Users install the signed package by
-double-clicking it (App Installer) or with ``Add-AppxPackage <app>.msix`` —
-no Developer Mode required.
+signed exactly as for MSI — see :ref:`msi-code-signing`. Users install the
+signed package by double-clicking it (App Installer) or with
+``Add-AppxPackage <app>.msix`` — no Developer Mode required.

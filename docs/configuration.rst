@@ -320,9 +320,10 @@ Store signs it on submission). Details: :doc:`platforms/windows-msix`.
    Defaults to ``[project].name``.
 
 ``publisher``
-   Package Identity Publisher DN (e.g. ``"CN=Contoso"``). For the Store or
-   signing it must match. Defaults to ``CN=<manufacturer>``, or
-   ``CN=<app name>`` when ``manufacturer`` is also unset.
+   Package Identity Publisher DN (e.g. ``"CN=Contoso"``). Must match the
+   Partner Center value (Store) or the signing certificate's subject
+   (sideloading). Defaults to ``CN=<manufacturer>``, or ``CN=<app name>``
+   when ``manufacturer`` is also unset.
 
 ``display-name``
    App display name. Defaults to ``[tool.pyappdist].name``.
@@ -360,9 +361,6 @@ rejected at load. The full signing workflow is described in
    2. the target's ``code-sign-command``;
    3. a built-in default:
       ``signtool.exe sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /a "{file}"``.
-
-   The environment variable only supplies the *command* — it never enables
-   signing by itself.
 
 ``linux`` — .run installer
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -499,8 +497,8 @@ corresponding config key.
 
 ``PYAPPDIST_WIN_SIGN_CMD``
    Windows. Signing command for Windows artifacts; overrides
-   ``code-sign-command``. Supplies the command only — it never enables signing
-   by itself. See :ref:`Windows code signing keys <config-win-code-sign>`.
+   ``code-sign-command``. See :ref:`Windows code signing keys
+   <config-win-code-sign>`.
 
 ``PYAPPDIST_WIN_WIX``
    Windows. Absolute path to the ``wix`` executable, instead of looking up
