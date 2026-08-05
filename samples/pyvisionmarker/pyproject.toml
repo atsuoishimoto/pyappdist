@@ -1,5 +1,5 @@
 [project]
-name = "pyvisonmarker"
+name = "pyvisionmarker"
 version = "0.1.0"
 description = "Gradio + pywebview local object-detection GUI sample for pyappdist"
 readme = "README.md"
@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 [project.scripts]
-pyvisonmarker = "pyvisonmarker.main:main"
+pyvisionmarker = "pyvisionmarker.main:main"
 
 # Unlike the other samples, pyappdist is not in a dev dependency group here:
 # gradio pins tomlkit<0.15 and pyappdist requires >=0.15, so the two cannot
@@ -38,10 +38,10 @@ pyvisonmarker = "pyvisonmarker.main:main"
 [tool.pyappdist]
 name = "Vision Inspector"
 python = "3.14"
-identifier = "com.example.pyvisonmarker"   # CFBundleIdentifier (required for macapp/dmg/pkg)
+identifier = "com.example.pyvisionmarker"   # CFBundleIdentifier (required for macapp/dmg/pkg)
 
 launchers = [
-  { name = "pyvisonmarker", entry = "pyvisonmarker.main:main", gui = true, icon = { windows = "assets/pyvisonmarker.ico", macos = "assets/pyvisonmarker.png", linux = "assets/pyvisonmarker.png" } },
+  { name = "pyvisionmarker", entry = "pyvisionmarker.main:main", gui = true, icon = { windows = "assets/pyvisionmarker.ico", macos = "assets/pyvisionmarker.png", linux = "assets/pyvisionmarker.png" } },
 ]
 
 # torch / torchvision publish cp314 wheels for win_amd64, manylinux x86_64,

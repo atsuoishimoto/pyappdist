@@ -82,7 +82,7 @@ All GUI samples use ``gui = true``, so the distribution launches via
    requests. Uses per-target ``extras`` (``gtk`` / ``qt`` / ``gui``) to pull the
    right pywebview backend on each platform.
 
-`pyvisonmarker <https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pyvisonmarker>`_
+`pyvisionmarker <https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pyvisionmarker>`_
    "Vision Inspector" — local object detection (Hugging Face
    ``facebook/detr-resnet-50``) behind a Gradio UI wrapped in a pywebview
    window. Selects the pywebview backend with an **environment marker** in

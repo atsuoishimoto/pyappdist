@@ -1097,7 +1097,7 @@ wheels = [
 ]
 
 [[package]]
-name = "pyvisonmarker"
+name = "pyvisionmarker"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
