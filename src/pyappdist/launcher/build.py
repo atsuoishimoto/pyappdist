@@ -36,6 +36,11 @@ _LAUNCHER_C = _RESOURCES / "launcher.c"
 _LAUNCHER_MAC_C = _RESOURCES / "launcher_mac.c"
 _PATCH_SCRIPT = _RESOURCES / "patch_resources.py"
 
+# The bundled interpreter a launcher starts, relative to the launcher itself.
+# A launcher with an icon gets its own copy instead (see _stage_app_python).
+_PYEXE_GUI = "pythonw.exe"
+_PYEXE_CONSOLE = "python.exe"
+
 # Basename of the macOS sidecar config, written next to a prebuilt stub in the
 # image dir as "<launcher>.launcher.json" and staged into each bundle as
 # Contents/Resources/pyappdist-launcher.json (see CONFIG_REL in launcher_mac.c).
@@ -170,21 +175,47 @@ def _patch_prebuilt_windows(
     built = gen / "launcher_out.exe"
     shutil.copy2(stub, built)
 
-    pyexe = "python\\pythonw.exe" if spec.gui else "python\\python.exe"
+    pyexe = _stage_app_python(config, spec, layout, workdir, log)
     resources = [
         winres.config_resource(pyexe, _bootstrap(spec, config), _windows_fixed_args(spec))
     ]
-    icon_rel = spec.icon_for("windows")
-    if icon_rel:
-        icon = (config.project_dir / icon_rel).resolve()
-        if not icon.is_file():
-            raise BuildError(f"launcher icon not found ({spec.name}): {icon}")
+    icon = _launcher_icon(config, spec)
+    if icon:
         resources.extend(winres.icon_resources(icon.read_bytes()))
     resources.append(
         winres.version_resource(_version_quad_ints(config.version),
                                 _version_strings(config, spec))
     )
+    _patch_windows_resources(built, resources, gen, layout, spec.name)
 
+    exe = layout.image_dir / f"{spec.name}.exe"
+    exe.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(built), str(exe))
+    return exe
+
+
+def _launcher_icon(config: Config, spec: LauncherConfig) -> Path | None:
+    """The launcher's Windows ``.ico``, or None when it declares no icon."""
+    icon_rel = spec.icon_for("windows")
+    if not icon_rel:
+        return None
+    icon = (config.project_dir / icon_rel).resolve()
+    if not icon.is_file():
+        raise BuildError(f"launcher icon not found ({spec.name}): {icon}")
+    return icon
+
+
+def _patch_windows_resources(
+    exe: Path, resources: list[winres.Resource], gen: Path, layout: ImageLayout, label: str
+) -> None:
+    """Apply ``resources`` to ``exe`` with ``patch_resources.py``.
+
+    The script, the payload files, and the manifest are staged next to ``exe``
+    in ``gen`` and the image runtime's ``python.exe`` runs there, so every path
+    stays relative (the WSL interop cwd rule). ``exe`` is always a copy inside
+    ``gen`` — never the interpreter running the script, which Windows keeps
+    locked while it executes.
+    """
     entries = []
     for i, res in enumerate(resources):
         payload = f"res{i}.bin"
@@ -193,7 +224,7 @@ def _patch_prebuilt_windows(
             {"type": res.type, "name": res.name, "lang": res.lang, "file": payload}
         )
     (gen / "patch_manifest.json").write_text(
-        json.dumps({"exe": built.name, "resources": entries}), encoding="utf-8"
+        json.dumps({"exe": exe.name, "resources": entries}), encoding="utf-8"
     )
     shutil.copy2(_PATCH_SCRIPT, gen / "patch_resources.py")
 
@@ -203,14 +234,65 @@ def _patch_prebuilt_windows(
     )
     if proc.returncode != 0:
         raise BuildError(
-            f"launcher resource patching failed ({spec.name}):\n"
+            f"launcher resource patching failed ({label}):\n"
             f"{proc.stdout}\n{proc.stderr}"
         )
 
-    exe = layout.image_dir / f"{spec.name}.exe"
-    exe.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(built), str(exe))
-    return exe
+
+def _stage_app_python(
+    config: Config, spec: LauncherConfig, layout: ImageLayout, workdir: Path, log
+) -> str:
+    """Give the launcher its own copy of the interpreter, carrying its icon.
+
+    The launcher only starts python and waits, so the process that owns the
+    app's windows is that python — and Windows falls back to *its* executable
+    icon for any window whose toolkit sets none. Shared ``python.exe`` /
+    ``pythonw.exe`` therefore means every pyappdist app looks alike while
+    running. Copying the interpreter per launcher and patching the launcher's
+    icon (plus VERSIONINFO, so Task Manager names the app) into the copy fixes
+    that; the copy is a byte-for-byte interpreter otherwise, so ``sys.executable``
+    stays a real python and ``multiprocessing`` children inherit the icon too.
+
+    Toolkits that install their own window-class icon (Tk's feather) are
+    unaffected — those apps must set the icon themselves.
+
+    Returns the interpreter path relative to the launcher. Without an icon
+    there is nothing to patch, so the shared interpreter is used as before.
+    """
+    base = _PYEXE_GUI if spec.gui else _PYEXE_CONSOLE
+    icon = _launcher_icon(config, spec)
+    if icon is None:
+        return f"python\\{base}"
+
+    name = f"{spec.name}.exe"
+    if name.lower() in (_PYEXE_GUI, _PYEXE_CONSOLE):
+        # A launcher literally named "python"/"pythonw" would overwrite the
+        # interpreter it was copied from.
+        name = f"{spec.name}_app.exe"
+    rel = f"python\\{name}"
+    log(f"launcher: {rel} (interpreter copy carrying the {spec.name} icon)")
+
+    gen = workdir / spec.name / "pyexe"
+    gen.mkdir(parents=True, exist_ok=True)
+    built = gen / "pyexe_out.exe"
+    shutil.copy2(layout.python_dir / base, built)
+
+    # Group id 1 is what Explorer and the "window with no icon" fallback use;
+    # the Qt alias reaches Qt/PySide windows. Both name the same RT_ICON ids,
+    # which overwrite the interpreter's own — any icon image it had beyond ours
+    # stays behind unreferenced, since only the group directory is consulted.
+    resources = winres.icon_resources(
+        icon.read_bytes(), group_names=(1, winres.QT_ICON_NAME)
+    )
+    strings = _version_strings(config, spec)
+    strings["OriginalFilename"] = name
+    resources.append(
+        winres.version_resource(_version_quad_ints(config.version), strings)
+    )
+    _patch_windows_resources(built, resources, gen, layout, f"{spec.name} interpreter")
+
+    shutil.move(str(built), str(layout.python_dir / name))
+    return rel
 
 
 def _mac_sidecar(image_dir: Path, name: str) -> Path:
@@ -342,7 +424,7 @@ def _build_one(
     gen = workdir / spec.name
     gen.mkdir(parents=True, exist_ok=True)
 
-    pyexe = "python\\pythonw.exe" if spec.gui else "python\\python.exe"
+    pyexe = _stage_app_python(config, spec, layout, workdir, log)
     fixed_args = _windows_fixed_args(spec)
     header = (
         f"#define PYAPPDIST_PYEXE L\"{_c_str(pyexe)}\"\n"
@@ -457,11 +539,8 @@ def _render_rc(config: Config, spec: LauncherConfig, gen: Path) -> str:
     """
     # Must precede any string data so rc.exe decodes the rest of the file as UTF-8.
     parts: list[str] = ["#pragma code_page(65001)"]
-    icon_rel = spec.icon_for("windows")
-    if icon_rel:
-        icon = (config.project_dir / icon_rel).resolve()
-        if not icon.is_file():
-            raise BuildError(f"launcher icon not found ({spec.name}): {icon}")
+    icon = _launcher_icon(config, spec)
+    if icon:
         shutil.copy2(icon, gen / icon.name)
         parts.append(f'1 ICON "{_c_str(icon.name)}"')
 

@@ -65,6 +65,18 @@ def test_icon_resources_split_and_group():
     assert entry2 == (32, 32, 0, 0, 1, 32, 8, 2)
 
 
+def test_icon_resources_extra_group_name():
+    """The same directory is emitted once per requested group name."""
+    out = winres.icon_resources(
+        _make_ico([b"AAAA"]), group_names=(1, winres.QT_ICON_NAME)
+    )
+    groups = [r for r in out if r.type == winres.RT_GROUP_ICON]
+    assert [r.name for r in groups] == [1, "IDI_ICON1"]
+    assert groups[0].data == groups[1].data
+    # Both point at the single RT_ICON entry, which is emitted only once.
+    assert len([r for r in out if r.type == winres.RT_ICON]) == 1
+
+
 @pytest.mark.parametrize(
     "data",
     [

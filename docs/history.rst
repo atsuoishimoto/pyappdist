@@ -6,6 +6,11 @@ Release history
 
 (not yet)
 
+**Windows apps keep their own icon while running.** A launcher with a Windows
+icon now starts a copy of the interpreter carrying that icon, so the app's
+windows no longer fall back to the python icon (Tk apps still need to set their
+own icon).
+
 **Launchers now build without a C compiler.** Released wheels bundle
 prebuilt launcher stubs for Windows (x64 / arm64, console / gui) and macOS
 (universal); the build configures a copy per app — patched in as Windows

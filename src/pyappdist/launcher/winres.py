@@ -12,6 +12,7 @@ structure — on the build host (no Windows API needed). Applying them to the
 from __future__ import annotations
 
 import struct
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from ..errors import BuildError
@@ -30,13 +31,19 @@ LANG_NEUTRAL = 0
 # rc.exe's default resource language (en-US), used for icon/version resources.
 LANG_EN_US = 0x0409
 
+# Qt looks up the window-class icon by this *name* in the running executable
+# (the convention its "Setting the Application Icon" docs ask you to put in the
+# .rc), so an icon group registered under it reaches Qt/PySide windows that do
+# not call setWindowIcon.
+QT_ICON_NAME = "IDI_ICON1"
+
 
 @dataclass(frozen=True)
 class Resource:
     """One resource to patch into the stub: (type, name id, language, payload)."""
 
     type: int | str
-    name: int
+    name: int | str
     lang: int
     data: bytes
 
@@ -63,12 +70,18 @@ _ICONDIRENTRY = struct.Struct("<BBBBHHII")  # w, h, colors, rsvd, planes, bpp, s
 _GRPICONDIRENTRY = struct.Struct("<BBBBHHIH")  # ...same, but the offset is a WORD icon id
 
 
-def icon_resources(ico: bytes, *, first_id: int = 1) -> list[Resource]:
+def icon_resources(
+    ico: bytes, *, first_id: int = 1, group_names: Sequence[int | str] = (1,)
+) -> list[Resource]:
     """Split a ``.ico`` file into ``RT_ICON`` entries plus one ``RT_GROUP_ICON``.
 
     The group directory mirrors the file's directory, with each entry's file
     offset replaced by the id of the ``RT_ICON`` resource holding that image —
     exactly what rc.exe produces for an ``ICON`` statement.
+
+    ``group_names`` are the names the group is registered under; the same
+    directory is emitted once per name so a single icon can answer lookups by
+    both id and name (see :data:`QT_ICON_NAME`).
     """
     if len(ico) < _ICONDIR.size:
         raise BuildError("invalid .ico file: truncated header")
@@ -90,7 +103,8 @@ def icon_resources(ico: bytes, *, first_id: int = 1) -> list[Resource]:
         group.append(_GRPICONDIRENTRY.pack(w, h, colors, rsvd, planes, bpp, size, icon_id))
     # Group icon id 1 = what launcher.rc declared ("1 ICON ..."), and the icon
     # Explorer picks (lowest id) for the .exe.
-    out.append(Resource(RT_GROUP_ICON, 1, LANG_EN_US, b"".join(group)))
+    directory = b"".join(group)
+    out.extend(Resource(RT_GROUP_ICON, name, LANG_EN_US, directory) for name in group_names)
     return out
 
 
