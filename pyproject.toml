@@ -62,7 +62,7 @@ requires = ["uv_build>=0.12.1,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.uv-matrix.vars]
-machine = "platform.machine()"
+machine = "platform.machine().lower()"
 is_arm = "'arm' in machine or 'aarch' in machine"
 
 
@@ -102,4 +102,4 @@ cwd = "samples/{{ project }}"
 # four targets per OS, which otherwise fills a CI runner's disk (see
 # samples/clean_build.py). `&&` keeps the tree when the build fails, so a
 # failure is still debuggable.
-run = "uvx --with ../.. pyappdist build {{ target }} && python ../clean_build.py {{ target }}"
+run = "echo '-- {{project}} {{target}}' && uvx --with ../.. pyappdist build {{ target }} && python ../clean_build.py {{ target }}"
