@@ -1,4 +1,4 @@
-# pyvisonmarker
+# pyvisionmarker
 
 "Vision Inspector" — a pyappdist GUI sample that runs **local object detection**
 with a Hugging Face model (`facebook/detr-resnet-50`) and no network AI API.
@@ -61,5 +61,5 @@ publish no cp314 wheels for them.
 
 ```bash
 uv sync
-uv run pyvisonmarker
+uv run pyvisionmarker
 ```
