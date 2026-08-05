@@ -43,9 +43,13 @@ jobs:
       # windows-latest / windows-11-arm and resolved automatically by pyappdist
       # via vswhere.
       # macOS Xcode CLT (clang/codesign/hdiutil/sips/iconutil) and Linux need nothing extra.
+      # The UI extension supplies WixUI_Minimal, which the generated .wxs uses
+      # when the msi target sets a license file.
       - name: Install WiX (Windows only)
         if: runner.os == 'Windows'
-        run: dotnet tool install --global wix --version 5.0.2
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add -g WixToolset.UI.wixext/5.0.2
 
       # --- macOS code-signing + notarization --------------------------------
       # Only the macapp/dmg/pkg targets are signed & notarized; the .run (macos)

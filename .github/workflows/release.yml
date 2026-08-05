@@ -24,8 +24,12 @@ jobs:
       - name: Build prebuilt launcher stubs
         run: uv run pyappdist build-prebuilt windows-x86_64 windows-arm64
 
+      # The UI extension supplies WixUI_Minimal, which the generated .wxs uses
+      # when the msi target sets a license file.
       - name: Install WiX (v5, no OSMF fee)
-        run: dotnet tool install --global wix --version 5.0.2
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add -g WixToolset.UI.wixext/5.0.2
 
       # With the stubs in place, launcher-build's "auto" default takes the
       # prebuilt path, so this E2E exercises exactly what released wheels do
