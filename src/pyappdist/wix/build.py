@@ -42,22 +42,30 @@ def build_msi(config: Config, image_dir: Path, wxs_path: Path, out_msi: Path, *,
     # in the UI extension. Scope ("user"/"machine") has no dialogs.
     needs_ui = bool(config.wix.license)
 
+    # Inputs that live outside the build tree (the license RTF, the product icon)
+    # are staged next to the .wxs — i.e. into the per-target build dir, never into
+    # cwd=base, which is the user's project directory and must stay free of build
+    # artifacts. The .wxs references both by bare name, so a bind path for that
+    # directory (added below) is what lets WiX find them.
+    staged_dir = wxs_path.parent
+    staged = False
+
     if config.wix.license:
         license_src = (config.project_dir / config.wix.license).resolve()
         if not license_src.is_file():
             raise BuildError(
                 f"license file not found ([tool.pyappdist.wix].license): {license_src}"
             )
-        # WixUILicenseRtf references this by name, resolved relative to cwd=base.
-        shutil.copy2(license_src, base / LICENSE_STAGED_NAME)
+        shutil.copy2(license_src, staged_dir / LICENSE_STAGED_NAME)
+        staged = True
 
     icon_rel = product_icon(config)
     if icon_rel:
         icon_src = (config.project_dir / icon_rel).resolve()
         if not icon_src.is_file():
             raise BuildError(f"product icon not found (launcher icon.windows): {icon_src}")
-        # Icon/@SourceFile references this by name, resolved relative to cwd=base.
-        shutil.copy2(icon_src, base / ICON_STAGED_NAME)
+        shutil.copy2(icon_src, staged_dir / ICON_STAGED_NAME)
+        staged = True
 
     # The bind path is passed as an extended-length (\\?\) absolute path, not
     # relative: WiX's cabinet builder cannot open source files whose absolute
@@ -76,8 +84,12 @@ def build_msi(config: Config, image_dir: Path, wxs_path: Path, out_msi: Path, *,
     cmd += [
         target_relpath(target, wxs_path, base),
         "-b", bind_path,
-        "-o", target_relpath(target, out_msi, base),
     ]
+    if staged:
+        # Second bind path: where the staged license/icon were copied. Relative to
+        # cwd like the other arguments — only the image tree needs the \\?\ form.
+        cmd += ["-b", target_relpath(target, staged_dir, base)]
+    cmd += ["-o", target_relpath(target, out_msi, base)]
     proc = subprocess.run(cmd, cwd=str(base), capture_output=True, text=True, errors="replace")
     if proc.returncode != 0 or not out_msi.exists():
         hint = ""

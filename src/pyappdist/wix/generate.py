@@ -26,11 +26,12 @@ WIX_NS = "http://wixtoolset.org/schemas/v4/wxs"
 WIX_UI_NS = "http://wixtoolset.org/schemas/v4/wxs/ui"
 
 # Filename the license RTF is staged to next to the .wxs (see wix/build.py); referenced
-# from WixUILicenseRtf so it resolves relative to the wix build working directory.
+# by bare name from WixUILicenseRtf, which wix resolves through the bind path build.py
+# passes for that directory.
 LICENSE_STAGED_NAME = "pyappdist_license.rtf"
 
-# Same staging trick for the product icon: the source .ico is copied here by
-# wix/build.py and referenced by name from Icon/@SourceFile.
+# Same staging trick for the product icon: the source .ico is copied next to the .wxs
+# by wix/build.py and referenced by name from Icon/@SourceFile.
 ICON_STAGED_NAME = "pyappdist_product.ico"
 
 # Icon table entry id referenced by ARPPRODUCTICON. Windows Installer keys the Icon
@@ -92,14 +93,15 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
 
     # Without ARPPRODUCTICON the product shows the generic Windows Installer icon in
     # Add/Remove Programs. The .ico is staged next to the .wxs by wix/build.py, so the
-    # SourceFile is a bare name resolved from the wix build working directory (same
+    # SourceFile is a bare name resolved through the staged-file bind path (same
     # approach as the license RTF).
     if product_icon(config):
         _sub(pkg, "Icon", Id=_PRODUCT_ICON_ID, SourceFile=ICON_STAGED_NAME)
         _sub(pkg, "Property", Id="ARPPRODUCTICON", Value=_PRODUCT_ICON_ID)
 
     # An optional license shows a one-page EULA via the stock WixUI_Minimal set; the RTF
-    # is staged next to the .wxs by wix/build.py under LICENSE_STAGED_NAME.
+    # is staged next to the .wxs by wix/build.py under LICENSE_STAGED_NAME and found
+    # through that directory's bind path.
     if config.wix.license:
         _ui_sub(pkg, "WixUI", Id="WixUI_Minimal")
         _sub(pkg, "WixVariable", Id="WixUILicenseRtf", Value=LICENSE_STAGED_NAME)

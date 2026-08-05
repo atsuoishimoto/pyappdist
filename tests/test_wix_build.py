@@ -36,11 +36,17 @@ def _fake_wix(monkeypatch, out_msi: Path) -> dict:
 
 
 def _layout(tmp_path: Path) -> tuple[Path, Path, Path]:
-    image = tmp_path / "image"
-    image.mkdir()
-    wxs = tmp_path / "helloworld.wxs"
+    """The real layout: build intermediates and artifacts in sibling trees.
+
+    ``tmp_path`` is their common ancestor (the project dir), so a staged file
+    landing there rather than in the build dir is visible to the assertions.
+    """
+    build = tmp_path / ".appdist-build" / "win32-msi"
+    image = build / "image"
+    image.mkdir(parents=True)
+    wxs = build / "helloworld.wxs"
     wxs.write_text("<Wix/>", encoding="utf-8")
-    return image, wxs, tmp_path / "dist" / "helloworld-1.2.3.msi"
+    return image, wxs, tmp_path / "appdist" / "win32-msi" / "dist" / "helloworld-1.2.3.msi"
 
 
 def _with_icon(config, icon_rel: str):
@@ -49,8 +55,9 @@ def _with_icon(config, icon_rel: str):
 
 
 def test_product_icon_is_staged_next_to_the_wxs(sample_config, tmp_path, monkeypatch):
-    # Icon/@SourceFile is a bare name resolved from the wix working directory, so
-    # the source .ico must be copied there first.
+    # Icon/@SourceFile is a bare name, so the source .ico is copied next to the .wxs
+    # and found through the bind path build.py adds for that directory. It must not
+    # land in cwd (the project dir), which stays free of build artifacts.
     project = tmp_path / "proj"
     project.mkdir()
     (project / "app.ico").write_bytes(b"icondata")
@@ -60,15 +67,23 @@ def test_product_icon_is_staged_next_to_the_wxs(sample_config, tmp_path, monkeyp
     calls = _fake_wix(monkeypatch, out)
     assert wb.build_msi(cfg, image, wxs, out) == out
     assert calls["cwd"] == str(tmp_path)
-    assert (tmp_path / ICON_STAGED_NAME).read_bytes() == b"icondata"
+    assert (wxs.parent / ICON_STAGED_NAME).read_bytes() == b"icondata"
+    assert not (tmp_path / ICON_STAGED_NAME).exists()
+    # ...and wix is told where to look for it, relative to cwd like the other args.
+    assert calls["cmd"].count("-b") == 2
+    staged_rel = ".appdist-build\\win32-msi"
+    assert ["-b", staged_rel] == calls["cmd"][calls["cmd"].index(staged_rel) - 1:][:2]
 
 
 def test_no_icon_stages_nothing(sample_config, tmp_path, monkeypatch):
     image, wxs, out = _layout(tmp_path)
-    _fake_wix(monkeypatch, out)
+    calls = _fake_wix(monkeypatch, out)
     assert wb.build_msi(sample_config, image, wxs, out) == out
-    assert not (tmp_path / ICON_STAGED_NAME).exists()
-    assert not (tmp_path / LICENSE_STAGED_NAME).exists()
+    for staged in (tmp_path, wxs.parent):
+        assert not (staged / ICON_STAGED_NAME).exists()
+        assert not (staged / LICENSE_STAGED_NAME).exists()
+    # Nothing staged, so only the image bind path is passed.
+    assert calls["cmd"].count("-b") == 1
 
 
 def test_missing_product_icon_errors(sample_config, tmp_path, monkeypatch):
