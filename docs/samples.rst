@@ -81,3 +81,14 @@ All GUI samples use ``gui = true``, so the distribution launches via
    "Weather Panel" — a web-based desktop GUI built with NiceGUI + pywebview +
    requests. Uses per-target ``extras`` (``gtk`` / ``qt`` / ``gui``) to pull the
    right pywebview backend on each platform.
+
+`pyvisonmarker <https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pyvisonmarker>`_
+   "Vision Inspector" — local object detection (Hugging Face
+   ``facebook/detr-resnet-50``) behind a Gradio UI wrapped in a pywebview
+   window. Selects the pywebview backend with an **environment marker** in
+   ``[project.dependencies]`` (``pywebview[qt]`` on Linux, the plain package
+   elsewhere) instead of per-target ``extras`` — each target resolves the marker
+   for its own platform, so no target-level config is needed. Also ships a
+   heavyweight torch / transformers stack, and is the sample that sets
+   ``license`` on its MSI target, showing the installer's license dialog. The
+   app is GPL-3.0-only, since the Linux build carries PyQt6/QtWebEngine.

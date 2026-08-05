@@ -118,6 +118,7 @@ each with its own `[tool.pyappdist]` config:
 - [`pygamedemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pygamedemo) — pygame-ce GUI (C extensions)
 - [`pyside6demo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pyside6demo) — PySide6 (large abi3 wheel, Qt plugins)
 - [`niceguidemo`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/niceguidemo) — NiceGUI + pywebview, per-target `extras` for backend selection
+- [`pyvisonmarker`](https://github.com/atsuoishimoto/pyappdist/tree/main/samples/pyvisonmarker) — Gradio + pywebview object detection; environment markers pick the backend, MSI license dialog
 
 ### Status
 

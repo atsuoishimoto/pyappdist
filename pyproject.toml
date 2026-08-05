@@ -68,7 +68,8 @@ is_arm = "'arm' in machine or 'aarch' in machine"
 
 [tool.uv-matrix.matrix.build-samples]
 project = ["datafiles", "helloworld", "matplotlibdemo", "niceguidemo",
-           "pandascli", "pygamedemo", "pyside6demo", "pytorchdemo"]
+           "pandascli", "pygamedemo", "pyside6demo", "pytorchdemo",
+           "pyvisonmarker"]
 target = ["win32-msi", "win32-store", "win32-image", "win32-arm-msi",
           "win32-arm-store", "win32-arm-image", "linux", "linux-image",
           "linux-arm", "linux-arm-image", "darwin-arm", "darwin-arm-dmg",
@@ -78,7 +79,12 @@ exclude = [
     {project = "niceguidemo", target = "linux"},
     {project = "niceguidemo", target = "linux-image"},
     {project = "niceguidemo", target = "linux-arm"},
-    {project = "niceguidemo", target = "linux-arm-image"}
+    {project = "niceguidemo", target = "linux-arm-image"},
+    # torch/torchvision publish no windows-arm64 wheels, so pyvisonmarker
+    # defines no win32-arm-* targets.
+    {project = "pyvisonmarker", target = "win32-arm-msi"},
+    {project = "pyvisonmarker", target = "win32-arm-store"},
+    {project = "pyvisonmarker", target = "win32-arm-image"}
 ]
 
 tasks = ["build-sample"]
