@@ -15,6 +15,11 @@ Launchers with ``gui = false`` get a ``postinstall`` script that symlinks their
 bundle executable into ``/usr/local/bin`` (the script runs as root in the system
 domain, so creating the symlinks there is allowed).
 
+An optional target-level ``license`` file (``.txt``/``.rtf``/``.html``) is staged
+into a ``productbuild --resources`` directory and referenced from the distribution
+XML: Installer.app then shows it as a license page and asks the user to agree
+before the install can continue.
+
 Signing uses a **Developer ID Installer** identity (``PYAPPDIST_MACOS_INSTALLER_IDENTITY``
 env, taking precedence over ``installer-identity``) — a different certificate type from the Developer
 ID Application identity that signs the bundles themselves (:mod:`.sign`). Without
@@ -56,13 +61,21 @@ def distribution_xml(config: Config, pkg_filename: str) -> str:
 
     ``<domains enable_localSystem="true"/>`` fixes the install to the system domain
     of the boot volume (admin required); the home-directory domain is deliberately
-    not enabled. ``<allowed-os-versions>`` mirrors the bundles' ``min-macos``.
+    not enabled. ``<allowed-os-versions>`` mirrors the bundles' ``min-macos``. A
+    configured ``license`` adds ``<license file=.../>`` — the file itself is staged
+    into the ``--resources`` directory by :func:`build_pkg`, so only its basename is
+    referenced here.
     """
     pkg_id = package_identifier(config)
+    license_ = ""
+    if config.macos.license:
+        name = Path(config.macos.license).name
+        license_ = f"    <license file={quoteattr(name)}/>\n"
     return (
         '<?xml version="1.0" encoding="utf-8"?>\n'
         '<installer-gui-script minSpecVersion="2">\n'
         f"    <title>{escape(config.name)}</title>\n"
+        f"{license_}"
         '    <options customize="never" require-scripts="false"/>\n'
         '    <domains enable_localSystem="true"/>\n'
         "    <volume-check>\n"
@@ -173,6 +186,16 @@ def build_pkg(
         "--distribution", str(dist_xml),
         "--package-path", str(build_dir),
     ]
+    if config.macos.license:
+        license_src = (config.project_dir / config.macos.license).resolve()
+        if not license_src.is_file():
+            raise BuildError(
+                f"license file not found ([[tool.pyappdist.targets]].license): {license_src}"
+            )
+        resources_dir = build_dir / "resources"
+        resources_dir.mkdir()
+        shutil.copy2(license_src, resources_dir / license_src.name)
+        cmd += ["--resources", str(resources_dir)]
     identity = resolve_installer_identity(config)
     if identity:
         log(f"macos: signing pkg with Developer ID Installer identity {identity!r}")

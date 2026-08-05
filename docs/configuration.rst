@@ -432,8 +432,14 @@ Builds the same signed ``.app`` bundle(s) as ``macapp`` / ``dmg``, then wraps
 them in a system-scope ``dist/<name>-<version>.pkg`` that installs into
 ``/Applications`` (MDM-deployable). Native-only — build on a macOS host; the
 app-level ``identifier`` is **required**. All the ``macapp`` / ``dmg`` keys
-above apply unchanged, plus one key specific to ``pkg``. Details:
+above apply unchanged, plus two keys specific to ``pkg``. Details:
 :doc:`platforms/macos-pkg`.
+
+``license``
+   Path (relative to the project) to a license file — plain text (``.txt``),
+   RTF (``.rtf``), or HTML (``.html``). When set, Installer.app shows the file
+   as a license page and requires the user to agree before the install can
+   continue.
 
 ``installer-identity``
    A **Developer ID Installer** identity, e.g.

@@ -779,6 +779,47 @@ def test_pkg_installer_identity_default_none(tmp_path: Path):
     assert cfg.macos.installer_identity is None
 
 
+@pytest.mark.parametrize("filename", ["LICENSE.txt", "EULA.rtf", "legal/eula.html"])
+def test_pkg_license_parsed(tmp_path: Path, filename: str):
+    extra = f'license = "{filename}"\n'
+    cfg = load_configs(
+        _write_text(
+            tmp_path, _macos_app_pyproject("pkg", app_extra=_IDENT, target_extra=extra)
+        )
+    )[0]
+    assert cfg.macos.license == filename
+    # A pkg license never leaks into the MSI-side config.
+    assert cfg.wix.license is None
+
+
+def test_pkg_license_default_none(tmp_path: Path):
+    cfg = load_configs(_write_text(tmp_path, _macos_app_pyproject("pkg", app_extra=_IDENT)))[0]
+    assert cfg.macos.license is None
+
+
+def test_pkg_license_bad_extension(tmp_path: Path):
+    # RTFD bundles are directories, so only flat txt/rtf/html files are accepted.
+    extra = 'license = "LICENSE.rtfd"\n'
+    with pytest.raises(ConfigError, match=r"\.txt, \.rtf, or \.html"):
+        load_configs(
+            _write_text(
+                tmp_path, _macos_app_pyproject("pkg", app_extra=_IDENT, target_extra=extra)
+            )
+        )
+
+
+@pytest.mark.parametrize("fmt", ["msix", "macapp", "dmg"])
+def test_license_rejected_on_formats_without_license_page(tmp_path: Path, fmt: str):
+    if fmt == "msix":  # msix targets a windows platform, the bundle formats macOS
+        text = _BASE.format(fmt=fmt, app_extra="", target_extra='license = "EULA.rtf"\n')
+    else:
+        text = _macos_app_pyproject(
+            fmt, app_extra=_IDENT, target_extra='license = "EULA.rtf"\n'
+        )
+    with pytest.raises(ConfigError, match="license is only supported"):
+        load_configs(_write_text(tmp_path, text))
+
+
 def _icon_pyproject(icon_toml: str) -> str:
     # A windows/msi project whose single launcher carries the given `icon` value.
     return f"""

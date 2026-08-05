@@ -72,6 +72,17 @@ def test_distribution_xml_escapes_title():
     assert "<title>Tom &amp; Jerry &lt;LLC&gt;</title>" in xml
 
 
+def test_distribution_xml_no_license_by_default():
+    assert "<license" not in distribution_xml(_pkg_config(), "component.pkg")
+
+
+def test_distribution_xml_license_references_basename():
+    # build_pkg stages the file flat into the --resources directory, so the XML
+    # must reference it by basename even when the config path has directories.
+    xml = distribution_xml(_pkg_config(license="legal/EULA.rtf"), "component.pkg")
+    assert '<license file="EULA.rtf"/>' in xml
+
+
 def test_pin_bundle_locations():
     analyzed = plistlib.dumps(
         [
