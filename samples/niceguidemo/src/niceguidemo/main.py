@@ -157,7 +157,7 @@ def index() -> None:
 
 
 def main() -> None:
-    ui.run(title="World Weather", native=True)
+    ui.run(title="World Weather", native=True, reload=False)
 
 
 if __name__ in {"__main__", "__mp_main__"}:
