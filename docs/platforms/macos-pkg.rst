@@ -34,8 +34,14 @@ Configuration
 All the ``.app``-bundle keys from :doc:`macos-app` apply unchanged —
 ``min-macos``, ``category``, ``signing-identity``, ``team-id``,
 ``notary-profile``, ``entitlements``, and the per-launcher ``icon`` table —
-because the payload *is* the same ``.app`` bundle. One key is specific to
+because the payload *is* the same ``.app`` bundle. Two keys are specific to
 ``pkg``:
+
+``license``
+   Path (relative to the project) to a license file — plain text (``.txt``),
+   RTF (``.rtf``), or HTML (``.html``). When set, Installer.app shows the file
+   as a license page: the user must click *Agree* in the standard
+   agree/disagree prompt before the install can continue.
 
 ``installer-identity``
    A **Developer ID Installer** identity, e.g.
@@ -62,6 +68,7 @@ because the payload *is* the same ``.app`` bundle. One key is specific to
    name = "macos-arm-pkg"
    platform = "macos-aarch64"             # or "macos-x86_64" for Intel
    format = "pkg"
+   # license = "LICENSE.rtf"              # installer license page (.txt/.rtf/.html)
    # min-macos = "12.0"
    # signing-identity = "Developer ID Application: Your Name (TEAMID)"
    # installer-identity = "Developer ID Installer: Your Name (TEAMID)"

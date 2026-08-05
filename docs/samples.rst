@@ -90,5 +90,6 @@ All GUI samples use ``gui = true``, so the distribution launches via
    elsewhere) instead of per-target ``extras`` — each target resolves the marker
    for its own platform, so no target-level config is needed. Also ships a
    heavyweight torch / transformers stack, and is the sample that sets
-   ``license`` on its MSI target, showing the installer's license dialog. The
-   app is GPL-3.0-only, since the Linux build carries PyQt6/QtWebEngine.
+   ``license`` on its MSI and pkg targets, showing the installers' license
+   dialogs. The app is GPL-3.0-only, since the Linux build carries
+   PyQt6/QtWebEngine.

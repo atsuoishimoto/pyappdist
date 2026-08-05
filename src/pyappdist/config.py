@@ -207,9 +207,11 @@ class MacosConfig:
     a hardened runtime; with a ``notary-profile`` it is then notarized and stapled. With no
     identity the bundle is ad-hoc signed (runs locally, rejected by Gatekeeper elsewhere).
 
-    ``installer-identity`` applies to ``pkg`` only: a **Developer ID Installer** identity
-    (a different certificate type from Developer ID Application) that signs the ``.pkg``
-    itself via ``productbuild --sign``. Unset = the package is left unsigned.
+    ``installer-identity`` and ``license`` apply to ``pkg`` only: the former is a
+    **Developer ID Installer** identity (a different certificate type from Developer ID
+    Application) that signs the ``.pkg`` itself via ``productbuild --sign`` (unset = the
+    package is left unsigned); the latter is a license file Installer.app shows as a
+    license page with its standard agree/disagree prompt.
     """
 
     compression: str = "gzip"        # (.run) payload compression: "gzip" | "bzip2" | "xz"
@@ -222,6 +224,7 @@ class MacosConfig:
     category: str | None = None          # LSApplicationCategoryType
     # --- pkg ---
     installer_identity: str | None = None  # "Developer ID Installer: Name (TEAMID)"; None=unsigned
+    license: str | None = None       # optional path (relative to project_dir) to a license file
 
 
 @dataclass(frozen=True)
@@ -455,6 +458,12 @@ def _code_signable(fmt: str, target: Target) -> bool:
     return fmt in _CODE_SIGN_FORMATS or (fmt == "image" and target.os == "windows")
 
 
+# Formats whose installer shows a license page from the target-level `license` key:
+# MSI's one-page WixUI_Minimal dialog and the .pkg's Installer.app license pane
+# (which requires the user to agree before installing).
+_LICENSE_FORMATS = ("msi", "pkg")
+
+
 def _compiled_launcher(fmt: str, target: Target) -> bool:
     """Whether the target's launchers are native binaries (vs shell wrappers).
 
@@ -538,6 +547,13 @@ def _parse_targets(raw: object) -> list[_TargetSpec]:
                 f"platform {target.name!r}: its launchers are shell wrappers, not "
                 "compiled binaries"
             )
+        # The license key is shared by the two formats with an installer license page
+        # (msi and pkg); everywhere else it would be silently dead config.
+        if "license" in item and fmt not in _LICENSE_FORMATS:
+            raise ConfigError(
+                f"targets[{i}].license is only supported with format "
+                f"{' or '.join(repr(f) for f in _LICENSE_FORMATS)} (format is {fmt!r})"
+            )
         # allow-same-version-upgrades maps to WiX MajorUpgrade@AllowSameVersionUpgrades,
         # which is MSI-only; MSIX has no manifest equivalent, so it has no effect there.
         if fmt == "msix" and "allow-same-version-upgrades" in item:
@@ -549,8 +565,9 @@ def _parse_targets(raw: object) -> list[_TargetSpec]:
         specs.append(
             (
                 target_name, target, str(fmt),
-                _parse_wix(item, i), _parse_msix(item, i), _parse_extras(item, i),
-                _parse_linux(item, i), _parse_macos(item, i), no_launcher,
+                _parse_wix(item, i, str(fmt)), _parse_msix(item, i),
+                _parse_extras(item, i),
+                _parse_linux(item, i), _parse_macos(item, i, str(fmt)), no_launcher,
                 code_sign, _opt_str(item, "code-sign-command"), str(launcher_build),
             )
         )
@@ -565,7 +582,7 @@ def _parse_targets(raw: object) -> list[_TargetSpec]:
     return specs
 
 
-def _parse_wix(raw: dict, index: int) -> WixConfig:
+def _parse_wix(raw: dict, index: int, fmt: str) -> WixConfig:
     from .wix.guid import is_guid
 
     where = f"targets[{index}]"
@@ -577,7 +594,9 @@ def _parse_wix(raw: dict, index: int) -> WixConfig:
     scope = raw.get("scope", "user")
     if scope not in _WIX_SCOPES:
         raise ConfigError(f"{where}.scope must be one of {_WIX_SCOPES}: {scope!r}")
-    license_ = raw.get("license")
+    # The license key is format-dispatched: a pkg target's license belongs to
+    # MacosConfig (and is not RTF-only), so only msi picks it up here.
+    license_ = raw.get("license") if fmt == "msi" else None
     if license_ is not None and not str(license_).lower().endswith(".rtf"):
         raise ConfigError(f"{where}.license must be an .rtf file: {license_!r}")
     allow_same = raw.get("allow-same-version-upgrades", False)
@@ -630,7 +649,19 @@ def _parse_linux(raw: dict, index: int) -> LinuxConfig:
     )
 
 
-def _parse_macos(raw: dict, index: int) -> MacosConfig:
+# Installer.app renders the pkg license page by file type (RTFD bundles are
+# directories, so they are not supported here).
+_PKG_LICENSE_SUFFIXES = (".txt", ".rtf", ".html")
+
+
+def _parse_macos(raw: dict, index: int, fmt: str) -> MacosConfig:
+    # The license key is format-dispatched: only pkg stores it here (msi keeps
+    # its RTF license in WixConfig).
+    license_ = raw.get("license") if fmt == "pkg" else None
+    if license_ is not None and not str(license_).lower().endswith(_PKG_LICENSE_SUFFIXES):
+        raise ConfigError(
+            f"targets[{index}].license must be a .txt, .rtf, or .html file: {license_!r}"
+        )
     # xz is not preinstalled on macOS, so the default payload compression is gzip.
     return MacosConfig(
         compression=_compression(raw, index, "gzip"),
@@ -641,6 +672,7 @@ def _parse_macos(raw: dict, index: int) -> MacosConfig:
         entitlements=_opt_str(raw, "entitlements"),
         category=_opt_str(raw, "category"),
         installer_identity=_opt_str(raw, "installer-identity"),
+        license=str(license_) if license_ is not None else None,
     )
 
 

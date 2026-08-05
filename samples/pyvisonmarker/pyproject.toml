@@ -84,6 +84,7 @@ format = "dmg"                        # a signed/notarizable .app inside a .dmg
 name = "darwin-arm-pkg"
 platform = "macos-aarch64"
 format = "pkg"                        # a .pkg installer (installs the .app into /Applications)
+license = "LICENSE.rtf"               # Installer.app shows the GPL-3.0 text and asks to agree
 
 [[tool.pyappdist.targets]]
 name = "win32-image"
