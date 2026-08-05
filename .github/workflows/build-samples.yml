@@ -19,6 +19,10 @@ jobs:
             artifact: installers-windows
           - os: macos-14          # Apple Silicon (arm64) runner
             artifact: installers-macos-arm
+            # The macOS runners ship only ~14 GB of free disk, and the torch
+            # samples build a ~4 GB intermediates tree per target, so they run
+            # one at a time (the default below is 2).
+            max_jobs: 1
           - os: ubuntu-24.04-arm  # arm64 Linux runner
             artifact: installers-linux-arm
           - os: windows-11-arm    # arm64 Windows runner
@@ -160,7 +164,7 @@ jobs:
           PYAPPDIST_MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
           PYAPPDIST_MACOS_INSTALLER_IDENTITY: ${{ secrets.MACOS_INSTALLER_IDENTITY }}
           PYAPPDIST_MACOS_NOTARY_PROFILE: pyappdist-notary
-        run: uv run uv-matrix run --max-jobs 2 --matrix build-samples
+        run: uv run uv-matrix run --max-jobs ${{ matrix.max_jobs || 2 }} --matrix build-samples
 
       - name: Upload installers
         if: always()      # upload whatever built even if some cells failed

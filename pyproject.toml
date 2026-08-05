@@ -97,4 +97,9 @@ when = """
     or ((not is_arm) and ('arm' not in target)))
 """
 cwd = "samples/{{ project }}"
-run = "uvx --with ../.. pyappdist build {{ target }}"
+# Each target's intermediates tree is deleted as soon as its package is in
+# dist/: the torch samples build a ~4 GB tree per target and there are up to
+# four targets per OS, which otherwise fills a CI runner's disk (see
+# samples/clean_build.py). `&&` keeps the tree when the build fails, so a
+# failure is still debuggable.
+run = "uvx --with ../.. pyappdist build {{ target }} && python ../clean_build.py {{ target }}"
