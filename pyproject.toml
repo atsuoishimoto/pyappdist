@@ -102,4 +102,4 @@ cwd = "samples/{{ project }}"
 # four targets per OS, which otherwise fills a CI runner's disk (see
 # samples/clean_build.py). `&&` keeps the tree when the build fails, so a
 # failure is still debuggable.
-run = "echo '-- {{project}} {{target}}' && uvx --with ../.. pyappdist build {{ target }} && python ../clean_build.py {{ target }}"
+run = "echo -- {{project}} {{target}} && uvx --with ../.. pyappdist build {{ target }} && rm -rf .appdist-build/{{ target }}"

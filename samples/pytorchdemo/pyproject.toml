@@ -3,7 +3,7 @@ name = "pytorchdemo"
 version = "0.1.0"
 description = "PyTorch (CPU / CUDA 13) sample for pyappdist"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = "==3.12.*"
 dependencies = [
     "numpy>=2.4.6",
 ]
