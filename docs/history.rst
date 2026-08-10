@@ -23,6 +23,29 @@ bundled prebuilt stub and fails when this pyappdist installation bundles none
 (run ``pyappdist build-prebuilt`` once on a source checkout); ``"source"``
 always compiles with MSVC / clang.
 
+**MSIX launchers can be run from the command line.** A new msix target key
+``app-execution-alias`` (default false) declares an App Execution Alias
+(``<launcher>.exe``) for every launcher in the generated manifest, so each
+launcher can be started by name after install — the MSIX counterpart of
+MSI's ``add-to-path``.
+
+**The macOS pkg installer can show a license page.** A new pkg-only
+``license`` target key (a ``.txt`` / ``.rtf`` / ``.html`` file) is shown by
+Installer.app as a license page the user must agree to before installing.
+The target-level ``license`` key is now format-dispatched: msi keeps its RTF
+EULA, pkg takes the new key, and any other format rejects it with an error
+instead of silently ignoring it.
+
+**New environment variable ``PYAPPDIST_BUILD_DIR``.** It supplies the
+build-intermediates directory when ``--build-dir`` is not given, for both the
+pipeline commands and ``build-prebuilt`` (which also gains its own
+``--build-dir`` option); an explicit ``--build-dir`` still wins.
+
+**MSI builds no longer leave staging files in the project directory.** The
+license RTF and product icon are now staged into the build directory instead
+of being copied next to ``pyproject.toml``, which also lets two MSI targets
+of one project build concurrently.
+
 0.11.0
 ------
 
