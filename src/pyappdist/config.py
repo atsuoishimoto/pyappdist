@@ -174,6 +174,9 @@ class MsixConfig:
     publisher: str | None = None      # MSIX Identity/Publisher DN (default: CN=<manufacturer>)
     display_name: str | None = None   # default: app display name
     logo: str | None = None           # path (relative to project_dir) to a source PNG
+    # Declare an App Execution Alias ("<launcher>.exe") for every launcher, so each can
+    # be started from a command line by name (the MSIX counterpart of MSI add-to-path).
+    app_execution_alias: bool = False
 
 
 @dataclass(frozen=True)
@@ -621,11 +624,18 @@ def _parse_msix(raw: dict, index: int) -> MsixConfig:
     logo = raw.get("logo")
     if logo is not None and not str(logo).lower().endswith(".png"):
         raise ConfigError(f"targets[{index}].logo must be a .png file: {logo!r}")
+    app_execution_alias = raw.get("app-execution-alias", False)
+    if not isinstance(app_execution_alias, bool):
+        raise ConfigError(
+            f"targets[{index}].app-execution-alias must be a boolean: "
+            f"{app_execution_alias!r}"
+        )
     return MsixConfig(
         identity_name=raw.get("identity-name"),
         publisher=raw.get("publisher"),
         display_name=raw.get("display-name"),
         logo=str(logo) if logo is not None else None,
+        app_execution_alias=app_execution_alias,
     )
 
 

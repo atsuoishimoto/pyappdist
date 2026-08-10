@@ -332,6 +332,11 @@ Store signs it on submission). Details: :doc:`platforms/windows-msix`.
    Path to a source ``.png`` used for the package logos. A placeholder is
    generated if omitted.
 
+``app-execution-alias``
+   Declare an App Execution Alias (``<launcher>.exe``) for every launcher, so
+   each can be started from a command line by name (default: ``false``) — the
+   MSIX counterpart of the MSI ``add-to-path`` key.
+
 ``code-sign`` / ``code-sign-command``
    Sign the launcher ``.exe``\ s and the ``.msix`` yourself instead of relying
    on the Store — see :ref:`Windows code signing <config-win-code-sign>`.
