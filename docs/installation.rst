@@ -34,9 +34,10 @@ Each format is built on its own OS.
 **A C compiler is optional.** Released pyappdist wheels bundle prebuilt
 launcher stubs that the build configures per app, so the compiled launchers
 (the Windows ``.exe``\ s and the macOS ``.app`` stub) need no compiler. MSVC /
-``clang`` are used only as a fallback when no stub is bundled (e.g. pyappdist
-installed from a git checkout) or when a target opts into
-``launcher-build = "source"`` — see the ``launcher-build`` target key.
+``clang`` are needed only when a target opts into
+``launcher-build = "source"``. A pyappdist installed from a git checkout
+bundles no stubs — run ``pyappdist build-prebuilt`` once, or use source
+builds. See the ``launcher-build`` target key.
 
 Package manager (for dependency pinning)
 ----------------------------------------

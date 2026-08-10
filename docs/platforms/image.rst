@@ -21,8 +21,8 @@ Build requirements
 
 The same as building the image for that platform. Launchers follow the target
 OS: a Windows target gets the usual ``.exe`` launchers (the bundled prebuilt
-stubs, or an MSVC build as fallback — see the ``launcher-build`` target key —
-unless ``no-launcher`` is set), while Linux/macOS targets get the same
+stubs, or an MSVC build with ``launcher-build = "source"`` — unless
+``no-launcher`` is set), while Linux/macOS targets get the same
 relocatable shell-wrapper launchers as the ``.run`` installer (no toolchain).
 The Windows launcher ``.exe`` files are code-signed when the target sets
 ``code-sign = true`` (or ``--code-sign`` is passed to ``pyappdist build``), with

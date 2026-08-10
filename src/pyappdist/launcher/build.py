@@ -2,7 +2,7 @@
 
 Two paths produce the same result:
 
-* **prebuilt** (the default when a stub is bundled): copy the compiler-less
+* **prebuilt** (the default): copy the compiler-less
   prebuilt stub and give it its per-app config — patched in as Windows
   resources (config blob, icon, VERSIONINFO; applied by ``patch_resources.py``
   run with the image's ``python.exe``) or written as a sidecar JSON next to
@@ -11,7 +11,7 @@ Two paths produce the same result:
   target architecture + cl.exe, invoked from WSL via cmd.exe, with a generated
   config header) or ``launcher_mac.c`` with clang.
 
-The ``launcher-build`` target key ("auto"/"prebuilt"/"source") picks between them.
+The ``launcher-build`` target key ("prebuilt"/"source") picks between them.
 """
 
 from __future__ import annotations
@@ -105,7 +105,7 @@ def build_launchers(config: Config, layout: ImageLayout, workdir: Path, *, log=p
     out: list[Path] = []
     for spec in config.launchers:
         stub = windows_stub(config.target, spec.gui)
-        if _use_prebuilt(config, stub, log):
+        if _use_prebuilt(config, stub):
             out.append(_patch_prebuilt_windows(config, spec, layout, stub, workdir, log))
             continue
         if vcvars is None:
@@ -128,34 +128,28 @@ def build_macos_launchers(
     stub = macos_stub()
     out: list[Path] = []
     for spec in config.launchers:
-        if _use_prebuilt(config, stub, log):
+        if _use_prebuilt(config, stub):
             out.append(_prebuilt_one_macos(config, spec, layout, log))
         else:
             out.append(_build_one_macos(config, spec, layout, workdir, log))
     return out
 
 
-def _use_prebuilt(config: Config, stub: Path, log) -> bool:
+def _use_prebuilt(config: Config, stub: Path) -> bool:
     """Whether to use the prebuilt stub, per the target's ``launcher-build`` key.
 
-    "auto" (the default) prefers the prebuilt stub whenever this pyappdist
-    install bundles one, falling back to a source build; "prebuilt" requires
-    the stub; "source" always compiles.
+    "prebuilt" (the default) requires the bundled stub; "source" always
+    compiles.
     """
-    setting = config.launcher_build
-    if setting == "source":
+    if config.launcher_build == "source":
         return False
     if stub.is_file():
         return True
-    if setting == "prebuilt":
-        raise BuildError(
-            f'launcher-build = "prebuilt", but this pyappdist installation does not '
-            f"bundle a prebuilt launcher for the target ({stub.name}); install a "
-            "released wheel, run `pyappdist build-prebuilt`, or use "
-            'launcher-build = "source"'
-        )
-    log(f"launcher: no prebuilt stub ({stub.name}); compiling from source")
-    return False
+    raise BuildError(
+        f"this pyappdist installation does not bundle a prebuilt launcher for "
+        f"the target ({stub.name}); install a released wheel, run "
+        '`pyappdist build-prebuilt`, or use launcher-build = "source"'
+    )
 
 
 def _patch_prebuilt_windows(

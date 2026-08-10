@@ -2,7 +2,7 @@
 
 Released wheels bundle compiler-less launcher stubs under
 ``resources/prebuilt/`` — one Windows ``.exe`` per (architecture, subsystem)
-and one universal macOS Mach-O. ``build-launchers`` prefers them (see
+and one universal macOS Mach-O. ``build-launchers`` uses them by default (see
 ``launcher-build``) and gives each copy its per-app config without invoking a
 compiler. The stubs themselves are compiled by ``pyappdist build-prebuilt``,
 run on a Windows (or WSL + Visual Studio) host and on a macOS host — locally

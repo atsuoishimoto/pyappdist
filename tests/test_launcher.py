@@ -159,22 +159,15 @@ def test_macos_fixed_args_empty():
 
 def test_use_prebuilt_modes(sample_config: Config, tmp_path: Path):
     stub = tmp_path / "stub.exe"
-    logs: list[str] = []
 
-    # auto: prefer the stub when bundled, fall back (with a note) when not.
-    assert launcher_build._use_prebuilt(sample_config, stub, logs.append) is False
-    assert any("compiling from source" in m for m in logs)
+    # prebuilt (the default): the bundled stub is required.
+    with pytest.raises(BuildError, match="bundle a prebuilt launcher"):
+        launcher_build._use_prebuilt(sample_config, stub)
     stub.write_bytes(b"MZ")
-    assert launcher_build._use_prebuilt(sample_config, stub, logs.append) is True
+    assert launcher_build._use_prebuilt(sample_config, stub) is True
 
     source = dataclasses.replace(sample_config, launcher_build="source")
-    assert launcher_build._use_prebuilt(source, stub, logs.append) is False
-
-    required = dataclasses.replace(sample_config, launcher_build="prebuilt")
-    assert launcher_build._use_prebuilt(required, stub, logs.append) is True
-    stub.unlink()
-    with pytest.raises(BuildError, match="bundle a prebuilt launcher"):
-        launcher_build._use_prebuilt(required, stub, logs.append)
+    assert launcher_build._use_prebuilt(source, stub) is False
 
 
 class _CapturedRun:

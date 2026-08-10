@@ -427,12 +427,12 @@ code-sign = true
         load_configs(_write_text(tmp_path, text))
 
 
-def test_launcher_build_default_auto(tmp_path: Path):
-    assert load_configs(_write(tmp_path))[0].launcher_build == "auto"
+def test_launcher_build_default_prebuilt(tmp_path: Path):
+    assert load_configs(_write(tmp_path))[0].launcher_build == "prebuilt"
 
 
 def test_launcher_build_parsed(tmp_path: Path):
-    for value in ("auto", "prebuilt", "source"):
+    for value in ("prebuilt", "source"):
         cfg = load_configs(
             _write(tmp_path, target_extra=f'launcher-build = "{value}"')
         )[0]

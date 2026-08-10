@@ -18,9 +18,10 @@ resources, or a sidecar JSON sealed into the ``.app`` — so MSVC / clang are
 no longer required to build msi / msix / macapp / dmg / pkg / Windows image
 targets.
 
-**New target key ``launcher-build``.** ``"auto"`` (default) uses the bundled
-prebuilt stub and falls back to a source build; ``"prebuilt"`` requires the
-stub; ``"source"`` always compiles with MSVC / clang.
+**New target key ``launcher-build``.** ``"prebuilt"`` (default) uses the
+bundled prebuilt stub and fails when this pyappdist installation bundles none
+(run ``pyappdist build-prebuilt`` once on a source checkout); ``"source"``
+always compiles with MSVC / clang.
 
 0.11.0
 ------
