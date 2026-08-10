@@ -1,6 +1,6 @@
 [project]
 name = "pyappdist"
-version = "0.11.0"
+version = "0.12.0"
 description = "Build native installers for Python apps from pyproject.toml — Windows MSI/MSIX, macOS PKG/DMG/.app, Linux self-extracting"
 readme = "README.md"
 # 3.11.4+ because tarfile's extractall(filter=...) kwarg (used by runtime

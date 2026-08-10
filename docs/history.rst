@@ -4,7 +4,7 @@ Release history
 0.12.0
 ------
 
-(not yet)
+2026/08/11
 
 **Windows apps keep their own icon while running.** A launcher with a Windows
 icon now starts a copy of the interpreter carrying that icon, so the app's
@@ -18,7 +18,7 @@ resources, or a sidecar JSON sealed into the ``.app`` — so MSVC / clang are
 no longer required to build msi / msix / macapp / dmg / pkg / Windows image
 targets.
 
-**New target key ``launcher-build``.** ``"prebuilt"`` (default) uses the
+**New target key launcher-build.** ``"prebuilt"`` (default) uses the
 bundled prebuilt stub and fails when this pyappdist installation bundles none
 (run ``pyappdist build-prebuilt`` once on a source checkout); ``"source"``
 always compiles with MSVC / clang.
@@ -36,15 +36,11 @@ The target-level ``license`` key is now format-dispatched: msi keeps its RTF
 EULA, pkg takes the new key, and any other format rejects it with an error
 instead of silently ignoring it.
 
-**New environment variable ``PYAPPDIST_BUILD_DIR``.** It supplies the
+**New environment variable PYAPPDIST_BUILD_DIR.** It supplies the
 build-intermediates directory when ``--build-dir`` is not given, for both the
 pipeline commands and ``build-prebuilt`` (which also gains its own
 ``--build-dir`` option); an explicit ``--build-dir`` still wins.
 
-**MSI builds no longer leave staging files in the project directory.** The
-license RTF and product icon are now staged into the build directory instead
-of being copied next to ``pyproject.toml``, which also lets two MSI targets
-of one project build concurrently.
 
 0.11.0
 ------
