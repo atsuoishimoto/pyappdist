@@ -34,6 +34,7 @@ name = "win32-store"
 platform = "windows-x86_64"
 format = "msix"
 manufacturer = "Example Inc."
+app-execution-alias = true
 
 [[tool.pyappdist.targets]]
 name = "linux"
@@ -89,6 +90,7 @@ name = "win32-arm-store"
 platform = "windows-arm64"
 format = "msix"
 manufacturer = "Example Inc."
+app-execution-alias = true
 
 [[tool.pyappdist.targets]]
 name = "win32-arm-image"

@@ -72,6 +72,14 @@ Configuration
    Path to a source ``.png`` used for the package logos (the one image is
    scaled into every logo slot). A placeholder is generated if omitted.
 
+``app-execution-alias``
+   Declare an *App Execution Alias* for every launcher (default: ``false``).
+   With ``app-execution-alias = true`` each launcher can be started from a
+   command line by its name (e.g. ``myapp``) after the package is installed —
+   the MSIX counterpart of the :doc:`MSI <windows-msi>` ``add-to-path`` key. The
+   alias is the launcher ``name`` plus ``.exe``; users can toggle individual
+   aliases in Settings → Apps → Advanced app settings → App execution aliases.
+
 ``code-sign`` / ``code-sign-command``
    Sign the launcher ``.exe``\ s and the ``.msix`` (default: unsigned).
    Needed only for :ref:`sideloading <msix-sideload>`; works exactly as for
@@ -88,6 +96,7 @@ Configuration
    # publisher = "CN=Contoso"
    # display-name = "My App"
    # logo = "assets/logo.png"
+   # app-execution-alias = true        # run launchers by name from a command line
    # code-sign = true                  # only for sideloading outside the Store
 
 .. _msix-install:

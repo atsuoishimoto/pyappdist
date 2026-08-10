@@ -15,6 +15,8 @@ from ..errors import ConfigError
 
 FOUNDATION = "http://schemas.microsoft.com/appx/manifest/foundation/windows10"
 UAP = "http://schemas.microsoft.com/appx/manifest/uap/windows10"
+UAP3 = "http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+DESKTOP = "http://schemas.microsoft.com/appx/manifest/desktop/windows10"
 RESCAP = "http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
 
 # Asset paths referenced from the manifest (staged into the image by msix/build.py).
@@ -40,6 +42,8 @@ def generate_manifest(config: Config) -> str:
 
     ET.register_namespace("", FOUNDATION)
     ET.register_namespace("uap", UAP)
+    ET.register_namespace("uap3", UAP3)
+    ET.register_namespace("desktop", DESKTOP)
     ET.register_namespace("rescap", RESCAP)
 
     pkg = ET.Element(f"{{{FOUNDATION}}}Package")
@@ -75,6 +79,16 @@ def generate_manifest(config: Config) -> str:
              BackgroundColor="transparent",
              Square150x150Logo=SQUARE150_LOGO,
              Square44x44Logo=SQUARE44_LOGO)
+        if config.msix.app_execution_alias:
+            # App Execution Alias: lets the launcher be started from a command line
+            # by name. The Alias value must end with ".exe".
+            exts = _sub(app, FOUNDATION, "Extensions")
+            ext = _sub(exts, UAP3, "Extension",
+                       Category="windows.appExecutionAlias",
+                       Executable=f"{spec.name}.exe",
+                       EntryPoint="Windows.FullTrustApplication")
+            alias = _sub(ext, UAP3, "AppExecutionAlias")
+            _sub(alias, DESKTOP, "ExecutionAlias", Alias=f"{spec.name}.exe")
 
     ET.indent(pkg, space="  ")
     body = ET.tostring(pkg, encoding="unicode")

@@ -40,6 +40,20 @@ def test_manifest_overrides(sample_config):
     assert "<DisplayName>My App</DisplayName>" in xml
 
 
+def test_manifest_no_app_execution_alias_by_default(sample_config):
+    xml = generate_manifest(_msix(sample_config))
+    assert "windows.appExecutionAlias" not in xml
+
+
+def test_manifest_app_execution_alias(sample_config):
+    xml = generate_manifest(_msix(sample_config, app_execution_alias=True))
+    assert 'Category="windows.appExecutionAlias"' in xml
+    assert 'Executable="helloworld.exe"' in xml
+    assert '<desktop:ExecutionAlias Alias="helloworld.exe" />' in xml
+    assert 'xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"' in xml
+    assert 'xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"' in xml
+
+
 def test_manifest_default_publisher_escapes_rdn(sample_config):
     # "Acme, Inc." must become one escaped RDN value, not parse as two RDNs.
     cfg = dataclasses.replace(
