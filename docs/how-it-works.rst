@@ -92,8 +92,8 @@ The pipeline
 #. **Launcher.** One launcher per ``[[tool.pyappdist.launchers]]`` entry. On
    Windows it is a small C stub (``launcher.exe``); for a macOS ``.app`` it is
    a Mach-O stub. Both normally come from prebuilt stubs bundled with
-   pyappdist and configured per app without a compiler (MSVC / clang are only
-   a fallback — see the ``launcher-build`` target key); for Linux and the
+   pyappdist and configured per app without a compiler (MSVC / clang are used
+   only with ``launcher-build = "source"``); for Linux and the
    macOS ``.run`` the launcher is a relocatable shell wrapper. Either way it
    starts the bundled interpreter and runs your entry point.
 

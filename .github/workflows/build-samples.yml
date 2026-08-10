@@ -150,6 +150,14 @@ jobs:
             --team-id "$NOTARY_TEAM_ID" \
             --password "$NOTARY_PASSWORD"
 
+      # The samples build from this git checkout, which bundles no prebuilt
+      # stubs; build them first so the "prebuilt" default works. With no
+      # selection, build-prebuilt builds what the host's toolchain can and
+      # skips the rest, so the step is safe on every runner.
+      - name: Build prebuilt launcher stubs
+        if: runner.os != 'Linux'
+        run: uv run pyappdist build-prebuilt
+
       - name: Build samples
         env:
           # Windows signing command; it takes effect only for targets that enable

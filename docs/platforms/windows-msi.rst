@@ -31,8 +31,9 @@ Build requirements
 * **Optional — MSVC C++ build tools** (``cl.exe`` / ``rc.exe``), for launcher
   source builds only. Released pyappdist wheels bundle prebuilt launcher
   stubs that the build configures per app without a compiler; MSVC is used
-  only when no stub is bundled (e.g. pyappdist installed from a git checkout)
-  or with ``launcher-build = "source"``. Located automatically via
+  only with ``launcher-build = "source"`` (a pyappdist installed from a git
+  checkout bundles no stubs — run ``pyappdist build-prebuilt`` once, or use
+  source builds). Located automatically via
   ``vswhere``; no need to put ``cl.exe`` on ``PATH``.
 
 If you don't have the toolchain yet, install it with ``winget`` from an

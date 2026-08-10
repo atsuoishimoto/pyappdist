@@ -203,10 +203,11 @@ under :ref:`Output formats <config-formats>` below.
    ``image`` on Windows platforms (elsewhere the launchers are shell wrappers
    and the key is rejected):
 
-   * ``"auto"`` (default) — use the prebuilt launcher stub bundled with
-     pyappdist when present (released wheels bundle stubs for every supported
-     target, so **no C compiler is needed**), else compile from source.
-   * ``"prebuilt"`` — require the bundled stub; fail rather than compile.
+   * ``"prebuilt"`` (default) — use the prebuilt launcher stub bundled with
+     pyappdist (released wheels bundle stubs for every supported target, so
+     **no C compiler is needed**). When this pyappdist installation bundles no
+     stub for the target (e.g. a git checkout), the build fails — run
+     ``pyappdist build-prebuilt`` once, or use ``"source"``.
    * ``"source"`` — always compile the launcher with MSVC / clang.
 
    A prebuilt launcher is byte-identical to a source-built one in behavior:

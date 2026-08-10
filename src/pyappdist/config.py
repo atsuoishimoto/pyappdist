@@ -63,7 +63,7 @@ _BUNDLE_FORMATS = ("macapp", "dmg", "pkg")
 #   auto     - use the bundled prebuilt stub when present, else compile (default)
 #   prebuilt - require the prebuilt stub (fail rather than compile)
 #   source   - always compile with MSVC / clang
-_LAUNCHER_BUILDS = ("auto", "prebuilt", "source")
+_LAUNCHER_BUILDS = ("prebuilt", "source")
 
 # reverse-DNS CFBundleIdentifier (e.g. "com.example.myapp"); required for macapp/dmg/pkg targets.
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
@@ -262,7 +262,7 @@ class Config:
     code_sign_command: str | None = None
     # How to produce the compiled launchers (one of _LAUNCHER_BUILDS); only
     # meaningful on formats with a native launcher binary.
-    launcher_build: str = "auto"
+    launcher_build: str = "prebuilt"
     # Skip launcher generation entirely (image format only): the archive then contains
     # just the installed tree, for apps that ship their own entry mechanism.
     no_launcher: bool = False
@@ -538,7 +538,7 @@ def _parse_targets(raw: object) -> list[_TargetSpec]:
                 f"(supported: {', '.join(_CODE_SIGN_FORMATS)}, and image on Windows "
                 "platforms)"
             )
-        launcher_build = item.get("launcher-build", "auto")
+        launcher_build = item.get("launcher-build", "prebuilt")
         if launcher_build not in _LAUNCHER_BUILDS:
             raise ConfigError(
                 f"targets[{i}].launcher-build must be one of {_LAUNCHER_BUILDS}: "
