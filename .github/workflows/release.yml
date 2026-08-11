@@ -1,16 +1,40 @@
 name: Release
 
-# Manually (workflow_dispatch) produce a release: compile the prebuilt launcher
-# stubs on native Windows/macOS runners, run an E2E smoke test that uses them
-# (the helloworld sample), build the wheel + sdist with the stubs bundled, and
-# create the GitHub release (tag <version> from pyproject.toml, no "v" prefix,
-# matching the existing tags) with those files attached. Publishing to PyPI is
-# the separate manual publish.yml, which uploads the release's files as-is.
+# Manually (workflow_dispatch) attach release files to an existing GitHub
+# release: compile the prebuilt launcher stubs on native Windows/macOS
+# runners, run an E2E smoke test that uses them (the helloworld sample),
+# build the wheel + sdist with the stubs bundled, and upload those files as
+# assets to the existing release for tag <version> from pyproject.toml (no
+# "v" prefix, matching the existing tags). The release must already exist —
+# checked up front, before the build jobs run — and its title/notes are left
+# untouched. Publishing to PyPI is the separate manual publish.yml, which
+# uploads the release's files as-is.
 on:
   workflow_dispatch:
 
 jobs:
+  # Fail fast when no release exists for the version in pyproject.toml, so
+  # the expensive Windows/macOS build jobs never start.
+  check-release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read version from pyproject.toml
+        id: version
+        run: |
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check the release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release view "${{ steps.version.outputs.version }}"
+
   prebuilt-windows:
+    needs: check-release
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -64,6 +88,7 @@ jobs:
           if-no-files-found: error
 
   prebuilt-macos:
+    needs: check-release
     runs-on: macos-26   # Apple Silicon; the stub is universal (arm64 + x86_64)
     steps:
       - uses: actions/checkout@v7
@@ -95,10 +120,10 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [prebuilt-windows, prebuilt-macos]
+    needs: [check-release, prebuilt-windows, prebuilt-macos]
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # create the release + tag
+      contents: write   # upload release assets
     steps:
       - uses: actions/checkout@v7
 
@@ -122,10 +147,9 @@ jobs:
           unzip -l dist/*.whl | grep resources/prebuilt/
           test "$(unzip -l dist/*.whl | grep -c 'resources/prebuilt/launcher-')" -eq 5
 
-      - name: Create GitHub release
+      # Only attach the assets (--clobber replaces same-named ones on a
+      # re-run); the release's tag, title, and notes stay as they are.
+      - name: Upload release assets
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          version=$(uv run python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
-          gh release create "$version" dist/* \
-            --target "$GITHUB_SHA" --title "$version" --generate-notes
+        run: gh release upload "${{ needs.check-release.outputs.version }}" dist/* --clobber
