@@ -20,6 +20,10 @@ identifier = "com.example.helloworld"   # CFBundleIdentifier, required for macap
 
 launchers = [
   { name = "helloworld", entry = "helloworld:main", gui = false, icon = { macos = "assets/helloworld.png" } },
+  # app-entry = false: installed (and runnable from the command line) but not in
+  # the Start Menu / Launchpad — on macOS it is embedded into the Hello World
+  # bundle instead of getting a .app of its own.
+  { name = "hellocli", entry = "helloworld:main", gui = false, app-entry = false },
 ]
 
 [[tool.pyappdist.targets]]

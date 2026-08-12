@@ -134,7 +134,8 @@ def write_launchers(
     when archiving a Linux/macOS image tree.
 
     Returns ``(name, gui, icon_filename)`` per launcher; ``icon_filename`` is empty when the
-    launcher has no icon or ``desktop`` is disabled (then the installer writes no .desktop).
+    launcher has no icon, sets ``app-entry = false``, or ``desktop`` is disabled (then the
+    installer writes no .desktop).
     """
     records: list[tuple[str, bool, str]] = []
     for spec in config.launchers:
@@ -144,7 +145,9 @@ def write_launchers(
 
         icon_name = ""
         icon_rel = spec.icon_for("linux")
-        if desktop and icon_rel:
+        # app-entry = false suppresses the .desktop entry (and the icon staged
+        # only for it); the bin symlink is written by the installer regardless.
+        if desktop and icon_rel and spec.app_entry:
             src = (config.project_dir / icon_rel).resolve()
             if not src.is_file():
                 raise BuildError(f"launcher icon not found ({spec.name}): {src}")

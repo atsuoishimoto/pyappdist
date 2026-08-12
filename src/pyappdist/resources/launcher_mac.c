@@ -10,7 +10,8 @@
  * twofold: python's -I (=-E -s) plus scrubbing PYTHON* from the environment.
  *
  * App-specific values come from a sidecar JSON at
- * <bundle>/Contents/Resources/pyappdist-launcher.json (written by the build
+ * <bundle>/Contents/Resources/<name>.launcher.json — named after this
+ * executable, so several launchers can share one bundle (written by the build
  * pipeline next to a prebuilt stub, and sealed by the bundle's code signature);
  * a source-built launcher embeds them via a generated header instead, and the
  * sidecar, when present, wins.
@@ -38,8 +39,11 @@
 #define PYAPPDIST_FIXED_ARGS { NULL }
 #endif
 
-/* Sidecar config path, relative to the directory of this executable. */
-#define CONFIG_REL "../Resources/pyappdist-launcher.json"
+/* Sidecar config paths, relative to the directory of this executable. The
+   per-executable name is tried first; the fixed legacy name is a fallback for
+   bundles assembled by pyappdist versions that wrote only that name. */
+#define CONFIG_REL_FMT "../Resources/%s.launcher.json"
+#define CONFIG_REL_LEGACY "../Resources/pyappdist-launcher.json"
 
 /* Refuse configs larger than this (a valid one is a few KB at most). */
 #define CONFIG_MAX (4 * 1024 * 1024)
@@ -232,11 +236,12 @@ struct config {
     char **args; /* NULL-terminated */
 };
 
-/* Load CONFIG_REL relative to `dir` into `cfg`. Returns 1 on success; on any
-   failure returns 0 with `cfg` untouched-or-freed (caller falls back). */
-static int load_config(const char *dir, struct config *cfg) {
+/* Load the sidecar at `rel` (relative to `dir`) into `cfg`. Returns 1 on
+   success; on any failure returns 0 with `cfg` untouched-or-freed (caller
+   falls back). */
+static int load_config_at(const char *dir, const char *rel, struct config *cfg) {
     char path[PATH_MAX];
-    if (snprintf(path, sizeof(path), "%s/%s", dir, CONFIG_REL) >= (int)sizeof(path))
+    if (snprintf(path, sizeof(path), "%s/%s", dir, rel) >= (int)sizeof(path))
         return 0;
     FILE *f = fopen(path, "rb");
     if (!f)
@@ -345,6 +350,16 @@ done:
     return 1;
 }
 
+/* Load this executable's sidecar config: "<base>.launcher.json" first (several
+   launchers can share one bundle), then the fixed legacy name. */
+static int load_config(const char *dir, const char *base, struct config *cfg) {
+    char rel[PATH_MAX];
+    if (snprintf(rel, sizeof(rel), CONFIG_REL_FMT, base) < (int)sizeof(rel) &&
+        load_config_at(dir, rel, cfg))
+        return 1;
+    return load_config_at(dir, CONFIG_REL_LEGACY, cfg);
+}
+
 /* Remove every PYTHON* variable from the environment (belt-and-suspenders to -I).
  * Names are gathered first, then unset, because unsetenv() mutates environ. */
 static void scrub_python_env(void) {
@@ -381,19 +396,25 @@ int main(int argc, char **argv) {
         fprintf(stderr, "pyappdist launcher: realpath(%s) failed\n", exe);
         return 125;
     }
+    /* Split into directory + basename; both halves live in `self` (realpath
+       already resolved any /usr/local/bin symlink to the bundle-internal name,
+       which is what the sidecar is named after). */
     char *slash = strrchr(self, '/');
-    if (slash)
+    const char *base = self;
+    if (slash) {
         *slash = '\0';
+        base = slash + 1;
+    }
 
     /* 2. load the sidecar config; fall back to the compiled-in values. */
     struct config cfg;
-    int have_cfg = load_config(self, &cfg);
+    int have_cfg = load_config(self, base, &cfg);
     if (!have_cfg) {
 #ifdef PYAPPDIST_REQUIRE_CONFIG
         /* A prebuilt stub without its sidecar: the compiled-in defaults are
            placeholders, so running would silently do nothing. */
         fprintf(stderr, "pyappdist launcher: missing or invalid configuration "
-                        "(%s)\n", CONFIG_REL);
+                        "(" CONFIG_REL_FMT ")\n", base);
         return 125;
 #endif
     }

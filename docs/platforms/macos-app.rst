@@ -26,7 +26,9 @@ The bundle layout is the real install tree, unchanged: the python-build-standalo
 runtime with your app pip-installed lands in ``Contents/Resources/python``, and a tiny
 Mach-O launcher at ``Contents/MacOS/<name>`` ``execv``\ s the bundled interpreter. With
 several launchers you get one ``.app`` each (a bundle has exactly one executable), all
-packed into a single ``.dmg``.
+packed into a single ``.dmg`` — except launchers with ``app-entry = false`` (see
+:ref:`[[tool.pyappdist.launchers]] <config-launchers>`), whose executable is embedded
+into the first visible launcher's bundle instead of producing an ``.app`` of its own.
 
 Build requirements
 ------------------

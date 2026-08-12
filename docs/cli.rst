@@ -115,6 +115,31 @@ or compiled with MSVC / clang when the target sets
 ``launcher-build = "source"``. For ``linux`` and ``macos`` (``.run``) the launcher is a shell
 wrapper written during packaging, so this command is a no-op.
 
+.. _cli-build-prebuilt:
+
+``build-prebuilt``
+~~~~~~~~~~~~~~~~~~
+
+Compile the prebuilt launcher stubs that released wheels normally bundle, into
+this pyappdist installation's ``resources/prebuilt/`` (or ``--out``). A
+development/release tool, not a pipeline stage: run it once when using
+pyappdist from a source checkout — which bundles no stubs — and subsequent
+builds take the default ``launcher-build = "prebuilt"`` path with no C
+compiler needed at app-build time.
+
+Positional arguments select what to build: ``windows-x86_64`` /
+``windows-arm64`` (a console + gui ``.exe`` pair each; needs a Windows host,
+or WSL with Visual Studio) and ``macos`` (one universal Mach-O; needs a macOS
+host). With no selection, everything the host's toolchain can produce is
+built and the rest is skipped with a note; naming an unbuildable selector is
+an error. ``--build-dir`` overrides where intermediates go (``$PYAPPDIST_BUILD_DIR``,
+else ``<out>/.build``; on WSL it must be on a Windows volume).
+
+.. code-block:: bash
+
+   uv run pyappdist build-prebuilt          # everything this host can build
+   uv run pyappdist build-prebuilt macos    # just the universal macOS stub
+
 ``gen-wix``
 ~~~~~~~~~~~
 

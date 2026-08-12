@@ -10,6 +10,24 @@ Release history
 produces ``My App.exe`` (or ``My App`` on Linux/macOS); tabs, newlines, and a
 leading or trailing space are still rejected.
 
+**Launchers can opt out of the OS application list.** A new launcher key
+``app-entry`` (default ``true``) keeps the executable — and any App Execution
+Alias, ``PATH`` entry, or ``bin`` symlink — but registers no visible app
+entry when ``false``: no MSI Start Menu shortcut, an MSIX Application hidden
+from the app list (``AppListEntry="none"``), no Linux ``.desktop`` entry, and
+on the macOS bundle formats no ``.app`` of its own — the executable is
+embedded into the first visible launcher's bundle (a ``pkg`` still symlinks
+non-gui launchers into ``/usr/local/bin``). Meant for the CLI companion of a
+GUI app.
+
+**macOS sidecar configs are per-executable.** The prebuilt stub now looks up
+``Contents/Resources/<name>.launcher.json`` by its own executable name
+(falling back to the old fixed ``pyappdist-launcher.json``), so several
+launchers can share one bundle.
+
+**build-prebuilt is documented.** The CLI page now covers compiling the
+prebuilt launcher stubs from a source checkout.
+
 
 0.12.0
 ------

@@ -3,9 +3,18 @@
 from __future__ import annotations
 
 import dataclasses
+import xml.etree.ElementTree as ET
 
 from pyappdist.config import MsixConfig, WixConfig
-from pyappdist.msix.manifest import _app_id, _rdn_escape, _version4, generate_manifest
+from pyappdist.msix.manifest import (
+    DESKTOP,
+    FOUNDATION,
+    UAP,
+    _app_id,
+    _rdn_escape,
+    _version4,
+    generate_manifest,
+)
 
 
 def _msix(sample_config, **msix_kwargs):
@@ -52,6 +61,33 @@ def test_manifest_app_execution_alias(sample_config):
     assert '<desktop:ExecutionAlias Alias="helloworld.exe" />' in xml
     assert 'xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"' in xml
     assert 'xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"' in xml
+
+
+def test_manifest_no_app_list_entry_by_default(sample_config):
+    assert "AppListEntry" not in generate_manifest(_msix(sample_config))
+
+
+def test_manifest_hidden_launcher_not_in_app_list(sample_config):
+    launchers = (
+        sample_config.launchers[0],
+        dataclasses.replace(sample_config.launchers[0], name="hellocli", app_entry=False),
+    )
+    cfg = dataclasses.replace(
+        _msix(sample_config, app_execution_alias=True), launchers=launchers
+    )
+    root = ET.fromstring(generate_manifest(cfg))
+    apps = {
+        app.get("Executable"): app for app in root.iter(f"{{{FOUNDATION}}}Application")
+    }
+    # The visible launcher keeps a normal app-list entry...
+    visible = apps["helloworld.exe"].find(f"{{{UAP}}}VisualElements")
+    assert visible.get("AppListEntry") is None
+    # ...the hidden one stays an <Application> (its execution alias needs one)
+    # but is dropped from the Start Menu app list.
+    hidden = apps["hellocli.exe"]
+    assert hidden.find(f"{{{UAP}}}VisualElements").get("AppListEntry") == "none"
+    alias = hidden.find(f".//{{{DESKTOP}}}ExecutionAlias")
+    assert alias.get("Alias") == "hellocli.exe"
 
 
 def test_manifest_default_publisher_escapes_rdn(sample_config):

@@ -38,6 +38,7 @@ from xml.sax.saxutils import escape, quoteattr
 
 from ..config import Config
 from ..errors import BuildError
+from .bundle import bundle_label
 
 _INSTALLER_IDENTITY_ENV = "PYAPPDIST_MACOS_INSTALLER_IDENTITY"
 
@@ -113,20 +114,19 @@ def postinstall_script(config: Config) -> str | None:
 
     Only launchers with ``gui = false`` get a symlink (a GUI app is launched from
     ``/Applications``, not from PATH); returns None when there is nothing to link.
-    The ``.app`` naming mirrors ``bundle.build_macos_apps``: with a single launcher
-    the bundle is named after the app-level ``name``, otherwise after each launcher.
+    ``bundle_label`` names the bundle actually holding each executable — its own
+    for an ``app-entry`` launcher, the first visible launcher's for a hidden one.
     """
     cli = [spec for spec in config.launchers if not spec.gui]
     if not cli:
         return None
-    single = len(config.launchers) == 1
     lines = [
         "#!/bin/sh",
         "set -e",
         "mkdir -p /usr/local/bin",
     ]
     for spec in cli:
-        label = config.name if single else spec.name
+        label = bundle_label(config, spec)
         target = f"/Applications/{label}.app/Contents/MacOS/{spec.name}"
         link = f"/usr/local/bin/{spec.name}"
         lines.append(f"ln -sfn {shlex.quote(target)} {shlex.quote(link)}")

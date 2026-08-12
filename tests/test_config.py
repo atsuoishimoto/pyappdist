@@ -289,6 +289,20 @@ def test_launcher_args_wrong_type(tmp_path: Path):
         load_configs(_write_text(tmp_path, text))
 
 
+def test_launcher_app_entry_default_true(tmp_path: Path):
+    (cfg,) = load_configs(_write(tmp_path))
+    assert cfg.launchers[0].app_entry is True
+
+
+def test_launcher_app_entry_parsed(tmp_path: Path):
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'entry = "helloworld:main"',
+        'entry = "helloworld:main", app-entry = false',
+    )
+    (cfg,) = load_configs(_write_text(tmp_path, text))
+    assert cfg.launchers[0].app_entry is False
+
+
 def _bootstrap_for(tmp_path: Path, entry: str) -> str:
     proj = _write(tmp_path)
     text = (proj / "pyproject.toml").read_text().replace('"helloworld:main"', f'"{entry}"')
