@@ -73,11 +73,9 @@ jobs:
       #     "Developer ID Application: Your Name (TEAMID)".
       #     List yours with:  security find-identity -v -p codesigning
       #
-      # Optional, for the `pkg` format only — a .pkg is signed with a *different*
-      # certificate type ("Developer ID Installer") than the .app bundles inside
-      # it. Without these three the .pkg still builds, but is left unsigned and
-      # is therefore not notarized either (an unsigned pkg is rejected by the
-      # notary service, so pyappdist skips submission with a note):
+      # Required — a .pkg is signed with a *different* certificate type
+      # ("Developer ID Installer") than the .app bundles inside it. The step
+      # fails when these three are missing:
       #
       #   MACOS_INSTALLER_CERTIFICATE_P12
       #     The "Developer ID Installer" certificate + private key, exported and
@@ -109,6 +107,10 @@ jobs:
           NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
         run: |
           set -euo pipefail
+          if [ -z "${MACOS_INSTALLER_CERTIFICATE_P12:-}" ]; then
+            echo "::error::MACOS_INSTALLER_CERTIFICATE_P12 secret is not set (required for pkg signing)" >&2
+            exit 1
+          fi
           KEYCHAIN="$RUNNER_TEMP/app-signing.keychain-db"
           CERT="$RUNNER_TEMP/cert.p12"
           # Disposable password for the throwaway keychain — never leaves this step.
@@ -124,15 +126,13 @@ jobs:
           security import "$CERT" -P "$MACOS_CERTIFICATE_PASSWORD" \
             -k "$KEYCHAIN" -T /usr/bin/codesign
 
-          # The Developer ID Installer certificate (pkg signing) is optional and
-          # lands in the same keychain; productbuild/productsign need explicit
-          # -T entries of their own to reach its private key.
-          if [ -n "${MACOS_INSTALLER_CERTIFICATE_P12:-}" ]; then
-            INSTALLER_CERT="$RUNNER_TEMP/installer-cert.p12"
-            echo "$MACOS_INSTALLER_CERTIFICATE_P12" | base64 --decode > "$INSTALLER_CERT"
-            security import "$INSTALLER_CERT" -P "$MACOS_INSTALLER_CERTIFICATE_PASSWORD" \
-              -k "$KEYCHAIN" -T /usr/bin/productbuild -T /usr/bin/productsign
-          fi
+          # The Developer ID Installer certificate (pkg signing) lands in the
+          # same keychain; productbuild/productsign need explicit -T entries
+          # of their own to reach its private key.
+          INSTALLER_CERT="$RUNNER_TEMP/installer-cert.p12"
+          echo "$MACOS_INSTALLER_CERTIFICATE_P12" | base64 --decode > "$INSTALLER_CERT"
+          security import "$INSTALLER_CERT" -P "$MACOS_INSTALLER_CERTIFICATE_PASSWORD" \
+            -k "$KEYCHAIN" -T /usr/bin/productbuild -T /usr/bin/productsign
 
           # Let codesign/productbuild use the private keys without an
           # interactive prompt. This applies to every key in the keychain, so it
