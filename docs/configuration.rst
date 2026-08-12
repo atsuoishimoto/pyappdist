@@ -124,6 +124,25 @@ shell wrapper on Linux/macOS).
    entry gets ``Terminal=false`` when ``true`` (``Terminal=true`` otherwise).
    Ignored by the macOS ``.run``.
 
+``app-entry``
+   Whether the launcher appears in the OS application list (default ``true``).
+   ``false`` keeps the executable — and any App Execution Alias, ``PATH``
+   entry, or ``bin`` symlink — but registers no visible entry, which is what
+   the CLI companion of a GUI app usually wants:
+
+   * ``msi`` — no Start Menu shortcut.
+   * ``msix`` — the ``<Application>`` is kept (an ``app-execution-alias``
+     still works) but hidden from the Start Menu app list
+     (``AppListEntry="none"``).
+   * ``linux`` — no ``.desktop`` entry, even with an ``icon``.
+   * ``macapp`` / ``dmg`` / ``pkg`` — no ``.app`` of its own (anything in
+     ``/Applications`` shows up in Launchpad); the executable is embedded
+     into the first visible launcher's bundle instead, and a ``pkg`` still
+     symlinks it into ``/usr/local/bin`` when ``gui = false``. At least one
+     launcher must keep an app entry on these formats.
+   * ``macos`` (``.run``) / ``image`` — no effect (nothing is registered
+     anyway).
+
 ``icon``
    A **per-OS table** of icon paths (relative to the project directory); each key is
    optional:
@@ -226,10 +245,18 @@ under :ref:`Output formats <config-formats>` below.
      ``pyappdist build-prebuilt`` once, or use ``"source"``.
    * ``"source"`` — always compile the launcher with MSVC / clang.
 
+   .. note::
+
+      When running pyappdist from a source checkout rather than a released
+      wheel, no prebuilt stubs are bundled — you can compile them yourself
+      with ``pyappdist build-prebuilt``. Run it once and subsequent builds
+      pick the stubs up; see :ref:`build-prebuilt <cli-build-prebuilt>` for
+      details.
+
    A prebuilt launcher is byte-identical to a source-built one in behavior:
    the per-app values are patched into the ``.exe`` as Windows resources
    (config, icon, version info), or written as a sidecar
-   ``Contents/Resources/pyappdist-launcher.json`` for the macOS ``.app``
+   ``Contents/Resources/<name>.launcher.json`` for the macOS ``.app``
    (sealed by the bundle's code signature). The prebuilt macOS stub targets
    macOS 11.0+; ``min-macos`` still sets ``LSMinimumSystemVersion``, but only
    a source build compiles with a different deployment target.

@@ -73,12 +73,18 @@ def generate_manifest(config: Config) -> str:
         app_id = _unique(_app_id(spec.name), seen)
         app = _sub(apps, FOUNDATION, "Application", Id=app_id,
                    Executable=f"{spec.name}.exe", EntryPoint="Windows.FullTrustApplication")
-        _sub(app, UAP, "VisualElements",
-             DisplayName=f"{display_name} - {spec.name}" if multi else display_name,
-             Description=display_name,
-             BackgroundColor="transparent",
-             Square150x150Logo=SQUARE150_LOGO,
-             Square44x44Logo=SQUARE44_LOGO)
+        visual = {
+            "DisplayName": f"{display_name} - {spec.name}" if multi else display_name,
+            "Description": display_name,
+            "BackgroundColor": "transparent",
+            "Square150x150Logo": SQUARE150_LOGO,
+            "Square44x44Logo": SQUARE44_LOGO,
+        }
+        # app-entry = false: keep the <Application> (the executable and its App
+        # Execution Alias still need one) but hide it from the Start Menu app list.
+        if not spec.app_entry:
+            visual["AppListEntry"] = "none"
+        _sub(app, UAP, "VisualElements", **visual)
         if config.msix.app_execution_alias:
             # App Execution Alias: lets the launcher be started from a command line
             # by name. The Alias value must end with ".exe".

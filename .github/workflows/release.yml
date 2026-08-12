@@ -55,6 +55,15 @@ jobs:
           $out = & $exe
           if ($LASTEXITCODE -ne 0) { throw "exe exit code $LASTEXITCODE" }
           if ($out -notmatch "Hello from helloworld!") { throw "unexpected output: $out" }
+          # The hidden launcher (app-entry = false) is installed and runnable,
+          # but must have no Start Menu shortcut.
+          $cli = Join-Path $env:LOCALAPPDATA "Programs/Hello World/hellocli.exe"
+          $out = & $cli
+          if ($LASTEXITCODE -ne 0) { throw "hellocli exit code $LASTEXITCODE" }
+          if ($out -notmatch "Hello from helloworld!") { throw "unexpected hellocli output: $out" }
+          $shortcuts = Join-Path $env:APPDATA "Microsoft/Windows/Start Menu/Programs/Hello World"
+          if (Test-Path (Join-Path $shortcuts "hellocli.lnk")) { throw "hellocli must not get a shortcut" }
+          if (-not (Test-Path (Join-Path $shortcuts "helloworld.lnk"))) { throw "helloworld shortcut missing" }
           Start-Process msiexec -ArgumentList "/x `"$msi`" /qn" -Wait
 
       - uses: actions/upload-artifact@v7
@@ -77,16 +86,23 @@ jobs:
           lipo -info src/pyappdist/resources/prebuilt/launcher-macos-universal
 
       # Ad-hoc signed (no signing secrets here): builds the .app from the
-      # prebuilt stub + sidecar config, wraps it in a dmg, and runs it.
+      # prebuilt stub + sidecar config, wraps it in a dmg, and runs it. The
+      # sample's hellocli launcher (app-entry = false) must produce no .app of
+      # its own but run embedded from the Hello World bundle, through its
+      # per-executable sidecar.
       - name: E2E build + smoke test (.app in a dmg, prebuilt stub)
         run: |
           uv run pyappdist build darwin-arm-dmg -C samples/helloworld
           dmg=$(ls samples/helloworld/appdist/darwin-arm-dmg/dist/*.dmg)
           hdiutil attach "$dmg" -mountpoint /tmp/helloworld -nobrowse
+          napps=$(ls -d /tmp/helloworld/*.app | wc -l | tr -d ' ')
           out=$(/tmp/helloworld/*.app/Contents/MacOS/helloworld)
+          cliout=$(/tmp/helloworld/*.app/Contents/MacOS/hellocli)
           hdiutil detach /tmp/helloworld
-          echo "$out"
+          echo "$out / $cliout ($napps bundle(s))"
+          test "$napps" -eq 1 || { echo "expected a single .app (hellocli is app-entry = false)" >&2; exit 1; }
           case "$out" in *"Hello from helloworld!"*) ;; *) echo "unexpected output" >&2; exit 1;; esac
+          case "$cliout" in *"Hello from helloworld!"*) ;; *) echo "unexpected hellocli output" >&2; exit 1;; esac
 
       - uses: actions/upload-artifact@v7
         with:

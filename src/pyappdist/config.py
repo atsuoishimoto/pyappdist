@@ -98,6 +98,11 @@ class LauncherConfig:
     name: str           # output exe name (without extension)
     entry: str          # "module:callable" or a dotted "module.path" run as `python -m`
     gui: bool = False
+    # Expose the launcher in the OS application list (Start Menu / Applications /
+    # freedesktop menu). False keeps the executable (and its alias / PATH entry /
+    # bin symlink) but registers no visible app entry — for CLI companions of a
+    # GUI app. See each format's builder for what "hidden" means there.
+    app_entry: bool = True
     # Per-OS icon paths (relative to project_dir), as (os, path) pairs — os is one of
     # "windows"/"macos"/"linux" (matching Target.os). Stored as a tuple, not a dict, so the
     # frozen dataclass stays hashable. Use icon_for() to look one up.
@@ -831,6 +836,7 @@ def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:
                 name=str(name),
                 entry=str(entry),
                 gui=bool(item.get("gui", False)),
+                app_entry=bool(item.get("app-entry", True)),
                 icons=_parse_icon(item.get("icon"), i),
                 args=_parse_args(item.get("args"), i),
             )

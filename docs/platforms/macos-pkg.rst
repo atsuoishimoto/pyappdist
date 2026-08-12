@@ -17,7 +17,9 @@ macOS — .pkg installer
   scope** — Installer.app asks for an administrator password.
 * Launchers with ``gui = false`` are additionally symlinked into
   ``/usr/local/bin`` by a ``postinstall`` script, so command-line tools are on
-  ``PATH`` after the install.
+  ``PATH`` after the install. A launcher with ``app-entry = false`` produces
+  no ``.app`` (and so no Launchpad entry) — its executable lives inside the
+  first visible launcher's bundle, and the symlink points there.
 * The output is ``appdist/<target>/dist/<name>-<version>.pkg``.
 
 Like ``macapp``/``dmg``, this is **native-only**: build on macOS — an Apple

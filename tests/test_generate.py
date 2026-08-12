@@ -45,6 +45,25 @@ def test_license_adds_minimal_ui(sample_config, sample_tree):
     assert 'Id="WixUILicenseRtf"' in xml
 
 
+def test_hidden_launcher_gets_no_shortcut(sample_config, sample_tree):
+    launchers = (
+        sample_config.launchers[0],
+        dataclasses.replace(sample_config.launchers[0], name="hellocli", app_entry=False),
+    )
+    cfg = dataclasses.replace(sample_config, launchers=launchers)
+    xml = generate_wxs(cfg, sample_tree)
+    assert 'Target="[INSTALLFOLDER]helloworld.exe"' in xml
+    assert 'Target="[INSTALLFOLDER]hellocli.exe"' not in xml
+
+
+def test_no_shortcut_folder_when_all_launchers_hidden(sample_config, sample_tree):
+    launchers = (dataclasses.replace(sample_config.launchers[0], app_entry=False),)
+    cfg = dataclasses.replace(sample_config, launchers=launchers)
+    xml = generate_wxs(cfg, sample_tree)
+    assert "ShortcutFolder" not in xml
+    assert "<Shortcut" not in xml
+
+
 def _with_icons(config, *icons):
     """Replace the launchers with one per entry in ``icons`` (a per-OS icon table)."""
     launchers = tuple(

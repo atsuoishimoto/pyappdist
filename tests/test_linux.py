@@ -146,6 +146,23 @@ def test_icon_triggers_desktop_record(tmp_path, sample_config):
         assert "helloworld.png" in tf.getnames()  # icon staged into the image
 
 
+def test_app_entry_false_suppresses_desktop_record(tmp_path, sample_config):
+    (tmp_path / "app.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    layout = _make_image(tmp_path)
+    config = _linux_config(
+        sample_config, tmp_path, gui=True, app_entry=False, icons=(("linux", "app.png"),)
+    )
+    arts = build_linux(config, layout, tmp_path / "dist", log=lambda *a: None)
+    run = next(p for p in arts if p.suffix == ".run")
+
+    script, payload = _split_run(run)
+    # An empty icon field means the installer writes no .desktop entry; the bin
+    # symlink is still created. The icon is not even staged.
+    assert "LAUNCHERS='helloworld:1:'" in script
+    with tarfile.open(fileobj=io.BytesIO(payload), mode="r:xz") as tf:
+        assert "helloworld.png" not in tf.getnames()
+
+
 def test_build_linux_skips_non_linux(tmp_path, sample_config):
     layout = ImageLayout(
         image_dir=tmp_path / "image", target=get_target("windows-x86_64"), minor="3.12"

@@ -41,9 +41,12 @@ _PATCH_SCRIPT = _RESOURCES / "patch_resources.py"
 _PYEXE_GUI = "pythonw.exe"
 _PYEXE_CONSOLE = "python.exe"
 
-# Basename of the macOS sidecar config, written next to a prebuilt stub in the
-# image dir as "<launcher>.launcher.json" and staged into each bundle as
-# Contents/Resources/pyappdist-launcher.json (see CONFIG_REL in launcher_mac.c).
+# Legacy basename of the macOS sidecar config. The sidecar is written next to a
+# prebuilt stub in the image dir and staged into the bundle as
+# Contents/Resources/<launcher>.launcher.json; the stub looks that name up from
+# its own basename and falls back to this fixed name for bundles assembled by
+# older pyappdist versions (see CONFIG_REL_FMT / CONFIG_REL_LEGACY in
+# launcher_mac.c).
 MAC_SIDECAR_NAME = "pyappdist-launcher.json"
 
 # Path to the bundled interpreter relative to a .app's Contents/MacOS/<name>.
@@ -300,7 +303,7 @@ def _prebuilt_one_macos(
 
     The stub itself stays byte-identical for every app (it is re-signed later
     with the rest of the bundle); the per-app values go into a JSON the bundler
-    stages as ``Contents/Resources/pyappdist-launcher.json``, sealed by the
+    stages as ``Contents/Resources/<name>.launcher.json``, sealed by the
     bundle's code signature. The prebuilt stub targets macOS 11.0+ regardless
     of ``min-macos`` (which still sets LSMinimumSystemVersion).
     """

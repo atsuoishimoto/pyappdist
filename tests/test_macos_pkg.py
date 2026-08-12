@@ -130,3 +130,33 @@ def test_postinstall_multi_launcher_uses_launcher_names():
 def test_postinstall_none_when_all_gui():
     launchers = (LauncherConfig(name="MyApp", entry="helloworld:gui", gui=True),)
     assert postinstall_script(_pkg_config(launchers=launchers)) is None
+
+
+def test_postinstall_hidden_cli_targets_host_bundle():
+    # A hidden CLI launcher's executable lives inside the visible launcher's
+    # bundle — named after the app when that visible launcher is the only one.
+    launchers = (
+        LauncherConfig(name="MyApp", entry="helloworld:gui", gui=True),
+        LauncherConfig(name="mytool", entry="helloworld:main", app_entry=False),
+    )
+    script = postinstall_script(_pkg_config(launchers=launchers))
+    assert script is not None
+    assert (
+        "ln -sfn '/Applications/Hello World.app/Contents/MacOS/mytool' "
+        "/usr/local/bin/mytool" in script
+    )
+    assert "mytool.app" not in script
+
+
+def test_postinstall_hidden_cli_with_multiple_visible_uses_first():
+    launchers = (
+        LauncherConfig(name="MyApp", entry="helloworld:gui", gui=True),
+        LauncherConfig(name="Other", entry="helloworld:gui2", gui=True),
+        LauncherConfig(name="mytool", entry="helloworld:main", app_entry=False),
+    )
+    script = postinstall_script(_pkg_config(launchers=launchers))
+    assert script is not None
+    assert (
+        "ln -sfn /Applications/MyApp.app/Contents/MacOS/mytool /usr/local/bin/mytool"
+        in script
+    )
