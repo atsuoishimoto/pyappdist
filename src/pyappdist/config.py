@@ -9,6 +9,7 @@ so the rest of the build pipeline stays single-target.
 
 from __future__ import annotations
 
+import base64
 import re
 import shlex
 import sys
@@ -68,9 +69,9 @@ _LAUNCHER_BUILDS = ("prebuilt", "source")
 # reverse-DNS CFBundleIdentifier (e.g. "com.example.myapp"); required for macapp/dmg/pkg targets.
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
 
-# One segment of a bundle identifier. With multiple launchers each .app gets
-# "<identifier>.<launcher name>", so the launcher name itself must be a valid segment.
-_IDENTIFIER_SEGMENT_RE = re.compile(r"^[A-Za-z0-9-]+$")
+# Prefix for a base32 segment that would otherwise start with a digit (see
+# LauncherConfig.identifier_segment); mirrors msix/manifest.py's _app_id.
+_SEGMENT_LETTER_PREFIX = "App"
 
 # Launcher entry point. Two forms:
 #   "module:callable" - import callable from module and call it (sys.exit on its return)
@@ -81,9 +82,9 @@ _ENTRY_CALLABLE_RE = re.compile(r"^[A-Za-z_]\w*$")
 # Characters a launcher or target name must not contain. Non-ASCII names are supported
 # (the Windows build pipeline renames the final .exe with Python exactly for that), but
 # the name becomes a filename on every OS (Windows forbids <>:"/\|?*), a symlink in
-# <prefix>/bin, and a field in the .run installer's whitespace/colon-delimited
-# launcher records — so path separators, those Windows-reserved characters,
-# whitespace, and control characters are all rejected.
+# <prefix>/bin, and a field in the .run installer's newline-separated, colon-delimited
+# launcher records — so path separators, those Windows-reserved characters, and
+# control characters are all rejected.
 _NAME_BAD_CHARS = set('<>:"/\\|?*')
 
 # MSI ProductVersion (and the MSIX Identity Version derived from it) must be a dotted
@@ -128,6 +129,31 @@ class LauncherConfig:
         if isinstance(self.args, str):
             return tuple(shlex.split(self.args))
         return self.args
+
+    @property
+    def identifier_segment(self) -> str:
+        """The launcher's segment of a per-launcher CFBundleIdentifier.
+
+        With more than one launcher each ``.app`` gets ``<identifier>.<segment>``.
+        Apple limits a bundle identifier to ASCII alphanumerics, hyphen and period,
+        while a launcher name may be anything a filename may be — so the segment is
+        the UTF-8 name **base32-encoded** (RFC 4648, padding stripped) rather than
+        derived from its characters:
+
+        * base32's ``A-Z2-7`` alphabet always fits, so no name has to be rejected —
+          not even one with no ASCII letter or digit in it at all;
+        * the encoding is injective and its output is uppercase, so two launchers can
+          never collide, not even under the case-insensitive comparison macOS applies
+          to bundle identifiers;
+        * it is a pure function of the name, so the identifier is stable across
+          builds and unaffected by the other launchers.
+
+        The price is an opaque identifier (``"My App"`` -> ``JV4SAQLQOA``), which is
+        only ever read by tooling — users see CFBundleName. A segment starting with a
+        digit is prefixed, since reverse-DNS parts conventionally start with a letter.
+        """
+        segment = base64.b32encode(self.name.encode("utf-8")).decode("ascii").rstrip("=")
+        return segment if segment[:1].isalpha() else _SEGMENT_LETTER_PREFIX + segment
 
     @property
     def bootstrap(self) -> str:
@@ -363,25 +389,15 @@ def load_configs(
                 "[tool.pyappdist].identifier must be reverse-DNS "
                 f'(e.g. "com.example.myapp"): {identifier!r}'
             )
-    if any(fmt in _BUNDLE_FORMATS for (_, _, fmt, *_rest) in specs):
-        if not identifier:
-            raise ConfigError(
-                '[tool.pyappdist].identifier is required for macapp/dmg/pkg targets '
-                '(reverse-DNS, e.g. "com.example.myapp")'
-            )
-        # With multiple launchers each .app's CFBundleIdentifier is
-        # "<identifier>.<launcher name>", so every launcher name must be a valid
-        # identifier segment (same alphabet _IDENTIFIER_RE allows per segment) —
-        # otherwise the derived identifier is rejectable at notarization/upload.
-        if len(launchers) > 1:
-            for i, spec in enumerate(launchers):
-                if not _IDENTIFIER_SEGMENT_RE.match(spec.name):
-                    raise ConfigError(
-                        f"launchers[{i}].name {spec.name!r} cannot be used with "
-                        "multiple launchers on a macapp/dmg/pkg target: each .app's "
-                        'bundle identifier is "<identifier>.<launcher name>", so '
-                        "the name must contain only letters, digits, and hyphens"
-                    )
+    # The launcher names need no check of their own here: with multiple launchers each
+    # .app's CFBundleIdentifier is "<identifier>.<segment>", and the segment is the
+    # base32 of the name (see LauncherConfig.identifier_segment) — always a legal,
+    # unique segment whatever the name is.
+    if any(fmt in _BUNDLE_FORMATS for (_, _, fmt, *_rest) in specs) and not identifier:
+        raise ConfigError(
+            '[tool.pyappdist].identifier is required for macapp/dmg/pkg targets '
+            '(reverse-DNS, e.g. "com.example.myapp")'
+        )
 
     # A wheel-resolved version is unknown until build-wheels produces the app
     # wheel, so the format/version compatibility check runs post-resolution
@@ -709,13 +725,24 @@ def _opt_str(raw: dict, key: str) -> str | None:
 
 
 def _validate_launcher_name(name: str, i: int) -> None:
-    """Reject launcher names that would break filenames or the installer's records."""
+    """Reject launcher names that would break filenames or the installer's records.
+
+    A plain space is allowed ("My App.exe"): the installer's launcher records are
+    newline-separated and every path derived from the name is quoted. Every other
+    whitespace character is not — a tab or newline cannot survive the record format
+    (nor a ``.desktop`` value) — and a leading/trailing space is rejected because
+    Windows silently strips trailing spaces from filenames.
+    """
     if any(
-        c in _NAME_BAD_CHARS or c.isspace() or ord(c) < 32 for c in name
+        c in _NAME_BAD_CHARS or (c.isspace() and c != " ") or ord(c) < 32 for c in name
     ):
         raise ConfigError(
-            "launchers[{}].name must not contain whitespace, control characters, "
-            'or any of <>:"/\\|?* : {!r}'.format(i, name)
+            "launchers[{}].name must not contain tabs, newlines, control characters, "
+            'or any of <>:"/\\|?* (a plain space is allowed): {!r}'.format(i, name)
+        )
+    if name != name.strip(" "):
+        raise ConfigError(
+            f"launchers[{i}].name must not start or end with a space: {name!r}"
         )
 
 

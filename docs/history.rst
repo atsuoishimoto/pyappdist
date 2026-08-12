@@ -1,6 +1,16 @@
 Release history
 ===============
 
+0.13.0
+------
+
+2026/08/12
+
+**Launcher names may contain spaces.** ``name = "My App"`` is now accepted and
+produces ``My App.exe`` (or ``My App`` on Linux/macOS); tabs, newlines, and a
+leading or trailing space are still rejected.
+
+
 0.12.0
 ------
 

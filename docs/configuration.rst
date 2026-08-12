@@ -67,8 +67,20 @@ Before configuring anything, make sure the project itself is packageable — see
 ``identifier``
    CFBundleIdentifier in reverse-DNS form (e.g. ``"com.example.myapp"``).
    **Required** when any target uses ``format = "macapp"``, ``"dmg"``, or
-   ``"pkg"``; unused by the other formats. With multiple launchers each bundle
-   derives ``<identifier>.<launcher>``.
+   ``"pkg"``; unused by the other formats. With multiple launchers each bundle gets
+   ``<identifier>.<segment>``, where the segment is the launcher name base32-encoded
+   (``"My App"`` → ``com.example.myapp.JV4SAQLQOA``). A bundle identifier may hold
+   only ASCII alphanumerics, hyphens and periods, while a launcher name may hold
+   much more; encoding it keeps the identifier legal and unique for **any** name, so
+   nothing about the launcher names constrains a macapp/dmg/pkg build. The identifier
+   is read by tooling only — what users see is the app-level ``name``.
+
+   .. note::
+
+      The identifier follows the launcher name, so renaming a launcher changes the
+      bundle identifier of its ``.app``. macOS identifies apps by that value, so the
+      renamed app starts fresh: it no longer sees the preferences or the privacy
+      permissions granted to the old one.
 
 .. code-block:: toml
 
@@ -89,8 +101,12 @@ shell wrapper on Linux/macOS).
 
 ``name`` (required)
    Output executable name without extension (``"myapp"`` → ``myapp.exe`` on
-   Windows). Because the name becomes a filename and an installer record, it
-   must not contain whitespace, control characters, or any of ``<>:"/\|?*``.
+   Windows). Spaces are allowed (``"My App"`` → ``My App.exe``). Because the name
+   becomes a filename and an installer record, it must not contain tabs, newlines,
+   control characters, or any of ``<>:"/\|?*``, and must not start or end with a
+   space. The same rule applies on every format — on ``macapp``/``dmg``/``pkg`` the
+   name is encoded into each bundle identifier rather than restricting it, see
+   :ref:`identifier <config-app>`.
 
 ``entry`` (required)
    Entry point, in one of two forms:

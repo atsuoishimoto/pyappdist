@@ -52,7 +52,13 @@ def build_macos_apps(config: Config, image_dir: Path, out_dir: Path, *, log=prin
             icon_src = (config.project_dir / icon_rel).resolve() if icon_rel else None
             icns = make_icns(icon_src, tmp_path / f"{spec.name}.icns", log=log)
             label = config.name if single else spec.name
-            identifier = config.identifier if single else f"{config.identifier}.{spec.name}"
+            # A launcher name may hold characters an identifier may not (a space, say),
+            # so the last segment is the base32 of the name — legal and unique whatever
+            # the name is (see LauncherConfig.identifier_segment).
+            identifier = (
+                config.identifier if single
+                else f"{config.identifier}.{spec.identifier_segment}"
+            )
             app = _assemble_one(
                 config, spec.name, label, identifier, python_src, launcher_bin, icns, out_dir, log
             )

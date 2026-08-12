@@ -413,6 +413,44 @@ def test_multi_launcher_desktop_names_are_disambiguated(tmp_path, sample_config)
     assert "Name=Hello World - bar\n" in (appdir / "helloworld-bar.desktop").read_text()
 
 
+@pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
+def test_launcher_name_with_spaces_installs(tmp_path, sample_config):
+    """A launcher name may contain spaces, so the records are read one line at a time."""
+    if shutil.which("gzip") is None:
+        pytest.skip("gzip not installed")
+    (tmp_path / "app.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    names = ["My App", "My Other App"]
+    run = _build_gui_run(tmp_path, sample_config, tmp_path / "build", names)
+
+    script, _ = _split_run(run)
+    # One record per line — not one whitespace-separated field per launcher.
+    assert "LAUNCHERS='My App:1:My App.png\nMy Other App:1:My Other App.png'" in script
+
+    prefix = tmp_path / "prefix"
+    env, appdir = _desktop_env(tmp_path)
+    res = subprocess.run(
+        ["/bin/sh", str(run), "--prefix", str(prefix)],
+        capture_output=True, text=True, env=env,
+    )
+    assert res.returncode == 0, res.stderr
+    for name in names:
+        assert (prefix / "bin" / name).is_symlink()
+        entry = (appdir / f"helloworld-{name}.desktop").read_text()
+        assert f"Name=Hello World - {name}\n" in entry
+        assert f'Exec="{prefix}/lib/helloworld/{name}" %U\n' in entry
+    # The reported command list keeps each name whole.
+    assert "  My Other App" in res.stdout
+
+    res = subprocess.run(
+        ["/bin/sh", str(run), "--prefix", str(prefix), "--uninstall"],
+        capture_output=True, text=True, env=env,
+    )
+    assert res.returncode == 0, res.stderr
+    for name in names:
+        assert not (prefix / "bin" / name).exists()
+        assert not (appdir / f"helloworld-{name}.desktop").exists()
+
+
 # Desktop Entry escaping, applied when a path is interpolated into an entry.
 # A string value only reserves the backslash; an Exec argument additionally
 # backslash-escapes ", ` and $ inside the quotes, and that escaping is then

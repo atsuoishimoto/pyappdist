@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import base64
 import json
 from pathlib import Path
 
 import pytest
 
-from pyappdist.config import check_msi_version, ensure_upgrade_code, load_configs
+from pyappdist.config import (
+    LauncherConfig,
+    check_msi_version,
+    ensure_upgrade_code,
+    load_configs,
+)
 from pyappdist.errors import ConfigError
 from pyappdist.wix.guid import is_guid
 
@@ -713,19 +719,38 @@ def _macos_multi_launcher_pyproject(name_a: str, name_b: str) -> str:
     )
 
 
-@pytest.mark.parametrize("bad", ["my_tool", "ハロー", "a.b"])
-def test_app_multi_launcher_name_must_be_identifier_segment(tmp_path: Path, bad: str):
-    # With multiple launchers each .app gets "<identifier>.<launcher name>", so the
-    # name must be a valid bundle-identifier segment (letters/digits/hyphens).
-    text = _macos_multi_launcher_pyproject("helloworld", bad)
-    with pytest.raises(ConfigError, match=r"launchers\[1\].name.*bundle identifier"):
-        load_configs(_write_text(tmp_path, text))
+@pytest.mark.parametrize("name", ["My App", "my_tool", "a.b", "ハロー", "hello-world"])
+def test_app_multi_launcher_name_unconstrained(tmp_path: Path, name: str):
+    # The bundle-identifier segment is the base32 of the name, which is legal whatever
+    # the name is — so no name has to be rejected for a macapp/dmg/pkg target.
+    text = _macos_multi_launcher_pyproject("helloworld", name)
+    cfg = load_configs(_write_text(tmp_path, text))[0]
+    assert cfg.launchers[1].name == name
 
 
-def test_app_multi_launcher_segment_names_accepted(tmp_path: Path):
-    text = _macos_multi_launcher_pyproject("hello-world", "Tool2")
-    cfgs = load_configs(_write_text(tmp_path, text))
-    assert [spec.name for spec in cfgs[0].launchers] == ["hello-world", "Tool2"]
+@pytest.mark.parametrize(
+    "name,segment",
+    [
+        ("My App", "JV4SAQLQOA"),
+        ("my_tool", "NV4V65DPN5WA"),
+        # base32 of "ハロー" starts with a digit, so it takes the letter prefix.
+        ("ハロー", "App4OBY7Y4DVXRYHPA"),
+    ],
+)
+def test_identifier_segment_is_base32(name: str, segment: str):
+    spec = LauncherConfig(name=name, entry="helloworld:main")
+    assert spec.identifier_segment == segment
+    raw = segment.removeprefix("App")
+    assert base64.b32decode(raw + "=" * (-len(raw) % 8)).decode() == name
+
+
+def test_identifier_segments_never_collide(tmp_path: Path):
+    # Names that any character-folding scheme would map together stay distinct, and
+    # bundle identifiers compare case-insensitively — so check the folded segments too.
+    names = ["my tool", "My_Tool", "my-tool", "MY TOOL"]
+    specs = [LauncherConfig(name=n, entry="helloworld:main") for n in names]
+    segments = [spec.identifier_segment.casefold() for spec in specs]
+    assert len(set(segments)) == len(names)
 
 
 def test_app_single_launcher_name_unconstrained(tmp_path: Path):
@@ -955,7 +980,9 @@ format = "msi"
 
 
 @pytest.mark.parametrize(
-    "bad", ["my app", "a:b", "a/b", "a\\b", 'a"b', "a\tb", "a*b"]
+    "bad",
+    # Only U+0020 is allowed as whitespace; a NBSP is not.
+    ["a:b", "a/b", "a\\b", 'a"b', "a\tb", "a*b", " app", "app ", "a\u00a0b"],
 )
 def test_launcher_name_rejects_unsafe_chars(tmp_path: Path, bad: str):
     # TOML literal strings ('...') take the name verbatim, no escape processing.
@@ -967,6 +994,13 @@ def test_launcher_name_rejects_unsafe_chars(tmp_path: Path, bad: str):
 def test_launcher_name_allows_unicode(tmp_path: Path):
     cfg = load_configs(_write_text(tmp_path, _launcher_pyproject("'ハローワールド'")))[0]
     assert cfg.launchers[0].name == "ハローワールド"
+
+
+def test_launcher_name_allows_inner_spaces(tmp_path: Path):
+    # "My App.exe" is an ordinary Windows/macOS app name; only tabs, newlines and
+    # leading/trailing spaces are rejected.
+    cfg = load_configs(_write_text(tmp_path, _launcher_pyproject("'My App'")))[0]
+    assert cfg.launchers[0].name == "My App"
 
 
 def _two_launcher_pyproject(name_a: str, name_b: str) -> str:

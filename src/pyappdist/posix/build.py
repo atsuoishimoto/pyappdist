@@ -87,7 +87,9 @@ def build_posix(
 
     image_dir = layout.image_dir
     records = write_launchers(config, image_dir, desktop=desktop, log=log)
-    launchers_field = " ".join(
+    # One record per line: launcher names may contain spaces, so the installer reads
+    # the field line by line rather than splitting it on whitespace.
+    launchers_field = "\n".join(
         f"{name}:{1 if gui else 0}:{icon}" for (name, gui, icon) in records
     )
 
