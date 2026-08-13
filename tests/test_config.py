@@ -1047,6 +1047,67 @@ def test_distinct_launcher_names_accepted(tmp_path: Path):
     assert [spec.name for spec in cfgs[0].launchers] == ["app", "tool"]
 
 
+def test_launcher_title_default_none(tmp_path: Path):
+    (cfg,) = load_configs(_write(tmp_path))
+    assert cfg.launchers[0].title is None
+
+
+def test_launcher_title_parsed(tmp_path: Path):
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'entry = "helloworld:main"',
+        'entry = "helloworld:main", title = "My Application"',
+    )
+    (cfg,) = load_configs(_write_text(tmp_path, text))
+    assert cfg.launchers[0].title == "My Application"
+
+
+def test_launcher_title_empty_rejected(tmp_path: Path):
+    text = _BASE.format(fmt="msi", app_extra="", target_extra="").replace(
+        'entry = "helloworld:main"',
+        'entry = "helloworld:main", title = ""',
+    )
+    with pytest.raises(ConfigError, match="launchers\\[0\\].title"):
+        load_configs(_write_text(tmp_path, text))
+
+
+@pytest.mark.parametrize("bad", ["a:b", "a/b", "a\tb", " app", "app "])
+def test_launcher_title_rejects_unsafe_chars(tmp_path: Path, bad: str):
+    # The title becomes a shortcut / .app filename and an installer record
+    # field, so it follows the same character rules as the name.
+    text = _launcher_pyproject('"app"').replace(
+        'entry = "helloworld:main"',
+        f"entry = \"helloworld:main\", title = '{bad}'",
+    )
+    with pytest.raises(ConfigError, match="launchers\\[0\\].title"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def _titled(text: str, name: str, title: str) -> str:
+    return text.replace(
+        f'{{ name = "{name}", entry = "helloworld:main" }}',
+        f'{{ name = "{name}", entry = "helloworld:main", title = "{title}" }}',
+    )
+
+
+def test_duplicate_launcher_display_name_rejected(tmp_path: Path):
+    # Two visible launchers whose display names (title, else name) collide would
+    # produce identically named Start Menu shortcuts / .app bundles.
+    text = _titled(_two_launcher_pyproject("app", "tool"), "app", "Tool")
+    with pytest.raises(ConfigError, match="duplicate launcher display name"):
+        load_configs(_write_text(tmp_path, text))
+
+
+def test_duplicate_display_name_ok_when_one_is_hidden(tmp_path: Path):
+    # A hidden launcher registers no visible entry, so its name may match a
+    # visible launcher's title.
+    text = _titled(_two_launcher_pyproject("app", "tool"), "app", "Tool").replace(
+        '{ name = "tool", entry = "helloworld:other" }',
+        '{ name = "tool", entry = "helloworld:other", app-entry = false }',
+    )
+    cfgs = load_configs(_write_text(tmp_path, text))
+    assert cfgs[0].launchers[0].title == "Tool"
+
+
 def test_msi_rejects_non_numeric_version(tmp_path: Path):
     text = _BASE.format(fmt="msi", app_extra='version = "0.1.0a1"', target_extra="")
     with pytest.raises(ConfigError, match="numeric version"):

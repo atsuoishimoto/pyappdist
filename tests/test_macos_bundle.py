@@ -115,6 +115,32 @@ def test_bundle_label_hidden_maps_to_first_visible():
     assert bundle_label(cfg, cfg.launchers[1]) == "Hello World"
 
 
+def test_bundle_label_title_wins_single_and_multi():
+    # A title overrides both defaults: the app name (single visible launcher)
+    # and the launcher name (several visible launchers).
+    cfg = _with_launchers(
+        LauncherConfig(name="helloworld", entry="helloworld:main", title="My Application")
+    )
+    assert bundle_label(cfg, cfg.launchers[0]) == "My Application"
+
+    cfg = _with_launchers(
+        LauncherConfig(name="mytool", entry="helloworld:main", title="My Tool"),
+        LauncherConfig(name="MyApp", entry="helloworld:gui", gui=True),
+    )
+    assert bundle_label(cfg, cfg.launchers[0]) == "My Tool"
+    assert bundle_label(cfg, cfg.launchers[1]) == "MyApp"
+
+
+def test_bundle_label_hidden_follows_host_title():
+    # A hidden launcher lives in the first visible launcher's bundle, so it
+    # follows that bundle's title.
+    cfg = _with_launchers(
+        LauncherConfig(name="MyApp", entry="helloworld:gui", gui=True, title="My Application"),
+        LauncherConfig(name="mytool", entry="helloworld:main", app_entry=False),
+    )
+    assert bundle_label(cfg, cfg.launchers[1]) == "My Application"
+
+
 def test_bundle_label_all_hidden_rejected():
     cfg = _with_launchers(
         LauncherConfig(name="mytool", entry="helloworld:main", app_entry=False)

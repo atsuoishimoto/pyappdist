@@ -3,11 +3,14 @@
 #
 # The lines above this block define:
 #   APP_NAME DIST_NAME VERSION DESKTOP CATEGORIES LAUNCHERS DECOMPRESS PAYLOAD_SHA256 SELF
-# LAUNCHERS is a newline-separated list of "name:gui:icon" records, where
-# gui is 1/0 and icon is the bundled icon filename (empty = no desktop entry).
+# LAUNCHERS is a newline-separated list of "name:gui:icon:title" records, where
+# gui is 1/0, icon is the bundled icon filename (empty = no desktop entry), and
+# title is the display title for the .desktop Name (empty = default naming).
 # One record per line (never whitespace-separated): a launcher name may contain
 # spaces, so every loop below reads it with `while IFS= read -r` over a here-doc
 # (a here-doc, not a pipeline, so the loop body runs in the current shell).
+# The fields themselves never contain ":" (the config rejects it in names and
+# titles, and the icon filename derives from the name).
 # DESKTOP is 1 on Linux (write freedesktop .desktop entries) and 0 on macOS,
 # which has no freedesktop equivalent (symlinks only). DECOMPRESS is the filter
 # that turns the payload back into a tar stream (e.g. "xz -dc"); PAYLOAD_SHA256
@@ -69,6 +72,7 @@ if [ "$DESKTOP" = "1" ]; then
         [ -n "$_entry" ] || continue
         _icon=${_entry#*:}
         _icon=${_icon#*:}
+        _icon=${_icon%%:*}
         if [ -n "$_icon" ]; then _desktop_entries=$((_desktop_entries + 1)); fi
     done <<EOF
 $LAUNCHERS
@@ -139,6 +143,7 @@ remove_install() {
         _name=${_entry%%:*}
         _rest=${_entry#*:}
         _icon=${_rest#*:}
+        _icon=${_icon%%:*}
         rm -f "$BINDIR/$_name"
         if [ "$DESKTOP" = "1" ] && [ -n "$_icon" ]; then
             rm -f "$APPDIR/$DIST_NAME-$_name.desktop"
@@ -205,7 +210,9 @@ while IFS= read -r _entry; do
     _name=${_entry%%:*}
     _rest=${_entry#*:}
     _gui=${_rest%%:*}
-    _icon=${_rest#*:}
+    _rest=${_rest#*:}
+    _icon=${_rest%%:*}
+    _title=${_rest#*:}
     ln -sf "$LIBDIR/$_name" "$BINDIR/$_name"
     # Newline-separated, like LAUNCHERS itself, so a name with spaces stays one entry.
     _installed_cmds="$_installed_cmds
@@ -213,7 +220,11 @@ $_name"
     if [ "$DESKTOP" = "1" ] && [ -n "$_icon" ]; then
         mkdir -p "$APPDIR"
         if [ "$_gui" = "1" ]; then _term=false; else _term=true; fi
-        if [ "$_desktop_entries" -gt 1 ]; then
+        # An explicit title wins; the default is the app name, suffixed with the
+        # launcher name when several entries would otherwise be indistinguishable.
+        if [ -n "$_title" ]; then
+            _entry_name=$_title
+        elif [ "$_desktop_entries" -gt 1 ]; then
             _entry_name="$APP_NAME - $_name"
         else
             _entry_name="$APP_NAME"
@@ -252,6 +263,7 @@ EOF
         _name=${_entry%%:*}
         _rest=${_entry#*:}
         _icon=${_rest#*:}
+        _icon=${_icon%%:*}
         echo "rm -f $(sq "$BINDIR/$_name")"
         if [ "$DESKTOP" = "1" ] && [ -n "$_icon" ]; then
             echo "rm -f $(sq "$APPDIR/$DIST_NAME-$_name.desktop")"

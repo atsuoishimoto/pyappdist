@@ -108,6 +108,29 @@ shell wrapper on Linux/macOS).
    name is encoded into each bundle identifier rather than restricting it, see
    :ref:`identifier <config-app>`.
 
+``title``
+   Display title shown where the OS lists the launcher, while ``name`` keeps
+   naming the executable itself:
+
+   * ``msi`` — the Start Menu shortcut (default: the launcher ``name``); it
+     also becomes the ``.exe``'s ``FileDescription``, which the taskbar and
+     Alt-Tab show.
+   * ``msix`` — the Start Menu app-list entry (default: the target's
+     ``display-name``, suffixed with ``" - <name>"`` when there are several
+     launchers).
+   * ``macapp`` / ``dmg`` / ``pkg`` — the ``.app`` bundle name and its
+     ``CFBundleName``/``CFBundleDisplayName`` (default: the app-level ``name``
+     for a single visible launcher, the launcher ``name`` otherwise).
+   * ``linux`` — the ``.desktop`` entry's ``Name`` (default: the app-level
+     ``name``, suffixed with ``" - <name>"`` when several entries are
+     written).
+   * ``macos`` (``.run``) / ``image`` — no effect (nothing is registered).
+
+   Optional. The same character rules as ``name`` apply (the title becomes a
+   shortcut or bundle filename), and the effective display names — ``title``,
+   else the format's default — of launchers with an ``app-entry`` must be
+   unique, ignoring case.
+
 ``entry`` (required)
    Entry point, in one of two forms:
 

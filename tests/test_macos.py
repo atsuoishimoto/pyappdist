@@ -79,7 +79,7 @@ def test_run_header_has_metadata_and_no_desktop(tmp_path, sample_config):
     assert "DIST_NAME='helloworld'" in script
     assert "VERSION='1.2.3'" in script
     assert "DESKTOP='0'" in script  # macOS has no freedesktop integration
-    assert "LAUNCHERS='helloworld:0:'" in script
+    assert "LAUNCHERS='helloworld:0::'" in script
     assert "DECOMPRESS='gzip -dc'" in script
     assert f"PAYLOAD_SHA256='{hashlib.sha256(payload).hexdigest()}'" in script
     assert payload[:2] == b"\x1f\x8b"  # gzip magic (the default)
@@ -95,7 +95,7 @@ def test_icon_is_ignored_on_macos(tmp_path, sample_config):
 
     script, payload = _split_run(run)
     # gui flag is still recorded, but the icon field stays empty (no desktop entry).
-    assert "LAUNCHERS='helloworld:1:'" in script
+    assert "LAUNCHERS='helloworld:1::'" in script
     with tarfile.open(fileobj=io.BytesIO(payload), mode="r:gz") as tf:
         assert "helloworld.png" not in tf.getnames()
 

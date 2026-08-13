@@ -126,7 +126,8 @@ Launchers
 
 Launchers are compiled native ``.exe`` stubs: ``gui = true`` uses
 ``pythonw.exe`` (no console) and the launcher's ``icon = { windows = "*.ico" }``
-is embedded into the executable and the Start-menu shortcut.
+is embedded into the executable and the Start-menu shortcut. The shortcut is
+named after the launcher's ``title`` when set, else its ``name``.
 
 The **first** launcher that declares a Windows icon also supplies the product
 icon shown in Add/Remove Programs (Settings → Apps), via ``ARPPRODUCTICON``.
