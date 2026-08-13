@@ -577,11 +577,15 @@ def _render_rc(config: Config, spec: LauncherConfig, gen: Path) -> str:
 
 
 def _version_strings(config: Config, spec: LauncherConfig) -> dict[str, str]:
-    """The StringFileInfo values, shared by the .rc and the patched VERSIONINFO."""
+    """The StringFileInfo values, shared by the .rc and the patched VERSIONINFO.
+
+    FileDescription is what the taskbar and Alt-Tab show for the process, so it
+    follows the launcher's display title when one is set.
+    """
     company = config.wix.manufacturer or config.name
     return {
         "CompanyName": company,
-        "FileDescription": config.name,
+        "FileDescription": spec.title or config.name,
         "FileVersion": config.version,
         "ProductName": config.name,
         "ProductVersion": config.version,

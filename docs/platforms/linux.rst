@@ -47,7 +47,9 @@ The ``.run`` installer verifies the payload's SHA-256 before extracting, so a
 corrupted download is rejected rather than half-installed. It needs no root and no
 FUSE: it copies the tree into ``<prefix>/lib/<name>`` (``$HOME/.local`` by default;
 override with ``--prefix``), symlinks each launcher into ``<prefix>/bin``, and — only
-for launchers that set an ``icon`` — writes a ``.desktop`` entry. It also drops an
+for launchers that set an ``icon`` — writes a ``.desktop`` entry (named after the
+launcher's ``title`` when set, else the app name, suffixed with the launcher name
+when several entries are written). It also drops an
 ``uninstall.sh`` next to the install, and ``./<app>.run --uninstall`` removes it.
 Running a newer ``.run`` replaces an existing install in place — the previous
 install's ``uninstall.sh`` runs first, so files renamed or removed between

@@ -35,13 +35,16 @@ def bundle_label(config: Config, spec: LauncherConfig) -> str:
     """Name (without ``.app``) of the bundle holding ``spec``'s executable.
 
     Mirrors :func:`build_macos_apps`: one bundle per ``app-entry`` launcher, named
-    after the app when it is the only visible one, else after the launcher; a hidden
-    launcher's executable lives inside the first visible launcher's bundle.
+    after the launcher's ``title`` when set, else after the app when it is the only
+    visible launcher, else after the launcher; a hidden launcher's executable lives
+    inside the first visible launcher's bundle.
     """
     visible = [s for s in config.launchers if s.app_entry]
     if not visible:
         raise BuildError(_ALL_HIDDEN_ERROR)
     host = spec if spec.app_entry else visible[0]
+    if host.title:
+        return host.title
     return config.name if len(visible) == 1 else host.name
 
 

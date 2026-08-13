@@ -88,9 +88,11 @@ def build_posix(
     image_dir = layout.image_dir
     records = write_launchers(config, image_dir, desktop=desktop, log=log)
     # One record per line: launcher names may contain spaces, so the installer reads
-    # the field line by line rather than splitting it on whitespace.
+    # the field line by line rather than splitting it on whitespace. The fields
+    # themselves are colon-free (config validation rejects ":" in name and title,
+    # and the icon filename derives from the name), so ":" separates them safely.
     launchers_field = "\n".join(
-        f"{name}:{1 if gui else 0}:{icon}" for (name, gui, icon) in records
+        f"{name}:{1 if gui else 0}:{icon}:{title}" for (name, gui, icon, title) in records
     )
 
     dist_dir.mkdir(parents=True, exist_ok=True)
@@ -127,17 +129,18 @@ def build_posix(
 
 def write_launchers(
     config: Config, image_dir: Path, *, desktop: bool, log=print
-) -> list[tuple[str, bool, str]]:
+) -> list[tuple[str, bool, str, str]]:
     """Write each launcher's shell wrapper (and, on Linux, stage its icon) into the image.
 
     Public because the ``image`` format reuses the same wrappers (with ``desktop=False``)
     when archiving a Linux/macOS image tree.
 
-    Returns ``(name, gui, icon_filename)`` per launcher; ``icon_filename`` is empty when the
-    launcher has no icon, sets ``app-entry = false``, or ``desktop`` is disabled (then the
-    installer writes no .desktop).
+    Returns ``(name, gui, icon_filename, title)`` per launcher; ``icon_filename`` is empty
+    when the launcher has no icon, sets ``app-entry = false``, or ``desktop`` is disabled
+    (then the installer writes no .desktop); ``title`` is empty when unset (the installer
+    then falls back to its default ``.desktop`` naming).
     """
-    records: list[tuple[str, bool, str]] = []
+    records: list[tuple[str, bool, str, str]] = []
     for spec in config.launchers:
         wrapper = image_dir / spec.name
         wrapper.write_text(_wrapper(spec), encoding="utf-8")
@@ -153,7 +156,7 @@ def write_launchers(
                 raise BuildError(f"launcher icon not found ({spec.name}): {src}")
             icon_name = f"{spec.name}{src.suffix}"
             shutil.copy2(src, image_dir / icon_name)
-        records.append((spec.name, spec.gui, icon_name))
+        records.append((spec.name, spec.gui, icon_name, spec.title or ""))
         log(f"posix: launcher {spec.name}" + (f" (+ icon {icon_name})" if icon_name else ""))
     return records
 

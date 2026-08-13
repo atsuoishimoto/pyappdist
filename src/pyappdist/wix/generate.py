@@ -130,7 +130,8 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
     component_ids.append("cmp_registry")
 
     # Start menu shortcuts (one per launcher with app-entry; a hidden launcher's
-    # .exe is still installed — it just gets no Start Menu presence)
+    # .exe is still installed — it just gets no Start Menu presence). The shortcut
+    # shows the launcher's title when one is set, else its exe name.
     visible = [spec for spec in config.launchers if spec.app_entry]
     if visible:
         menu = _sub(pkg, "StandardDirectory", Id="ProgramMenuFolder")
@@ -140,7 +141,7 @@ def generate_wxs(config: Config, tree: DirNode) -> str:
             _sub(
                 sc_comp, "Shortcut",
                 Id=f"sc_{_h(spec.name)}",
-                Name=spec.name,
+                Name=spec.title or spec.name,
                 Target=f"[INSTALLFOLDER]{spec.name}.exe",
                 WorkingDirectory="INSTALLFOLDER",
             )

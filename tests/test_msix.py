@@ -49,6 +49,23 @@ def test_manifest_overrides(sample_config):
     assert "<DisplayName>My App</DisplayName>" in xml
 
 
+def test_manifest_launcher_title_overrides_entry_name(sample_config):
+    launchers = (
+        dataclasses.replace(sample_config.launchers[0], title="My Application"),
+        dataclasses.replace(sample_config.launchers[0], name="hellocli"),
+    )
+    cfg = dataclasses.replace(_msix(sample_config), launchers=launchers)
+    root = ET.fromstring(generate_manifest(cfg))
+    names = {
+        app.get("Executable"): app.find(f"{{{UAP}}}VisualElements").get("DisplayName")
+        for app in root.iter(f"{{{FOUNDATION}}}Application")
+    }
+    # A titled launcher shows its title; an untitled one keeps the multi-launcher
+    # default of "<display name> - <launcher name>".
+    assert names["helloworld.exe"] == "My Application"
+    assert names["hellocli.exe"] == "Hello World - hellocli"
+
+
 def test_manifest_no_app_execution_alias_by_default(sample_config):
     xml = generate_manifest(_msix(sample_config))
     assert "windows.appExecutionAlias" not in xml

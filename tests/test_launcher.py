@@ -41,6 +41,24 @@ def test_bootstrap_console_uses_spec_bootstrap(sample_config: Config):
     assert _bootstrap(spec, _with_launcher(sample_config, spec)) == spec.bootstrap
 
 
+# --- VERSIONINFO strings ----------------------------------------------------
+
+
+def test_version_strings_file_description_defaults_to_app_name(sample_config: Config):
+    spec = sample_config.launchers[0]
+    strings = launcher_build._version_strings(sample_config, spec)
+    assert strings["FileDescription"] == "Hello World"
+    assert strings["OriginalFilename"] == "helloworld.exe"
+
+
+def test_version_strings_file_description_uses_title(sample_config: Config):
+    # The taskbar and Alt-Tab show FileDescription, so it follows the title.
+    spec = dataclasses.replace(sample_config.launchers[0], title="My Application")
+    strings = launcher_build._version_strings(sample_config, spec)
+    assert strings["FileDescription"] == "My Application"
+    assert strings["ProductName"] == "Hello World"  # product identity unchanged
+
+
 # --- build.bat generation / vcvars failure --------------------------------
 
 

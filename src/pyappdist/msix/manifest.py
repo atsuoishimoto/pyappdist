@@ -73,8 +73,12 @@ def generate_manifest(config: Config) -> str:
         app_id = _unique(_app_id(spec.name), seen)
         app = _sub(apps, FOUNDATION, "Application", Id=app_id,
                    Executable=f"{spec.name}.exe", EntryPoint="Windows.FullTrustApplication")
+        # The app-list entry shows the launcher's own title when set; the default
+        # is the package display name, suffixed with the launcher name when there
+        # are several launchers so the entries stay distinguishable.
         visual = {
-            "DisplayName": f"{display_name} - {spec.name}" if multi else display_name,
+            "DisplayName": spec.title
+            or (f"{display_name} - {spec.name}" if multi else display_name),
             "Description": display_name,
             "BackgroundColor": "transparent",
             "Square150x150Logo": SQUARE150_LOGO,

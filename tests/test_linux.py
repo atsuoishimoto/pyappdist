@@ -98,8 +98,8 @@ def test_run_header_has_metadata_and_marker(tmp_path, sample_config):
     assert "APP_NAME='Hello World'" in script
     assert "DIST_NAME='helloworld'" in script
     assert "VERSION='1.2.3'" in script
-    # No icon -> the launcher record carries an empty icon field.
-    assert "LAUNCHERS='helloworld:0:'" in script
+    # No icon, no title -> the launcher record carries empty icon/title fields.
+    assert "LAUNCHERS='helloworld:0::'" in script
     assert "DECOMPRESS='xz -dc'" in script
     assert f"PAYLOAD_SHA256='{hashlib.sha256(payload).hexdigest()}'" in script
     assert payload[:6] == b"\xfd7zXZ\x00"  # xz magic (the default)
@@ -141,7 +141,7 @@ def test_icon_triggers_desktop_record(tmp_path, sample_config):
     run = next(p for p in arts if p.suffix == ".run")
 
     script, payload = _split_run(run)
-    assert "LAUNCHERS='helloworld:1:helloworld.png'" in script
+    assert "LAUNCHERS='helloworld:1:helloworld.png:'" in script
     with tarfile.open(fileobj=io.BytesIO(payload), mode="r:xz") as tf:
         assert "helloworld.png" in tf.getnames()  # icon staged into the image
 
@@ -158,7 +158,7 @@ def test_app_entry_false_suppresses_desktop_record(tmp_path, sample_config):
     script, payload = _split_run(run)
     # An empty icon field means the installer writes no .desktop entry; the bin
     # symlink is still created. The icon is not even staged.
-    assert "LAUNCHERS='helloworld:1:'" in script
+    assert "LAUNCHERS='helloworld:1::'" in script
     with tarfile.open(fileobj=io.BytesIO(payload), mode="r:xz") as tf:
         assert "helloworld.png" not in tf.getnames()
 
@@ -431,6 +431,60 @@ def test_multi_launcher_desktop_names_are_disambiguated(tmp_path, sample_config)
 
 
 @pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
+def test_launcher_title_names_the_desktop_entry(tmp_path, sample_config):
+    """A launcher title becomes the .desktop Name; untitled entries keep the default."""
+    if shutil.which("gzip") is None:
+        pytest.skip("gzip not installed")
+    (tmp_path / "app.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    workdir = tmp_path / "build"
+    workdir.mkdir()
+    layout = _make_image(workdir)
+    launchers = (
+        LauncherConfig(
+            name="foo", entry="helloworld:main", gui=True,
+            title="My Application", icons=(("linux", "app.png"),),
+        ),
+        LauncherConfig(
+            name="bar", entry="helloworld:main", gui=True, icons=(("linux", "app.png"),)
+        ),
+    )
+    config = dataclasses.replace(
+        sample_config,
+        project_dir=tmp_path,
+        target=get_target("linux-x86_64"),
+        target_name="linux-x86_64",
+        format="linux",
+        launchers=launchers,
+        linux=LinuxConfig(compression="gzip"),
+    )
+    arts = build_linux(config, layout, workdir / "dist", log=lambda *a: None)
+    run = next(p for p in arts if p.suffix == ".run")
+
+    script, _ = _split_run(run)
+    assert "LAUNCHERS='foo:1:foo.png:My Application\nbar:1:bar.png:'" in script
+
+    prefix = tmp_path / "prefix"
+    env, appdir = _desktop_env(tmp_path)
+    res = subprocess.run(
+        ["/bin/sh", str(run), "--prefix", str(prefix)],
+        capture_output=True, text=True, env=env,
+    )
+    assert res.returncode == 0, res.stderr
+    # The titled launcher shows its title; the untitled one keeps the
+    # multi-entry default of "<app name> - <launcher name>".
+    assert "Name=My Application\n" in (appdir / "helloworld-foo.desktop").read_text()
+    assert "Name=Hello World - bar\n" in (appdir / "helloworld-bar.desktop").read_text()
+
+    res = subprocess.run(
+        ["/bin/sh", str(run), "--prefix", str(prefix), "--uninstall"],
+        capture_output=True, text=True, env=env,
+    )
+    assert res.returncode == 0, res.stderr
+    assert not (appdir / "helloworld-foo.desktop").exists()
+    assert not (appdir / "helloworld-bar.desktop").exists()
+
+
+@pytest.mark.skipif(not Path("/bin/sh").exists(), reason="POSIX shell required")
 def test_launcher_name_with_spaces_installs(tmp_path, sample_config):
     """A launcher name may contain spaces, so the records are read one line at a time."""
     if shutil.which("gzip") is None:
@@ -441,7 +495,7 @@ def test_launcher_name_with_spaces_installs(tmp_path, sample_config):
 
     script, _ = _split_run(run)
     # One record per line — not one whitespace-separated field per launcher.
-    assert "LAUNCHERS='My App:1:My App.png\nMy Other App:1:My Other App.png'" in script
+    assert "LAUNCHERS='My App:1:My App.png:\nMy Other App:1:My Other App.png:'" in script
 
     prefix = tmp_path / "prefix"
     env, appdir = _desktop_env(tmp_path)

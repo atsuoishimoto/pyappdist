@@ -14,7 +14,8 @@ macOS — .app / .dmg (GUI apps)
 
 * ``macapp`` assembles one ``.app`` per launcher into ``appdist/<target>/dist/``.
   With a single launcher the bundle is named after the app-level ``name``;
-  with several, each bundle is named after its launcher.
+  with several, each bundle is named after its launcher. A launcher's
+  ``title`` key overrides its bundle name either way.
 * ``dmg`` does the same, then wraps the bundle(s) in a compressed ``<name>-<version>.dmg``
   disk image with the classic drag-to-``/Applications`` layout.
 

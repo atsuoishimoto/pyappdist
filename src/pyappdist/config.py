@@ -97,6 +97,10 @@ _MSI_VERSION_RE = re.compile(r"^\d+(\.\d+){0,3}$")
 class LauncherConfig:
     name: str           # output exe name (without extension)
     entry: str          # "module:callable" or a dotted "module.path" run as `python -m`
+    # Display title shown where the OS lists the launcher (Start Menu shortcut,
+    # MSIX app-list entry, .app bundle name, .desktop Name). None falls back to
+    # each format's default naming; see the format builders.
+    title: str | None = None
     gui: bool = False
     # Expose the launcher in the OS application list (Start Menu / Applications /
     # freedesktop menu). False keeps the executable (and its alias / PATH entry /
@@ -729,7 +733,7 @@ def _opt_str(raw: dict, key: str) -> str | None:
     return str(value) if value is not None else None
 
 
-def _validate_launcher_name(name: str, i: int) -> None:
+def _validate_launcher_name(name: str, i: int, key: str = "name") -> None:
     """Reject launcher names that would break filenames or the installer's records.
 
     A plain space is allowed ("My App.exe"): the installer's launcher records are
@@ -737,17 +741,21 @@ def _validate_launcher_name(name: str, i: int) -> None:
     whitespace character is not — a tab or newline cannot survive the record format
     (nor a ``.desktop`` value) — and a leading/trailing space is rejected because
     Windows silently strips trailing spaces from filenames.
+
+    ``title`` shares the rule (pass ``key="title"``): it becomes a Start Menu
+    shortcut filename and a ``.app`` bundle name, and it travels in the same
+    colon-separated installer records as the name.
     """
     if any(
         c in _NAME_BAD_CHARS or (c.isspace() and c != " ") or ord(c) < 32 for c in name
     ):
         raise ConfigError(
-            "launchers[{}].name must not contain tabs, newlines, control characters, "
-            'or any of <>:"/\\|?* (a plain space is allowed): {!r}'.format(i, name)
+            "launchers[{}].{} must not contain tabs, newlines, control characters, "
+            'or any of <>:"/\\|?* (a plain space is allowed): {!r}'.format(i, key, name)
         )
     if name != name.strip(" "):
         raise ConfigError(
-            f"launchers[{i}].name must not start or end with a space: {name!r}"
+            f"launchers[{i}].{key} must not start or end with a space: {name!r}"
         )
 
 
@@ -831,10 +839,17 @@ def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:
             raise ConfigError(f"launchers[{i}].entry is required")
         _validate_launcher_name(str(name), i)
         _validate_entry(str(entry), i)
+        title = item.get("title")
+        if title is not None:
+            title = str(title)
+            if not title:
+                raise ConfigError(f"launchers[{i}].title must not be empty")
+            _validate_launcher_name(title, i, key="title")
         out.append(
             LauncherConfig(
                 name=str(name),
                 entry=str(entry),
+                title=title,
                 gui=bool(item.get("gui", False)),
                 app_entry=bool(item.get("app-entry", True)),
                 icons=_parse_icon(item.get("icon"), i),
@@ -850,6 +865,18 @@ def _parse_launchers(raw: object) -> tuple[LauncherConfig, ...]:
         raise ConfigError(
             f"duplicate [[tool.pyappdist.launchers]].name: {dups} "
             "(launcher names must be unique, ignoring case)"
+        )
+    # A visible launcher's display name (title, else name) becomes a Start Menu
+    # shortcut filename and — with several visible launchers — a .app bundle
+    # name, so those must be unique too. Without titles this can never fire
+    # (the name check above already guarantees it).
+    displays = [(spec.title or spec.name).casefold() for spec in out if spec.app_entry]
+    dups = sorted({d for d in displays if displays.count(d) > 1})
+    if dups:
+        raise ConfigError(
+            f"duplicate launcher display name (title, else name): {dups} "
+            "(display names of launchers with an app entry must be unique, "
+            "ignoring case)"
         )
     return tuple(out)
 

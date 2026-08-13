@@ -56,6 +56,17 @@ def test_hidden_launcher_gets_no_shortcut(sample_config, sample_tree):
     assert 'Target="[INSTALLFOLDER]hellocli.exe"' not in xml
 
 
+def test_shortcut_name_uses_title(sample_config, sample_tree):
+    launchers = (
+        dataclasses.replace(sample_config.launchers[0], title="My Application"),
+    )
+    cfg = dataclasses.replace(sample_config, launchers=launchers)
+    xml = generate_wxs(cfg, sample_tree)
+    # The shortcut shows the title; the target still points at the exe name.
+    assert 'Name="My Application"' in xml
+    assert 'Target="[INSTALLFOLDER]helloworld.exe"' in xml
+
+
 def test_no_shortcut_folder_when_all_launchers_hidden(sample_config, sample_tree):
     launchers = (dataclasses.replace(sample_config.launchers[0], app_entry=False),)
     cfg = dataclasses.replace(sample_config, launchers=launchers)

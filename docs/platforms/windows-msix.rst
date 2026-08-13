@@ -66,7 +66,9 @@ Configuration
 
 ``display-name``
    App display name, shown in the Start menu and in Settings → Apps.
-   Defaults to ``[tool.pyappdist].name``.
+   Defaults to ``[tool.pyappdist].name``. With several launchers each
+   Start-menu entry is suffixed with the launcher ``name``; a launcher's own
+   ``title`` key overrides its entry entirely.
 
 ``logo``
    Path to a source ``.png`` used for the package logos (the one image is
