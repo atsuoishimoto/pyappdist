@@ -12,7 +12,7 @@ from pyappdist.config import Config, LauncherConfig, MacosConfig, MsixConfig, Wi
 from pyappdist.errors import BuildError
 from pyappdist.launcher.build import macos_arch
 from pyappdist.macos.bundle import build_macos_apps, bundle_label, info_plist
-from pyappdist.macos.sign import SignOptions, entitlements_plist
+from pyappdist.macos.sign import SignOptions, deep_sign, entitlements_plist
 from pyappdist.targets import get_target
 
 
@@ -189,6 +189,35 @@ def test_build_macos_apps_embeds_hidden_launcher(tmp_path, fake_icns):
     plist = plistlib.loads((app / "Contents" / "Info.plist").read_bytes())
     assert plist["CFBundleIdentifier"] == "com.example.helloworld"
     assert plist["CFBundleExecutable"] == "MyApp"
+
+
+def test_deep_sign_leaves_main_executable_to_the_bundle_sign(tmp_path, monkeypatch):
+    """Signing Contents/MacOS/<CFBundleExecutable> directly makes codesign sign the
+    *bundle*, which fails while an embedded (app-entry = false) launcher next to it
+    is still unsigned — so the main executable must be excluded from the per-file
+    pass and left to the final bundle sign."""
+    macho = b"\xcf\xfa\xed\xfe" + b"\0" * 12
+    app = tmp_path / "Hello World.app"
+    (app / "Contents" / "MacOS").mkdir(parents=True)
+    (app / "Contents" / "Resources" / "python" / "lib").mkdir(parents=True)
+    (app / "Contents" / "Info.plist").write_bytes(
+        plistlib.dumps({"CFBundleExecutable": "helloworld"})
+    )
+    main = app / "Contents" / "MacOS" / "helloworld"
+    embedded = app / "Contents" / "MacOS" / "hellocli"
+    dylib = app / "Contents" / "Resources" / "python" / "lib" / "libx.dylib"
+    for path in (main, embedded, dylib):
+        path.write_bytes(macho)
+    (app / "Contents" / "Resources" / "hellocli.launcher.json").write_text("{}")
+
+    signed: list[Path] = []
+    monkeypatch.setattr(
+        "pyappdist.macos.sign._codesign", lambda path, opts: signed.append(path)
+    )
+    deep_sign(app, log=lambda *a: None)
+
+    assert main not in signed  # signed by the bundle sign, never per-file
+    assert signed == [dylib, embedded, app]  # deepest first, bundle last
 
 
 def test_build_macos_apps_all_hidden_rejected(tmp_path, fake_icns):

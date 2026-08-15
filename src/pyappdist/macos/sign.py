@@ -95,14 +95,36 @@ def resolve_sign_options(config: Config, build_dir: Path, *, log=print) -> SignO
 
 
 def deep_sign(app: Path, opts: SignOptions | None = None, *, log=print) -> None:
-    """Sign every Mach-O inside ``app`` (deepest first), then the bundle itself."""
+    """Sign every Mach-O inside ``app`` (deepest first), then the bundle itself.
+
+    The bundle's main executable is left to the final bundle sign: pointing
+    ``codesign`` at ``Contents/MacOS/<CFBundleExecutable>`` signs the *bundle*,
+    and doing that before every other executable in ``Contents/MacOS`` (an
+    embedded ``app-entry = false`` launcher) is signed fails with
+    "code object is not signed at all".
+    """
     opts = opts or SignOptions()
-    machos = sorted(_iter_machos(app), key=lambda p: len(p.parts), reverse=True)
+    main_exe = _main_executable(app)
+    machos = sorted(
+        (p for p in _iter_machos(app) if p != main_exe),
+        key=lambda p: (len(p.parts), p),
+        reverse=True,
+    )
     log(f"macos: codesign ({'ad-hoc' if opts.adhoc else opts.identity}) "
         f"{len(machos)} mach-o + bundle -> {app.name}")
     for path in machos:
         _codesign(path, opts)
-    _codesign(app, opts)  # bundle last
+    _codesign(app, opts)  # bundle last (signs the main executable and seals)
+
+
+def _main_executable(app: Path) -> Path | None:
+    """``Contents/MacOS/<CFBundleExecutable>`` per the bundle's Info.plist."""
+    try:
+        with open(app / "Contents" / "Info.plist", "rb") as f:
+            name = plistlib.load(f).get("CFBundleExecutable")
+    except (OSError, plistlib.InvalidFileException):
+        return None
+    return (app / "Contents" / "MacOS" / name) if name else None
 
 
 def sign_file(path: Path, opts: SignOptions, *, log=print) -> None:
