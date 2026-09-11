@@ -40,7 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v9.0.0
+      - uses: astral-sh/setup-uv@v10.1.0
 
       # WiX (for the Windows MSI) is a dotnet global tool. MSVC (cl.exe/rc.exe)
       # and the Windows SDK (makeappx, for MSIX) are preinstalled on

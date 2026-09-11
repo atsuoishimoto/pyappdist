@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v9.0.0
+      - uses: astral-sh/setup-uv@v10.1.0
 
       # The four Windows stubs ({x64, arm64} x {console, gui}); arm64 uses the
       # x64-hosted cross compiler preinstalled on the runner image. The
@@ -77,7 +77,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v9.0.0
+      - uses: astral-sh/setup-uv@v10.1.0
 
       # Explicit selection, so a missing toolchain fails instead of skipping.
       - name: Build prebuilt launcher stub
@@ -118,7 +118,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v9.0.0
+      - uses: astral-sh/setup-uv@v10.1.0
 
       - uses: actions/download-artifact@v8
         with:
